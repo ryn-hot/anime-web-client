@@ -1,0 +1,21 @@
+{
+  "name": "anime-streaming-webc",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "anitomyscript": "^2.0.4",
+    "guessit-exec": "^0.0.1",
+    "node-fetch": "^3.3.2",
+    "parse-torrent-name": "^0.5.4",
+    "pocketbase": "^0.21.5",
+    "pyodide": "^0.26.3"
+  }
+}
