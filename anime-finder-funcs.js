@@ -2,6 +2,7 @@ delete globalThis.fetch;
 
 import anitomy from 'anitomyscript';
 import fetch from 'node-fetch';
+import levenshtein from 'fast-levenshtein';
 
 
 
@@ -122,26 +123,23 @@ async function nyaa_html_finder(query, set_title, season_number, episode_number,
         title = removeSpacesAroundHyphens(title);
         const torrent_info = await parse_title(title);
         
-        if (set_title != torrent_info.anime_title) {
+        const lev_distance  = levenshtein.get(set_title.toLowerCase(), torrent_info.anime_title.toLowerCase());
+
+        if (lev_distance > 1) {
             console.log("Title Mismatch");
             console.log(`Set Title: ${set_title}, Torrent Info Title: ${torrent_info.anime_title}`)
             continue;
         }
 
         if (season_number != torrent_info.anime_season) {
-            if (season_number != 1 || torrent_info.anime_season != undefined) {
+            if ((season_number != 1 && season_number != undefined) || torrent_info.anime_season != undefined) {
                 console.log("Season Number Mismatch");
-                continue;
+                continue; 
             }
         } 
 
-        if (torrent_info.episode_number == undefined) {
-            continue;
-        }
 
         const episode_int = convertToIntegers(torrent_info.episode_number);
-
-        
 
         if (episode_int.length >= 1) {
             const range = getRange(episode_int);
@@ -152,7 +150,12 @@ async function nyaa_html_finder(query, set_title, season_number, episode_number,
             }
         }
         else {
-            continue;
+
+            if (season_number != undefined && episode_number != undefined) {
+                    console.log(`Episode Not in Range: Query for TV Series`);
+                    continue;
+            }
+            
         }
 
 
@@ -160,11 +163,6 @@ async function nyaa_html_finder(query, set_title, season_number, episode_number,
             console.log(`Episode does not have English Dub`);
             continue;
         }
-
-        /*if (!(season_number == torrent_info.anime_season) && season_number != 1 && torrent_info.anime_season != undefined) {
-            console.log(`Season Number does Not match, Torrent Season Number: ${torrent_info.anime_season}, Required Season: ${season_number}`);
-            continue;
-        }*/
 
         console.log(`Torrent Added`);
         torrentList.push(torrent); 
@@ -209,7 +207,10 @@ function convertToIntegers(input) {
       const [start, end] = str.split('-').map(stringToInt);
       return [start, end];
     }
-  
+    
+    if (input == undefined) {
+        return 0;
+    }
     // If input is a string
     if (typeof input === 'string') {
       // Check if it's an interval
@@ -350,9 +351,9 @@ function removeSpacesAroundHyphens(str) {
     return str.replace(/(\b[+-]?\d+(?:\.\d+)?\b)\s*([-–—])\s*(\b[+-]?\d+(?:\.\d+)?\b)/g, '$1$2$3');
 }
 
-  
-let query = `Attack+on+Titan+Season+1`;
-let output = await nyaa_html_finder(query, `Attack on Titan`, 1, 1, false);
+//Add looser title matching, strict matching but not exact.
+let query = `One+Piece`;
+let output = await nyaa_html_finder(query, `One Piece`, 1, 1, true);
 // output = await seadex_finder(16498, true, 1);
 
 console.log(output);
