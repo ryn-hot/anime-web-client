@@ -173,6 +173,47 @@ async function nyaa_html_finder(query, set_title, season_number, episode_number,
 
 }
 
+async function tosho_rss_finder() {
+    
+}
+
+async function test_server_id() {
+    const server_url = `https://watch.hikaritv.xyz/ajax/embedserver/16498/1`;
+    const server_response = await fetch(server_url);
+    const data = await server_response.json();
+    const embedID = data.embedFirst;
+    console.log(embedID);
+
+    const response = await fetch(`https://watch.hikaritv.xyz/ajax/embed/16498/1/${embedID}`);
+    const embedData = await response.json();
+    console.log(embedData);
+}
+
+async function hikaritv_anime_extract(alID, title_romanji, episode) {
+    try {
+
+        const server_url = `https://watch.hikaritv.xyz/ajax/embedserver/${alID}/${episode}`;
+        const server_response = await fetch(server_url);
+        const serverData = await server_response.json();
+        const embedID = serverData.embedFirst;
+        console.log(embedID);
+
+        if (embedID) {
+            const response = await fetch(`https://watch.hikaritv.xyz/ajax/embed/${alID}/${episode}/${embedID}`);
+            const embedData = response.json();
+            console.log(embedData);
+            const embeddedLink = extractSrcUsingRegex(embedData);
+            return [embeddedLink];
+        }
+        else {
+            return []
+        }
+    }
+    catch (error) {
+        console.error('Error extracting iframe src:', error);
+        throw error; // Re-throw the error after logging it
+    }
+}
 function replaceTildeWithHyphen(title) {
     if (typeof title !== 'string') {
         throw new TypeError('The input must be a string.');
@@ -194,6 +235,16 @@ function getRange(numbers) {
     }
   
     return range;
+}
+
+function spaceToUnderscore(str) {
+    return str.replace(/\s/g, '_');
+}
+
+function extractSrcUsingRegex(iframeHtml) {
+    const srcRegex = /src="([^"]+)"/;
+    const match = iframeHtml.match(srcRegex);
+    return match ? match[1] : null;
 }
 
 function convertToIntegers(input) {
@@ -351,11 +402,14 @@ function removeSpacesAroundHyphens(str) {
     return str.replace(/(\b[+-]?\d+(?:\.\d+)?\b)\s*([-–—])\s*(\b[+-]?\d+(?:\.\d+)?\b)/g, '$1$2$3');
 }
 
+
+const title_romanji = `Shingeki no Kyojin`;
+const result = hikaritv_anime_extract( 16498, title_romanji, 1);
 //Add looser title matching, strict matching but not exact.
-let query = `One+Piece`;
-let output = await nyaa_html_finder(query, `One Piece`, 1, 1, true);
+//let query = `One+Piece`;
+//let output = await nyaa_html_finder(query, `One Piece`, 1, 1, true);
 // output = await seadex_finder(16498, true, 1);
 
-console.log(output);
+console.log(result);
 //console.log(output)
-//let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)";
+//let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)"; 
