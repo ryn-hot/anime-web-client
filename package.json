@@ -14,6 +14,7 @@
     "anitomyscript": "^2.0.4",
     "fast-levenshtein": "^3.0.0",
     "guessit-exec": "^0.0.1",
+    "jsdom": "^25.0.1",
     "node-fetch": "^3.3.2",
     "parse-torrent-name": "^0.5.4",
     "pocketbase": "^0.21.5",
