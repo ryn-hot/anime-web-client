@@ -3,7 +3,7 @@ delete globalThis.fetch;
 import anitomy from 'anitomyscript';
 import fetch from 'node-fetch';
 import levenshtein from 'fast-levenshtein';
-
+import { JSDOM } from "jsdom";
 
 
 async function parse_title(title) {
@@ -83,9 +83,89 @@ async function seadex_finder(alID, dub, episode) {
     return entries
 }
 
+async function anime_dex_finder(query, set_title, season_number, episode_number, dub) {
+
+    let page_condition = true;
+    let offset = 0;
+    let offset_limit = 500;
+    let idValue = `1,3`;
+
+    if (dub == true) {
+        idValue = `3`;
+    }
+    else {
+        idValue = '1';
+    }
+
+    let torrentList = [];
+    let ephemTrsList = [];
+
+    while (page_condition) {
+        const anidex_query_url = `https://anidex.info/?q=${query}&id=${idValue}&offset=${offset}`;
+
+        console.log(anidex_query_url);
+
+        const response = await fetch(anidex_query_url);
+
+        const html = await response.text();
+
+        console.log(html);
+
+        const parser = new JSDOM(html); //new DOMParser(); change when implemented in browser
+        const doc = parser.window.document; //const doc = parser.parseFromString(html, 'text/html');
+    
+        const trElements = doc.querySelectorAll('tr'); 
+
+        // Iterate over each <tr> element
+        trElements.forEach(tr => {
+            const data = {};
+        
+            // Extract the language
+            const langTd = tr.querySelector('td.text-center');
+            if (langTd) {
+            const img = langTd.querySelector('img');
+            if (img) {
+                data.language = img.getAttribute('title');
+            }
+            }
+        
+            // Extract the title
+            const titleLink = tr.querySelector('a.torrent');
+            if (titleLink) {
+            const span = titleLink.querySelector('span');
+            if (span) {
+                data.title = span.getAttribute('title');
+            }
+            }
+        
+            // Extract the magnet link
+            const magnetLinkElement = tr.querySelector('a[href^="magnet:"]');
+            if (magnetLinkElement) {
+            data.magnetLink = magnetLinkElement.getAttribute('href');
+            }
+        
+            // Extract the seeders
+            const seedersTd = tr.querySelector('td.text-success.text-right');
+            if (seedersTd) {
+            data.seeders = seedersTd.textContent.trim();
+            }
+        
+            // Output the extracted data
+            console.log(data);
+        });
+        
+        offset = offset + 50;
+
+        if (offset > offset_limit) {
+            page_condition = false;
+        }
+
+    }
+}
+
 async function nyaa_html_finder(query, set_title, season_number, episode_number, dub) {
     let page_number = 1;
-    let page_condition = true
+    let page_condition = true;
     let page_limit = 0;
     let torrentList = [];
     let ephemTrsList = [];
@@ -103,7 +183,7 @@ async function nyaa_html_finder(query, set_title, season_number, episode_number,
 
 
         if (page_number == 1) {
-            const last_page_num = extractPageNumber(html)
+            const last_page_num = extractPageNumberNyaa(html)
             //console.log(last_page_num);
             page_limit = last_page_num + 1;
         }
@@ -173,9 +253,7 @@ async function nyaa_html_finder(query, set_title, season_number, episode_number,
 
 }
 
-async function tosho_rss_finder() {
-    
-}
+
 
 async function test_server_id() {
     const server_url = `https://watch.hikaritv.xyz/ajax/embedserver/16498/1`;
@@ -214,6 +292,8 @@ async function hikaritv_anime_extract(alID, title_romanji, episode) {
         throw error; // Re-throw the error after logging it
     }
 }
+
+
 function replaceTildeWithHyphen(title) {
     if (typeof title !== 'string') {
         throw new TypeError('The input must be a string.');
@@ -354,7 +434,7 @@ function extractTorrentData(html) {
 }
 
 
-function extractPageNumber(html) {
+function extractPageNumberNyaa(html) {
     const regex = /<a href="[^"]*p=(\d+)">(\d+)<\/a>/g;
     let lastNumber = null;
     let match;
@@ -403,7 +483,10 @@ function removeSpacesAroundHyphens(str) {
 }
 
 
-const title_romanji = `Shingeki no Kyojin`;
+const query = `One%20Piece`;
+anime_dex_finder(query);
+
+/*const title_romanji = `Shingeki no Kyojin`;
 const result = hikaritv_anime_extract( 16498, title_romanji, 1);
 //Add looser title matching, strict matching but not exact.
 //let query = `One+Piece`;
@@ -412,4 +495,4 @@ const result = hikaritv_anime_extract( 16498, title_romanji, 1);
 
 console.log(result);
 //console.log(output)
-//let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)"; 
+//let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)"; */
