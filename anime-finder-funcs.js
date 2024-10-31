@@ -3,7 +3,6 @@ delete globalThis.fetch;
 import anitomy from 'anitomyscript';
 import fetch from 'node-fetch';
 import levenshtein from 'fast-levenshtein';
-import { JSDOM } from "jsdom";
 
 
 async function parse_title(title) {
@@ -111,8 +110,8 @@ async function anime_dex_finder(query, set_title, season_number, episode_number,
 
         console.log(html);
 
-        const parser = new JSDOM(html); //new DOMParser(); change when implemented in browser
-        const doc = parser.window.document; //const doc = parser.parseFromString(html, 'text/html');
+        const parser = new DOMParser(); 
+        const doc = parser.parseFromString(html, 'text/html');
     
         const trElements = doc.querySelectorAll('tr'); 
 
@@ -267,7 +266,7 @@ async function test_server_id() {
     console.log(embedData);
 }
 
-async function hikaritv_anime_extract(alID, title_romanji, episode) {
+async function hikaritv_anime_finder(alID, title_romanji, episode) {
     try {
 
         const server_url = `https://watch.hikaritv.xyz/ajax/embedserver/${alID}/${episode}`;
