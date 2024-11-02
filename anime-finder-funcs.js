@@ -3,6 +3,8 @@ delete globalThis.fetch;
 import anitomy from 'anitomyscript';
 import fetch from 'node-fetch';
 import levenshtein from 'fast-levenshtein';
+import { JSDOM } from 'jsdom';
+import { load } from 'cheerio';
 
 
 
@@ -177,24 +179,29 @@ async function test_server_id() {
     console.log(embedID);
 
     const response = await fetch(`https://watch.hikaritv.xyz/ajax/embed/16498/1/${embedID}`);
-    const embedData = await response.json();
+    const embedData = await response.text();
+    const htmlArray = JSON.parse(embedData);
+    const src = extractSrcUsingRegex(htmlArray[0]);
+    /*const dom = new JSDOM(htmlArray[0]);
     console.log(embedData);
+    const iframe = dom.window.document.querySelector(`iframe`);
+    const src = iframe.getAttribute(`src`);*/
+    console.log(src);
 }
 
-async function hikaritv_anime_extract(alID, title_romanji, episode) {
+async function hikaritv_anime_extract(alID, episode) {
     try {
-
         const server_url = `https://watch.hikaritv.xyz/ajax/embedserver/${alID}/${episode}`;
         const server_response = await fetch(server_url);
         const serverData = await server_response.json();
         const embedID = serverData.embedFirst;
-        console.log(embedID);
+        
 
         if (embedID) {
             const response = await fetch(`https://watch.hikaritv.xyz/ajax/embed/${alID}/${episode}/${embedID}`);
-            const embedData = response.json();
-            console.log(embedData);
-            const embeddedLink = extractSrcUsingRegex(embedData);
+            const embedData = await response.text();
+            const htmlArray = JSON.parse(embedData);
+            const embeddedLink = extractSrcUsingRegex(htmlArray[0]);
             return [embeddedLink];
         }
         else {
@@ -207,6 +214,133 @@ async function hikaritv_anime_extract(alID, title_romanji, episode) {
     }
 }
 
+async function gogo_anime_finder(title, episode, type) {
+    try {
+        const slugTitle = title.toLowerCase()
+        .replace(/[^\w\s-]/g, '') // Remove special characters
+        .replace(/\s+/g, '-');     // Replace spaces with hyphens
+        
+        console.log(slugTitle);
+        console.log(episode);
+        // Construct the epid
+        let sourceUrl;
+
+        if (type == 'dub') {
+            sourceUrl = `https://anitaku.pe/${slugTitle}-dub-episode-${episode}`;
+        }
+        else {
+            sourceUrl = `https://anitaku.pe/${slugTitle}-episode-${episode}`;
+        }
+        
+        // First try to get the server/source data
+        //const sourceUrl = `https://anitaku.pe/shingeki-no-kyojin-dub-episode-1`;
+        console.log(sourceUrl);
+        const sourceResponse = await fetch(sourceUrl, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+        });
+
+        // Let's see what the raw response looks like
+        const rawText = await sourceResponse.text();
+        //console.log('Raw response:', rawText);
+        
+        extractGogoLink(rawText);
+        //extractGogoLink(rawText);
+        /*const possibleVideoLinks = extractVideoLinks(rawText);
+        console.log('--- Printing Links Using For Loop ---');
+        for (let i = 0; i < possibleVideoLinks.length; i++) {
+            console.log(possibleVideoLinks [i]);
+        }*/
+
+    }
+    catch (err) {
+        console.error('Error fetching video source:', err);
+        throw err;
+    }
+} 
+
+function extractGogoLink(html) {
+    const $ = load(html);
+    const iframeElement = $('iframe');
+
+    // Check if the element exists
+    if (iframeElement.length > 0) {
+        // Extract the src attribute
+        let iframeSrc = iframeElement.attr('src');
+      
+        // Decode HTML entities in the URL
+        // iframeSrc = he.decode(iframeSrc);
+      
+        console.log('Iframe Source URL:', iframeSrc);
+      } else {
+        console.log('No iframe element found.');
+      }
+  
+}
+
+function findHtmlElement(html) {
+    const $ = load(html);
+    const targetLink = 'https://s3taku.com/abpl1245?id=MjYzMw==&title=Shingeki+no+Kyojin+Episode+1';
+    // Attributes to check (e.g., 'href', 'src', 'data')
+    const attributesToCheck = ['href', 'src', 'data'];
+
+    // Initialize an array to hold matching elements
+    const matchingElements = [];
+
+    // Iterate over each attribute
+    attributesToCheck.forEach((attr) => {
+    // Use the attribute equals selector to find exact matches
+    const elements = $(`[${attr}="${targetLink}"]`);
+
+    elements.each((_, element) => {
+        // Get the outer HTML of the element
+        const elementHtml = $.html(element);
+
+        // Add to the array if not already included
+        if (!matchingElements.includes(elementHtml)) {
+        matchingElements.push(elementHtml);
+        }
+    });
+    });
+
+    if (matchingElements.length > 0) {
+        console.log('Found the following elements containing the target link:\n');
+        matchingElements.forEach((elementHtml, index) => {
+          console.log(`Element ${index + 1}:\n${elementHtml}\n`);
+        });
+      } else {
+        console.log('No elements found with the given link.');
+      }
+}
+
+function extractVideoLinks(html) {
+    const $ = load(html);
+    const videoLinks = [];
+
+    // Array of selectors for elements that may contain video stream links
+  const selectors = [
+    'iframe[src]',
+    'video[src]',
+    'embed[src]',
+    'source[src]',
+    'object[data]',
+    'a[href]',
+    'link[href]',
+    'script[src]',
+  ];
+
+  selectors.forEach((selector) => {
+    $(selector).each((index, element) => {
+      let url = $(element).attr('src') || $(element).attr('data') || $(element).attr('href');
+      if (url && !videoLinks.includes(url)) {
+        videoLinks.push(url);
+      }
+    });
+  });
+
+  return videoLinks;
+}
 
 function replaceTildeWithHyphen(title) {
     if (typeof title !== 'string') {
@@ -397,18 +531,16 @@ function removeSpacesAroundHyphens(str) {
 }
 
 
-/*const query = `One%20Piece`;
-const results =  await anime_dex_finder(query);
+// console.log(results); 
+const title = 'fullmetal alchemist';
 
-console.log(results); */
+gogo_anime_finder(title, 1, 'dub');
+// test_server_id();
+// const title_romanji = `Shingeki no Kyojin`;
+// const result = await hikaritv_anime_extract(16498, 1);
+// Add looser title matching, strict matching but not exact.
+// let query = `One+Piece`;
 
-//const title_romanji = `Shingeki no Kyojin`;
-//const result = hikaritv_anime_extract( 16498, title_romanji, 1);
-//Add looser title matching, strict matching but not exact.
-let query = `One+Piece`;
-let output = await nyaa_html_finder_v2(query, `One Piece`, 1, 1, true);
-//output = await seadex_finder(16498, true, 1);
-
-//console.log(result);
-console.log(output)
+// console.log(result);
+// console.log(output)
 //let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)"; 
