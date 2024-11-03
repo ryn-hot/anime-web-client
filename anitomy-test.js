@@ -54,7 +54,7 @@ function removeSpacesAroundHyphens(str) {
 }
 
 
-let title = `[LostYears] Attack on Titan S03E01 (38) (WEB 1080p Hi10 AAC) [Dual Audio] (Shingeki no Kyojin)`;
+let title = `[Erai-raws] Kami no Tou: Ouji no Kikan - 18v2 [1080p][Multiple Subtitle] [ENG][POR-BR][SPA-LA][SPA][ARA][FRE][GER][ITA][RUS]`;
 title = removeSpacesAroundHyphens(title)
 console.log(title);
 const results = await anitomy(title);

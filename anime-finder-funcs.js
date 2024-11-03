@@ -92,11 +92,11 @@ async function nyaa_html_finder(query, set_title, season_number, episode_number,
 
     // Fetch the first page
     const nyaa_query_url_first = `https://nyaa.si/?f=0&c=1_2&q=${query}&s=seeders&o=desc&p=1`;
-    console.log(nyaa_query_url_first);
+    // console.log(nyaa_query_url_first);
     const response_first = await fetch(nyaa_query_url_first);
     const html_first = await response_first.text();
 
-    console.log(`Processing page number 1`);
+    // console.log(`Processing page number 1`);
 
     // Extract data from the first page
     ephemTrsList = ephemTrsList.concat(extractTorrentData(html_first));
@@ -108,7 +108,7 @@ async function nyaa_html_finder(query, set_title, season_number, episode_number,
     let fetchPromises = [];
     for (let i = 2; i <= last_page_num; i++) {
         const nyaa_query_url = `https://nyaa.si/?f=0&c=1_2&q=${query}&s=seeders&o=desc&p=${i}`;
-        console.log(nyaa_query_url);
+        // console.log(nyaa_query_url);
         fetchPromises.push(fetch(nyaa_query_url).then(response => response.text()));
     }
 
@@ -163,7 +163,7 @@ async function nyaa_html_finder(query, set_title, season_number, episode_number,
             continue;
         }
 
-        console.log(`Torrent Added`);
+        // console.log(`Torrent Added`);
         torrentList.push(torrent); 
     }
 
@@ -176,7 +176,6 @@ async function test_server_id() {
     const server_response = await fetch(server_url);
     const data = await server_response.json();
     const embedID = data.embedFirst;
-    console.log(embedID);
 
     const response = await fetch(`https://watch.hikaritv.xyz/ajax/embed/16498/1/${embedID}`);
     const embedData = await response.text();
@@ -186,10 +185,9 @@ async function test_server_id() {
     console.log(embedData);
     const iframe = dom.window.document.querySelector(`iframe`);
     const src = iframe.getAttribute(`src`);*/
-    console.log(src);
 }
 
-async function hikaritv_anime_extract(alID, episode) {
+async function hikaritv_anime_finder(alID, episode) {
     try {
         const server_url = `https://watch.hikaritv.xyz/ajax/embedserver/${alID}/${episode}`;
         const server_response = await fetch(server_url);
@@ -532,15 +530,15 @@ function removeSpacesAroundHyphens(str) {
 
 
 // console.log(results); 
-const title = 'fullmetal alchemist';
+// const title = 'fullmetal alchemist';
 
-gogo_anime_finder(title, 1, 'dub');
+// gogo_anime_finder(title, 1, 'dub');
 // test_server_id();
 // const title_romanji = `Shingeki no Kyojin`;
 // const result = await hikaritv_anime_extract(16498, 1);
 // Add looser title matching, strict matching but not exact.
 // let query = `One+Piece`;
-
-// console.log(result);
+const result = await nyaa_html_finder('BLUE+LOCK', 'BLUE LOCK', 1, 1);
+console.log(result);
 // console.log(output)
 //let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)"; 
