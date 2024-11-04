@@ -86,12 +86,12 @@ async function seadex_finder(alID, dub, episode) {
 }
 
 
-async function nyaa_html_finder(query, set_title, season_number, episode_number, dub) {
+async function nyaa_html_finder(url, query, set_title, season_number, episode_number, dub) {
     let torrentList = [];
     let ephemTrsList = [];
 
     // Fetch the first page
-    const nyaa_query_url_first = `https://nyaa.si/?f=0&c=1_2&q=${query}&s=seeders&o=desc&p=1`;
+    const nyaa_query_url_first = `${url}&q=${query}&s=seeders&o=desc&p=1`;
     // console.log(nyaa_query_url_first);
     const response_first = await fetch(nyaa_query_url_first);
     const html_first = await response_first.text();
