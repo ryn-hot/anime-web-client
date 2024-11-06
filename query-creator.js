@@ -70,6 +70,11 @@ function nyaa_query_creator(english_title, romanji_title,  season_number, episod
 
 }
 
+function gogoanime_query(romanji_title, episode, type) {
+    const query = [romanji_title, episode, type];
+    return query;
+}
+
 function reserve_nyaa_queries(english_title, romanji_title, episode_number, dub) {
 
     let nyaa_queries = [];
