@@ -125,7 +125,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
         console.log(`\nTitle Eval: ${torrent.title}`);
         let title = replaceTildeWithHyphen(torrent.title);
         title = removeSpacesAroundHyphens(title);
-        const torrent_info = await parse_title(title);
+        let torrent_info = await parse_title(title);
         
         const lev_distance  = levenshtein.get(set_title.toLowerCase(), torrent_info.anime_title.toLowerCase());
 
@@ -133,6 +133,13 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
             console.log("Title Mismatch");
             console.log(`Set Title: ${set_title}, Torrent Info Title: ${torrent_info.anime_title}`);
             continue;
+        }
+
+        //Additional season checking logic 
+        const season_num_extract = extractSeasonFromTitle(torrent_info.anime_title);
+
+        if (season_num_extract != null) {
+            torrent_info.anime_season = season_num_extract;
         }
 
         if (season_number != torrent_info.anime_season) {
@@ -415,6 +422,28 @@ function hasDualAudioOrEnglishDub(title) {
     return pattern.test(title);
 }
 
+function extractSeasonFromTitle(title) {
+    // Array of patterns to match different season number formats
+    const patterns = [
+      // "Season X" or "Season XX"
+      /season\s*(\d{1,2})\b/i,
+      // "SX" or "SXX" when it's part of the title
+      /\bs(\d{1,2})\b(?!e\d{1,2})/i,  // negative lookahead to avoid matching SXXEXX format
+      // Handle special cases like "2nd Season", "3rd Season"
+      /(\d+)(?:st|nd|rd|th)\s+season/i,
+      // Match just the number after a colon if followed by season-related words
+      /:\s*(\d+)(?:\s+(?:season|part|cour))?/i
+    ];
+  
+    for (const pattern of patterns) {
+      const match = title.match(pattern);
+      if (match) {
+        return parseInt(match[1], 10);
+      }
+    }
+  
+    return null;
+}
 
 function extractTorrentData(html) {
     const results = [];
