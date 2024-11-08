@@ -75,7 +75,7 @@ function gogoanime_query_creator(romanji_title, episode, type) {
     return query;
 }
 
-function reserve_nyaa_queries(english_title, romanji_title, episode_number, dub) {
+function nyaa_fallback_queries(english_title, romanji_title, episode_number, dub) {
 
     let nyaa_queries = [];
     const episode_pad = formatNumber(episode_number);
@@ -134,4 +134,5 @@ export {
     sea_dex_query_creator,
     nyaa_query_creator,
     gogoanime_query_creator,
+    nyaa_fallback_queries
 }
