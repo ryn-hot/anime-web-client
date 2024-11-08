@@ -20,7 +20,7 @@ async function seadex_finder(alID, dub, episode) {
     const data = await response.json();
 
     const trsList = data.items[0].trs;
-    console.log(trsList);
+    // console.log(trsList);
 
     let entries = [];
 
@@ -88,6 +88,7 @@ async function seadex_finder(alID, dub, episode) {
 
 async function nyaa_html_finder(url, query, set_title, season_number, episode_number, dub) {
     let torrentList = [];
+    let reserve_cache = []; 
     let ephemTrsList = [];
 
     // Fetch the first page
@@ -170,13 +171,47 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
             continue;
         }
 
+        if (season_number == torrent_info.anime_season && torrent_info.episode_number == undefined) {
+            reserve_cache.push(torrent)
+        }
+
         // console.log(`Torrent Added`);
         torrentList.push(torrent); 
     }
 
-    return torrentList;
+    if (torrentList.length >= 1) {
+        reserve_cache.length = 0;
+    }
+
+    return { torrentList, reserve_cache };
 }
 
+async function nyaa_reserve_extract(reserve_torrents, episode) {
+    const trsContainingEpisode = [];
+
+    for (const trs of reserve_torrents) {
+        const nyaa_response = await fetch(trs.url); 
+        const html = await nyaa_response.text();
+        //console.log(html);
+        const mkvFiles = extractMkvFiles(html);
+        let targetEpData = null; 
+
+        if (!(episode === undefined)) {
+
+            for (const mkvFile of mkvFiles) {
+                console.log(mkvFile);
+                const episode_info = await parse_title(mkvFile);
+                if (episode_info.episode_number == episode) {
+                    targetEpData = episode_info;
+                    trsContainingEpisode.push(trs);
+                }
+            }
+
+        }
+    }
+
+    return trsContainingEpisode;
+}
 
 async function test_server_id() {
     const server_url = `https://watch.hikaritv.xyz/ajax/embedserver/16498/1`;
@@ -558,6 +593,11 @@ function removeSpacesAroundHyphens(str) {
 }
 
 
+export {
+    seadex_finder,
+    nyaa_html_finder,
+    gogo_anime_finder,
+}
 // console.log(results); 
 // const title = 'fullmetal alchemist';
 
@@ -567,7 +607,7 @@ function removeSpacesAroundHyphens(str) {
 // const result = await hikaritv_anime_extract(16498, 1);
 // Add looser title matching, strict matching but not exact.
 // let query = `One+Piece`;
-const result = await nyaa_html_finder('BLUE+LOCK', 'BLUE LOCK', 1, 1);
-console.log(result);
+//const result = await nyaa_html_finder('Tower+Of+God', 'Tower of God', 1, 5);
+// console.log(result);
 // console.log(output)
 //let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)"; 
