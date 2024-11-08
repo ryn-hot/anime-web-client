@@ -190,19 +190,18 @@ async function nyaa_reserve_extract(reserve_torrents, episode) {
     const trsContainingEpisode = [];
 
     for (const trs of reserve_torrents) {
+
         const nyaa_response = await fetch(trs.url); 
         const html = await nyaa_response.text();
-        //console.log(html);
+        // console.log(html);
         const mkvFiles = extractMkvFiles(html);
-        let targetEpData = null; 
 
         if (!(episode === undefined)) {
 
             for (const mkvFile of mkvFiles) {
-                console.log(mkvFile);
+                // console.log(mkvFile);
                 const episode_info = await parse_title(mkvFile);
                 if (episode_info.episode_number == episode) {
-                    targetEpData = episode_info;
                     trsContainingEpisode.push(trs);
                 }
             }
@@ -597,6 +596,7 @@ export {
     seadex_finder,
     nyaa_html_finder,
     gogo_anime_finder,
+    nyaa_reserve_extract
 }
 // console.log(results); 
 // const title = 'fullmetal alchemist';

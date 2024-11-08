@@ -1,7 +1,7 @@
-import { nyaa_html_finder } from "./anime-finder-funcs.js";
+import { nyaa_html_finder, nyaa_reserve_extract } from "./anime-finder-funcs.js";
 import pLimit from "p-limit";
 
-async function nyaa_function_dispatch(nyaa_queries) {
+async function nyaa_function_dispatch(nyaa_queries, release_status_complete) {
     const limit = pLimit(5);
     const nyaa_finder_promises = nyaa_queries.map(query => limit(() => nyaa_html_finder(...query)))
 
@@ -11,18 +11,25 @@ async function nyaa_function_dispatch(nyaa_queries) {
 
     const reserve_torrents = reserve.flat();
     const uniq_reserve_torrentes = dedupeTorrents(reserve_torrents);
-    
+
     const allTorrents = torrents.flat();
     const unique_torrents = dedupeTorrents(allTorrents);
 
-    if (unique_torrents >= 1) {
+    if (unique_torrents.length >= 1) {
         return unique_torrents;
     }
     else {
+
+        if (release_status_complete) {
+            const episode = nyaa_queries[0][4];
+            const checked_reserve_torrents = nyaa_reserve_extract(uniq_reserve_torrentes, episode);
+            return checked_reserve_torrents;
+        }
+        else {
+            return unique_torrents;
+        }
         
     }
-
-   
 }
 
 function dedupeTorrents(torrents) {
