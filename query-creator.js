@@ -70,7 +70,7 @@ function nyaa_query_creator(english_title, romanji_title,  season_number, episod
 
 }
 
-function gogoanime_query(romanji_title, episode, type) {
+function gogoanime_query_creator(romanji_title, episode, type) {
     const query = [romanji_title, episode, type];
     return query;
 }
@@ -93,6 +93,7 @@ function reserve_nyaa_queries(english_title, romanji_title, episode_number, dub)
 
     return nyaa_queries
 }
+
 
 function extractSeasonFromTitle(title) {
     // Array of patterns to match different season number formats
@@ -129,10 +130,8 @@ function replaceSpacesWithPlus(str) {
     return str.replace(/\s+/g, '+');
 }
 
-
-const results = nyaa_query_creator('Attack on Titan', 'Shingeki no Kyojin',  1, 1, false);
-const reserve_results = reserve_nyaa_queries('Attack on Titan Season 2', 'Shingeki no Kyojin', 1, false);
-
-for (let i = 0; i < reserve_results.length; i++) {
-    console.log(reserve_results[i]);
+export {
+    sea_dex_query_creator,
+    nyaa_query_creator,
+    gogoanime_query_creator,
 }
