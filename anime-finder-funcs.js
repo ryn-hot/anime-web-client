@@ -605,14 +605,14 @@ export {
 }
 // console.log(results); 
 // const title = 'fullmetal alchemist';
-const url = `https://nyaa.si/?f=0&c=1_2`;
+/*const url = `https://nyaa.si/?f=0&c=1_2`;
 const query = 'Kami+no+Tou';
 const season_number = 1;
 const episode_number = 5;
 const set_title = 'Kami no Tou';
 
 const dub = false;
-nyaa_html_finder(url, query, set_title, season_number, episode_number, dub); 
+nyaa_html_finder(url, query, set_title, season_number, episode_number, dub); */
 // gogo_anime_finder(title, 1, 'dub');
 // test_server_id();
 // const title_romanji = `Shingeki no Kyojin`;
