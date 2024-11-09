@@ -116,7 +116,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
             response.text()
         }));
 
-        await delay(1000);
+        await delay(750);
     }
 
     // Fetch all pages in parallel

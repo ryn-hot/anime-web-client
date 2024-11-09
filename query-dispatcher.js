@@ -5,7 +5,11 @@ async function nyaa_function_dispatch(nyaa_queries, release_status_complete, fal
     const limit = pLimit(3);
     const nyaa_finder_promises = nyaa_queries.map(query => limit(() => nyaa_html_finder(...query)))
 
+    console.time('nyaa_html_finder Execution Time');
+
     const results = await Promise.all(nyaa_finder_promises);
+
+    console.timeEnd('nyaa_html_finder Execution Time');
     
     // Extract torrentList and reserve_cache from each result
     const torrents = results.map(result => result.torrentList);
