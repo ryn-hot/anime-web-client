@@ -111,7 +111,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
     for (let i = 2; i <= last_page_num; i++) {
         const nyaa_query_url = `https://nyaa.si/?f=0&c=1_2&q=${query}&s=seeders&o=desc&p=${i}`;
         // console.log(nyaa_query_url);
-        fetchPromises.push(fetch(nyaa_query_url).then(response => {
+        fetchPromises.push(fetchWithRetry(nyaa_query_url, 3, 1000).then(response => {
             console.log(`Page ${i} status: ${response.status}`);
             response.text()
         }));
@@ -221,6 +221,26 @@ async function nyaa_reserve_extract(reserve_torrents, episode) {
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Function to fetch with retry
+async function fetchWithRetry(url, retries = 3, delayDuration = 1000) {
+    for (let i = 0; i <= retries; i++) {
+        try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response; // Return the successful response
+        } catch (error) {
+        if (i < retries) {
+            console.log(`Fetch failed (attempt ${i + 1}), retrying in ${delayDuration}ms...`);
+            await delay(delayDuration);
+        } else {
+            throw error; // Throw the error if retries are exhausted
+        }
+        }
+    }
 }
 
 async function test_server_id() {
