@@ -14,7 +14,8 @@ async function main() {
     const sea_dex_query = sea_dex_query_creator(alID, type,  5);
 
     const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, type);
-    const nyaa_results = await nyaa_function_dispatch(nyaa_queries);
+    const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
+    console.log(nyaa_results);
     trs_results.concat(nyaa_results);
 
     if (nyaa_results.length < 1) {

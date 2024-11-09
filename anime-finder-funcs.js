@@ -95,6 +95,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
     const nyaa_query_url_first = `${url}&q=${query}&s=seeders&o=desc&p=1`;
     // console.log(nyaa_query_url_first);
     const response_first = await fetch(nyaa_query_url_first);
+    console.log(`First page status: ${response_first.status}`)
     const html_first = await response_first.text();
 
     // console.log(`Processing page number 1`);
@@ -110,7 +111,10 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
     for (let i = 2; i <= last_page_num; i++) {
         const nyaa_query_url = `https://nyaa.si/?f=0&c=1_2&q=${query}&s=seeders&o=desc&p=${i}`;
         // console.log(nyaa_query_url);
-        fetchPromises.push(fetch(nyaa_query_url).then(response => response.text()));
+        fetchPromises.push(fetch(nyaa_query_url).then(response => {
+            console.log(`Page ${i} status: ${response.status}`);
+            response.text()
+        }));     
     }
 
     // Fetch all pages in parallel
@@ -123,7 +127,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
 
     // Process the torrent list as per your existing logic
     for (const torrent of ephemTrsList) {
-        console.log(`\nTitle Eval: ${torrent.title}`);
+        // console.log(`\nTitle Eval: ${torrent.title}`);
         let title = replaceTildeWithHyphen(torrent.title);
         title = removeSpacesAroundHyphens(title);
         let torrent_info = await parse_title(title);
@@ -131,8 +135,8 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
         const lev_distance  = levenshtein.get(set_title.toLowerCase(), torrent_info.anime_title.toLowerCase());
 
         if (lev_distance > 1) {
-            console.log("Title Mismatch");
-            console.log(`Set Title: ${set_title}, Torrent Info Title: ${torrent_info.anime_title}`);
+            // console.log("Title Mismatch");
+            // console.log(`Set Title: ${set_title}, Torrent Info Title: ${torrent_info.anime_title}`);
             continue;
         }
 
@@ -145,7 +149,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
 
         if (season_number != torrent_info.anime_season) {
             if ((season_number != 1 && season_number != undefined) || torrent_info.anime_season != undefined) {
-                console.log("Season Number Mismatch");
+                // console.log("Season Number Mismatch");
                 continue; 
             }
         } 
@@ -156,18 +160,18 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
             const range = getRange(episode_int);
 
             if (!range.includes(episode_number)) {
-                console.log(`Episode Not in Range: ${range}, Episode Number: ${episode_number}`);
+                // console.log(`Episode Not in Range: ${range}, Episode Number: ${episode_number}`);
                 continue;
             }
         } else {
             if (season_number != undefined && episode_number != undefined) {
-                console.log(`Episode Not in Range: Query for TV Series`);
+                // console.log(`Episode Not in Range: Query for TV Series`);
                 continue;
             }
         }
 
         if (dub === true && !hasDualAudioOrEnglishDub(torrent.title)) {
-            console.log(`Episode does not have English Dub`);
+            // console.log(`Episode does not have English Dub`);
             continue;
         }
 
@@ -183,6 +187,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
         reserve_cache.length = 0;
     }
 
+    // console.log(torrentList);
     return { torrentList, reserve_cache };
 }
 
@@ -600,7 +605,14 @@ export {
 }
 // console.log(results); 
 // const title = 'fullmetal alchemist';
+const url = `https://nyaa.si/?f=0&c=1_2`;
+const query = 'Kami+no+Tou';
+const season_number = 1;
+const episode_number = 5;
+const set_title = 'Kami no Tou';
 
+const dub = false;
+nyaa_html_finder(url, query, set_title, season_number, episode_number, dub); 
 // gogo_anime_finder(title, 1, 'dub');
 // test_server_id();
 // const title_romanji = `Shingeki no Kyojin`;
