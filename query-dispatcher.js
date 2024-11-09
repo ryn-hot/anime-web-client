@@ -7,6 +7,7 @@ async function nyaa_function_dispatch(nyaa_queries, release_status_complete, fal
     
     const results = await Promise.all(nyaa_finder_promises); */
     const results = [];
+    console.time('nyaa_html_finder Execution Time');
 
     for (const query of nyaa_queries) {
         const result = await nyaa_html_finder(...query);
@@ -15,7 +16,7 @@ async function nyaa_function_dispatch(nyaa_queries, release_status_complete, fal
         // Introduce a delay before the next function call
         //await delay(500); // Delay of 500 milliseconds
     }
-    
+    console.timeEnd('nyaa_html_finder Execution Time');
     // Extract torrentList and reserve_cache from each result
     const torrents = results.map(result => result.torrentList);
     const reserve = results.map(result => result.reserve_cache);
