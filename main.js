@@ -4,10 +4,10 @@ import { nyaa_function_dispatch } from "./query-dispatcher.js";
 
 async function main() {
     const trs_results = [];
-    const english_title = 'Tower of God';
-    const romanji_title = 'Kami no Tou';
+    const english_title = 'One Piece'//'Tower of God';
+    const romanji_title = 'Wan Pīsu';
     const type = false;
-    const alID = 115230;
+    const alID = 21;
     let season_number = 1;
     const episode_number = 5; 
 
