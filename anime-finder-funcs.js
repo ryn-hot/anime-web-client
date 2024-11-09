@@ -227,14 +227,16 @@ function delay(ms) {
 async function fetchWithRetry(url, retries = 3, delayDuration = 1000) {
     for (let i = 0; i <= retries; i++) {
         try {
-        const response = await fetch(url);
+        const response = await fetchWithRetry(url);
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
+        console.log(`Fetch Success Status: ${response.status}`);
         return response; // Return the successful response
         } catch (error) {
         if (i < retries) {
             console.log(`Fetch failed (attempt ${i + 1}), retrying in ${delayDuration}ms...`);
+            console.log(error);
             await delay(delayDuration);
         } else {
             throw error; // Throw the error if retries are exhausted
