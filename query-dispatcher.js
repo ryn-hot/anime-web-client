@@ -2,7 +2,7 @@ import { nyaa_html_finder, nyaa_reserve_extract } from "./anime-finder-funcs.js"
 import pLimit from "p-limit";
 
 async function nyaa_function_dispatch(nyaa_queries, release_status_complete, fallback) {
-    const limit = pLimit(2);
+    const limit = pLimit(3);
     const nyaa_finder_promises = nyaa_queries.map(query => limit(() => nyaa_html_finder(...query)))
 
     const results = await Promise.all(nyaa_finder_promises);

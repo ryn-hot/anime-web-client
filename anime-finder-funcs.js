@@ -114,7 +114,9 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
         fetchPromises.push(fetch(nyaa_query_url).then(response => {
             console.log(`Page ${i} status: ${response.status}`);
             response.text()
-        }));     
+        }));
+
+        await delay(1000);
     }
 
     // Fetch all pages in parallel
@@ -215,6 +217,10 @@ async function nyaa_reserve_extract(reserve_torrents, episode) {
     }
 
     return trsContainingEpisode;
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function test_server_id() {
