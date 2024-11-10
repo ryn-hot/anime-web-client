@@ -1,4 +1,5 @@
-import { nyaa_html_finder, nyaa_reserve_extract } from "./anime-finder-funcs.js";
+import { nyaa_html_finder, nyaa_reserve_extract, delay } from "./anime-finder-funcs.js";
+import chalk from "chalk";
 import pLimit from "p-limit";
 
 async function nyaa_function_dispatch(nyaa_queries, release_status_complete, fallback) {
@@ -9,12 +10,20 @@ async function nyaa_function_dispatch(nyaa_queries, release_status_complete, fal
     const results = [];
     console.time('nyaa_html_finder Execution Time');
 
+    let i = 0;
     for (const query of nyaa_queries) {
+        // Print the query index
+        i += 1;
+        console.log(chalk.blue.bold('\n========================================\n'));
+        console.log(chalk.yellow.bold(`Query ${i}:`));
+        console.log(chalk.greenBright(JSON.stringify(query, null, 2)));
+        console.log(chalk.blue.bold('\n========================================\n'));
+
         const result = await nyaa_html_finder(...query);
         results.push(result);
 
         // Introduce a delay before the next function call
-        //await delay(500); // Delay of 500 milliseconds
+        await delay(20000); // Delay of 500 milliseconds
     }
     console.timeEnd('nyaa_html_finder Execution Time');
     // Extract torrentList and reserve_cache from each result

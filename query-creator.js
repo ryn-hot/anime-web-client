@@ -78,16 +78,17 @@ function gogoanime_query_creator(romanji_title, episode, type) {
 function nyaa_fallback_queries(english_title, romanji_title, episode_number, dub) {
 
     let nyaa_queries = [];
+    const default_url = `https://nyaa.si/?f=0&c=1_2`;
     const episode_pad = formatNumber(episode_number);
 
     const queryReserve1_text_input = `${english_title} - ${episode_pad}`;
     const queryReserve1_season_number = 1;
-    const query_reserve_1 = [replaceSpacesWithPlus(queryReserve1_text_input), queryReserve1_season_number, episode_number, dub];
+    const query_reserve_1 = [default_url, replaceSpacesWithPlus(queryReserve1_text_input), english_title, queryReserve1_season_number, episode_number, dub];
 
 
     const queryReserve2_text_input = `${romanji_title} - ${episode_pad}`;
     const queryReserve2_season_number = 1;
-    const query_reserve_2 = [replaceSpacesWithPlus(queryReserve2_text_input), queryReserve2_season_number, episode_number, dub];
+    const query_reserve_2 = [default_url, replaceSpacesWithPlus(queryReserve2_text_input), romanji_title, queryReserve2_season_number, episode_number, dub];
 
     nyaa_queries.push(query_reserve_1, query_reserve_2);
 
