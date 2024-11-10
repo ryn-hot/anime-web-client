@@ -12,6 +12,7 @@
   "description": "",
   "dependencies": {
     "anitomyscript": "^2.0.4",
+    "chalk": "^5.3.0",
     "cheerio": "^1.0.0",
     "fast-levenshtein": "^3.0.0",
     "guessit-exec": "^0.0.1",

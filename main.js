@@ -4,15 +4,15 @@ import { nyaa_function_dispatch } from "./query-dispatcher.js";
 
 async function main() {
     const trs_results = [];
-    const english_title = 'Tower of God';
-    const romanji_title = 'Kami no Tou';
-    const type = true;
-    const alID = 115230;
-    let season_number = 1;
+    const english_title = 'BLEACH: Thousand-Year Blood War';
+    const romanji_title = 'Bleach: Sennen Kessen-hen';
+    const type = false;
+    const alID = 116674;
+    let season_number = 2;
     const episode_number = 5; 
 
     const sea_dex_query = sea_dex_query_creator(alID, type,  5);
-
+    
     const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, type);
     const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
     console.log(nyaa_results);
@@ -20,7 +20,7 @@ async function main() {
 
     if (nyaa_results.length < 1) {
         const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, type);
-        const nyaa_fallback_results = await nyaa_function_dispatch(nyaa_fallback_q, false, false);
+        const nyaa_fallback_results = await nyaa_function_dispatch(nyaa_fallback_q, false, true);
         trs_results.concat(nyaa_fallback_results);
     }
 
