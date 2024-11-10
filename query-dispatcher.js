@@ -23,10 +23,9 @@ async function nyaa_function_dispatch(nyaa_queries, release_status_complete, fal
 
 
     const reserve_torrents = reserve.flat();
-    const uniq_reserve_torrentes = dedupeTorrents(reserve_torrents);
+    const uniq_reserve_torrents = dedupeTorrents(reserve_torrents);
 
     const allTorrents = torrents.flat();
-    console.log('All Torrents:', allTorrents);
 
     const unique_torrents = dedupeTorrents(allTorrents);
     
@@ -36,8 +35,9 @@ async function nyaa_function_dispatch(nyaa_queries, release_status_complete, fal
     else {
 
         if (release_status_complete && !fallback) {
+            console.log(`checking reserve torrents:`, uniq_reserve_torrents)
             const episode = nyaa_queries[0][4];
-            const checked_reserve_torrents = nyaa_reserve_extract(uniq_reserve_torrentes, episode);
+            const checked_reserve_torrents = nyaa_reserve_extract(uniq_reserve_torrents, episode);
             return checked_reserve_torrents;
         }
         else {
