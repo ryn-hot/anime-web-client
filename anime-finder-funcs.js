@@ -94,7 +94,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
     // Fetch the first page
     const nyaa_query_url_first = `${url}&q=${query}&s=seeders&o=desc&p=1`;
     // console.log(nyaa_query_url_first);
-    const response_first = await fetch(nyaa_query_url_first);
+    const response_first = await fetchWithRetry(nyaa_query_url_first);
     console.log(`First page status: ${response_first.status}`)
     const html_first = await response_first.text();
 
@@ -227,7 +227,7 @@ function delay(ms) {
 async function fetchWithRetry(url, retries = 3, delayDuration = 1000) {
     for (let i = 0; i <= retries; i++) {
         try {
-        const response = await fetchWithRetry(url);
+        const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
