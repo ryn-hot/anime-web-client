@@ -8,11 +8,11 @@ async function main() {
     const romanji_title = 'Bleach: Sennen Kessen-hen';
     const type = false;
     const alID = 116674;
-    let season_number = 2;
+    let season_number = 1;
     const episode_number = 5; 
 
     const sea_dex_query = sea_dex_query_creator(alID, type,  5);
-    
+
     const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, type);
     const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
     console.log(nyaa_results);
