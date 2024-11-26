@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SecretAnime</title>
+    <!-- Link to the external CSS file -->
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Link to Font Awesome for icons -->
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css">
+    <!--Link to Poppins Font-->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Menu Button (Moved outside the sidebar) -->
+   
+
+   
+    <!-- Sidebar -->
+    <nav id="sidebar" class="sidebar" role="navigation" aria-label="Main Navigation">
+        <ul class="sidebar-menu">
+            <li>
+                <a href="#" class="sidebar-item">
+                    <i class="fas fa-home"></i>
+                    <span class="sidebar-label">Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="sidebar-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span class="sidebar-label">Trending</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="sidebar-item">
+                    <i class="fas fa-clock"></i>
+                    <span class="sidebar-label">Recents</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="sidebar-item">
+                    <i class="fas fa-search-location"></i>
+                    <span class="sidebar-label">Discover</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="sidebar-item">
+                    <i class="fas fa-history"></i>
+                    <span class="sidebar-label">History</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="sidebar-item">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span class="sidebar-label">Schedule</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Overlay -->
+    <div id="overlay" class="overlay"></div>
+
+    <!-- Header Bar -->
+    <header class="header">
+        <div class="header-left">
+            <!-- Hamburger Menu -->
+            <button class="menu-button" aria-label="Open Menu">
+                <i class="fas fa-bars"></i>
+            </button>
+            <!-- Site Title -->
+            <div class="logo">SecretAnime</div>
+            <!-- Search Container -->
+            <div class="search-content">
+                <form action="/search" autocomplete="off">
+                    <input
+                        type="text"
+                        class="form-control search-input"
+                        name="keyword"
+                        placeholder="Search anime..."
+                        required=""
+                    />
+                    <button type="submit" class="search-button">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <a href="/filter" class="filter-button">Filter</a>
+                </form>
+            </div>
+        </div>
+        
+        <div class="header-center">
+        </div>
+
+        <div class="header-right">
+            <!-- Login Button -->
+            <button class="login-button" id="login-button">Login with Anilist</button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content">
+         <!-- Placeholder Banner -->
+        <section id="banner" class="banner-placeholder">
+            <div class="banner-content">    
+                <div class="banner-text">
+                    <h1 class="banner-title"></h1>
+                    <p class="banner-info"></p>
+                    <p class="banner-description"></p>
+                    <div class="banner-genres"></div>
+                    <button class="banner-button">Watch Now</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sections for Anime Categories -->
+        <section>
+            <h2>Popular This Season</h2>
+            <div class="scroll-container">
+                <button class="scroll-button left" data-container="popular-this-season">&#10094;</button>
+                <div id="popular-this-season" class="anime-list"></div>
+                <button class="scroll-button right" data-container="popular-this-season">&#10095;</button>
+            </div>
+        </section>
+        
+        <section>
+            <h2>Trending Now</h2>
+            <div class="scroll-container">
+                <button class="scroll-button left" data-container="trending-now">&#10094;</button>
+                <div id="trending-now" class="anime-list"></div>
+                <button class="scroll-button right" data-container="trending-now">&#10095;</button>
+            </div>
+        </section>
+        
+        <section>
+            <h2>Popular All Time</h2>
+            <div class="scroll-container">
+                <button class="scroll-button left" data-container="popular-all-time">&#10094;</button>
+                <div id="popular-all-time" class="anime-list"></div>
+                <button class="scroll-button right" data-container="popular-all-time">&#10095;</button>
+            </div>
+        </section>
+        
+        <section>
+            <h2>Top Rated</h2>
+            <div class="scroll-container">
+                <button class="scroll-button left" data-container="top-rated">&#10094;</button>
+                <div id="top-rated" class="anime-list"></div>
+                <button class="scroll-button right" data-container="top-rated">&#10095;</button>
+            </div>
+        </section>
+    </main>
+
+    <script src="js/script.js"></script>
+
+</body>
+</html>
