@@ -155,7 +155,7 @@ function fetchTopAnimeBanner() {
 
     const variables = {
         page: 1,
-        perPage: 1, // Fetch only the top anime
+        perPage: 4, // Fetch only the top anime
         sort: ['POPULARITY_DESC'],
         season: getCurrentSeason(),
         seasonYear: new Date().getFullYear()
@@ -171,53 +171,106 @@ function fetchTopAnimeBanner() {
     })
     .then(response => response.json())
     .then(data => {
-        displayBanner(data)
+        createBannerCarousel(data.data.Page.media);
     
     })
     .catch(error => console.error('Error fetching banner data:', error));
 }
 
-// Function to display the banner
-function displayBanner(data) {
-    const anime = data.data.Page.media[0]; // Get the top anime
-    const bannerElement = document.getElementById('banner');
 
-    // Set background image
-    if (anime.bannerImage) {
-        bannerElement.style.backgroundImage = `url(${anime.bannerImage})`;
-        bannerElement.style.backgroundSize = 'cover';
-        bannerElement.style.backgroundPosition = 'center';
-    } else {
-        bannerElement.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'; // Fallback background
-    }
+// Function to create banner carousel
+function createBannerCarousel(animeList) {
+    const bannerContainer = document.getElementById('banner');
 
-    // Populate the title
-    document.querySelector('.banner-title').textContent = anime.title.english || anime.title.romaji;
+    // Clear any existing banners
+    bannerContainer.innerHTML = '';
 
-    // Populate info (type, episodes, and season)
-    const animeInfo = [];
-    if (anime.format) animeInfo.push(anime.format); // E.g., ONA, TV
-    if (anime.episodes) animeInfo.push(`${anime.episodes} Episodes`);
-    if (anime.season && anime.seasonYear) animeInfo.push(`${anime.season} ${anime.seasonYear}`);
-    document.querySelector('.banner-info').textContent = animeInfo.join(' · ');
+    // Create a wrapper for all banners
+    const bannerWrapper = document.createElement('div');
+    bannerWrapper.classList.add('banner-wrapper');
+    bannerContainer.appendChild(bannerWrapper);
 
-    // Populate the description
-    document.querySelector('.banner-description').textContent =
-        anime.description ? anime.description.replace(/<[^>]*>?/gm, '').slice(0, 200) + '...' : 'No description available.';
 
-    // Populate genres
-    const genresContainer = document.querySelector('.banner-genres');
-    genresContainer.innerHTML = ''; // Clear existing genres
-    if (anime.genres && anime.genres.length > 0) {
+    // Generate banners for each anime
+    animeList.forEach((anime) => {
+        const bannerSlide = document.createElement('div');
+        bannerSlide.classList.add('banner-slide');
+
+        // Incorporate the gradient into the background image
+        bannerSlide.style.backgroundImage = `linear-gradient(to right, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0) 80%), url(${anime.bannerImage})`;
+        bannerSlide.style.backgroundSize = 'cover';
+        bannerSlide.style.backgroundPosition = 'center';
+
+        const bannerContent = document.createElement('div');
+        bannerContent.classList.add('banner-content');
+
+        // Add title
+        const title = document.createElement('h1');
+        title.classList.add('banner-title');
+        title.textContent = anime.title.english || anime.title.romaji;
+        bannerContent.appendChild(title);
+
+        // Add info
+        const info = document.createElement('p');
+        info.classList.add('banner-info');
+        const animeInfo = [];
+        if (anime.format) animeInfo.push(anime.format);
+        if (anime.episodes) animeInfo.push(`${anime.episodes} Episodes`);
+        if (anime.season && anime.seasonYear) animeInfo.push(`${anime.season} ${anime.seasonYear}`);
+        info.textContent = animeInfo.join(' · ');
+        bannerContent.appendChild(info);
+
+        // Add description
+        const description = document.createElement('p');
+        description.classList.add('banner-description');
+        description.textContent = anime.description
+            ? anime.description.replace(/<[^>]*>?/gm, '').slice(0, 200) + '...'
+            : 'No description available.';
+        bannerContent.appendChild(description);
+
+        // Add genres
+        const genresContainer = document.createElement('div');
+        genresContainer.classList.add('banner-genres');
         anime.genres.forEach((genre) => {
-            const genreElement = document.createElement('span');
-            genreElement.textContent = genre;
-            genresContainer.appendChild(genreElement);
+            const genreSpan = document.createElement('span');
+            genreSpan.textContent = genre;
+            genresContainer.appendChild(genreSpan);
         });
-    } else {
-        genresContainer.textContent = 'No genres available.';
-    }
+        bannerContent.appendChild(genresContainer);
+
+        // Add "Watch Now" button
+        const watchNowButton = document.createElement('button');
+        watchNowButton.classList.add('banner-button');
+        watchNowButton.textContent = 'Watch Now';
+        bannerContent.appendChild(watchNowButton);
+        
+        bannerSlide.appendChild(bannerContent);
+        bannerWrapper.appendChild(bannerSlide);
+    });
+
+    // Initialize auto-scrolling
+    initAutoScrolling(bannerWrapper);
 }
+
+// Function to initialize auto-scrolling
+function initAutoScrolling(wrapper) {
+    const slides = wrapper.querySelectorAll('.banner-slide');
+    let currentIndex = 0;
+
+    // Function to show the next slide
+    function showNextSlide() {
+        slides[currentIndex].classList.remove('active');
+        currentIndex = (currentIndex + 1) % slides.length; // Cycle back to the first slide
+        slides[currentIndex].classList.add('active');
+    }
+
+    // Set initial active slide
+    slides[currentIndex].classList.add('active');
+
+    // Start auto-scrolling
+    setInterval(showNextSlide, 5000); // Change slide every 5 seconds
+}
+
 
 // Fetch and display banners on page load
 fetchTopAnimeBanner();

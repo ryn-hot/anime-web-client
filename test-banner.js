@@ -24,8 +24,8 @@ function fetchTopAnimeBanner() {
 
     const variables = {
         page: 1,
-        perPage: 1, // Fetch only the top anime
-        sort: ['POPULARITY_DESC'],
+        perPage: 4, // Fetch only the top anime
+        sort: ['SCORE_DESC'],
         season: getCurrentSeason(),
         seasonYear: new Date().getFullYear()
     };
@@ -40,7 +40,7 @@ function fetchTopAnimeBanner() {
     })
     .then(response => response.json())
     .then(data => {
-        console.log(data.data.Page.media[0].bannerImage);
+        console.log(data.data.Page.media);
         //displayBanner(data)
     
     })
