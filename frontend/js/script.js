@@ -190,9 +190,12 @@ function createBannerCarousel(animeList) {
     bannerWrapper.classList.add('banner-wrapper');
     bannerContainer.appendChild(bannerWrapper);
 
+    // Create progress bar container
+    const progressContainer = document.createElement('div');
+    progressContainer.classList.add('progress-container');
 
     // Generate banners for each anime
-    animeList.forEach((anime) => {
+    animeList.forEach((anime, index) => {
         const bannerSlide = document.createElement('div');
         bannerSlide.classList.add('banner-slide');
 
@@ -229,14 +232,10 @@ function createBannerCarousel(animeList) {
         bannerContent.appendChild(description);
 
         // Add genres
-        const genresContainer = document.createElement('div');
-        genresContainer.classList.add('banner-genres');
-        anime.genres.forEach((genre) => {
-            const genreSpan = document.createElement('span');
-            genreSpan.textContent = genre;
-            genresContainer.appendChild(genreSpan);
-        });
-        bannerContent.appendChild(genresContainer);
+        const genresInfo = document.createElement('p');
+        genresInfo.classList.add('banner-genres');
+        genresInfo.textContent = anime.genres.join(' · ');
+        bannerContent.appendChild(genresInfo);
 
         // Add "Watch Now" button
         const watchNowButton = document.createElement('button');
@@ -246,8 +245,16 @@ function createBannerCarousel(animeList) {
         
         bannerSlide.appendChild(bannerContent);
         bannerWrapper.appendChild(bannerSlide);
+
+        // Create individual progress bars
+        const progressBar = document.createElement('div');
+        progressBar.classList.add('progress-bar');
+        if (index === 0) progressBar.classList.add('active');
+        progressContainer.appendChild(progressBar);
     });
 
+    // After the forEach loop
+    bannerContainer.appendChild(progressContainer);
     // Initialize auto-scrolling
     initAutoScrolling(bannerWrapper);
 }
@@ -255,20 +262,55 @@ function createBannerCarousel(animeList) {
 // Function to initialize auto-scrolling
 function initAutoScrolling(wrapper) {
     const slides = wrapper.querySelectorAll('.banner-slide');
+    const progressBars = document.querySelectorAll('.progress-bar');
     let currentIndex = 0;
+    const intervalTime = 10000; // Duration for each slide (5 seconds)
+    let interval;
+
+    // Function to start the progress bar animation
+    function startProgressBar(index) {
+        const activeBar = progressBars[index];
+        const progressFill = document.createElement('div');
+        progressFill.classList.add('progress-fill');
+        activeBar.appendChild(progressFill);
+
+        // Start the width animation
+        setTimeout(() => {
+            progressFill.style.width = '100%';
+            progressFill.style.transition = `width ${intervalTime}ms linear`;
+        }, 50);
+    }
+
+    // Function to reset the progress bar
+    function resetProgressBar(index) {
+        const activeBar = progressBars[index];
+        const progressFill = activeBar.querySelector('.progress-fill');
+        if (progressFill) {
+            progressFill.remove();
+        }
+    }
 
     // Function to show the next slide
     function showNextSlide() {
+        resetProgressBar(currentIndex);
         slides[currentIndex].classList.remove('active');
+        progressBars[currentIndex].classList.remove('active');
+
         currentIndex = (currentIndex + 1) % slides.length; // Cycle back to the first slide
+
         slides[currentIndex].classList.add('active');
+        progressBars[currentIndex].classList.add('active');
+
+        startProgressBar(currentIndex);
     }
 
-    // Set initial active slide
+    // Set initial active slide and progress bar
     slides[currentIndex].classList.add('active');
+    progressBars[currentIndex].classList.add('active');
+    startProgressBar(currentIndex);
 
     // Start auto-scrolling
-    setInterval(showNextSlide, 5000); // Change slide every 5 seconds
+    interval = setInterval(showNextSlide, intervalTime); // Change slide every 5 seconds
 }
 
 
