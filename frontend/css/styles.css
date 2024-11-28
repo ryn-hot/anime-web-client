@@ -87,8 +87,6 @@ body {
 }
 
 
-
-
 .banner-info {
     font-size: 14px; /* Smaller size for tags like TV and episodes */
     font-weight: 500;
@@ -125,18 +123,24 @@ body {
 }
 
 /* Genres Styling */
-.banner-genres {
+/*.banner-genres {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px; /* Space between genre tags */
-    margin-bottom: 15px;
+    gap: 8px; 
+    margin-bottom: 1px;
 }
 
 .banner-genres span {
-    font-size: 14px; /* Smaller font for genres */
-    background-color: rgba(255, 255, 255, 0.2); /* Background for visibility */
+    font-size: 14px; 
+    background-color: rgba(255, 255, 255, 0.2);
     padding: 5px 10px;
     border-radius: 15px;
+} */
+
+.banner-genres {
+    font-size: 14px;
+    color:#ffffff;
+    margin: 5px 0;
 }
 
 /* Button Styling */
@@ -164,6 +168,45 @@ body {
 
 .banner-button:focus {
     outline: 2px solid rgba(255, 255, 255, 0.5); /* White focus outline */
+}
+
+/* Progress Bar */
+.progress-bar {
+    width: 35px; /* Initial width of the bar */
+    height: 6px;
+    background-color: rgba(255, 255, 255, 0.3); /* Default background */
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* Active Progress Bar */
+.progress-bar.active {
+    width: 70px; /* Elongated width for active bar */
+    background-color: rgba(255, 255, 255, 0.1); /* Slightly different background */
+}
+
+
+.progress-container {
+    display: flex;
+    align-items: center;
+    margin-top: 5px;
+    gap: 5px;
+    position: absolute;
+    bottom: 5px; /* Align with banner content */
+    left: 20px;
+    z-index: 2;
+}
+
+/* Progress Fill */
+.progress-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%; /* Start with 0% width */
+    background-color: #ffffff; /* White color for fill */
 }
 
 
