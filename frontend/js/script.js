@@ -251,6 +251,13 @@ function createBannerCarousel(animeList) {
         progressBar.classList.add('progress-bar');
         if (index === 0) progressBar.classList.add('active');
         progressContainer.appendChild(progressBar);
+
+        // **Add event listener to the progress bar**
+        progressBar.addEventListener('click', () => {
+            // Call a function to handle the banner change
+            goToSlide(index);
+        });
+        
     });
 
     // After the forEach loop
@@ -291,18 +298,38 @@ function initAutoScrolling(wrapper) {
     }
 
     // Function to show the next slide
-    function showNextSlide() {
+    function showSlide(index) {
         resetProgressBar(currentIndex);
         slides[currentIndex].classList.remove('active');
         progressBars[currentIndex].classList.remove('active');
 
-        currentIndex = (currentIndex + 1) % slides.length; // Cycle back to the first slide
+        currentIndex = index; // Cycle back to the first slide
 
         slides[currentIndex].classList.add('active');
         progressBars[currentIndex].classList.add('active');
 
         startProgressBar(currentIndex);
     }
+
+    // Function to show the next slide
+    function showNextSlide() {
+        let nextIndex = (currentIndex + 1) % slides.length;
+        showSlide(nextIndex);
+    }
+
+    // Function to reset and restart the interval
+    function resetInterval() {
+        clearInterval(interval);
+        interval = setInterval(showNextSlide, intervalTime);
+    }
+
+    // Add click event listeners to progress bars
+    progressBars.forEach((bar, index) => {
+        bar.addEventListener('click', () => {
+            showSlide(index);
+            resetInterval();
+        });
+    });
 
     // Set initial active slide and progress bar
     slides[currentIndex].classList.add('active');
