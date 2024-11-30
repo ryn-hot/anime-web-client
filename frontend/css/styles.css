@@ -29,7 +29,7 @@ body {
     align-items: flex-end;
     justify-content: flex-start;
     text-align: left;
-    padding: 20px; /* Add padding for spacing */
+    /*padding: 20px; /* Add padding for spacing, maybe causes overflow problems? */
     overflow: hidden; /* Prevent overflow */
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     z-index: 0;
@@ -248,15 +248,15 @@ body {
     background-color: #1c1c1c; /* Match header background */
     padding: 10px 15px;
     border-radius: 5px;
-    color: #fff;
+    color: rgba(255, 255, 255, 0.7);;
     display: inline-flex;
     align-items: center;
     text-decoration: none;
 }
 
 .section-title a:hover {
-    background-color: #333;
-    color: #ff4081;
+    background-color: #1c1c1c;
+    color: #fff;
 }
 
 .section-title i {
@@ -572,32 +572,42 @@ body {
 /* Scroll Buttons */
 .scroll-button {
     position: absolute;
-    top: 0;
+    top: 40%;
+    transform: translateY(-50%);
     bottom: 0;
-    width: 54px;
+    width: 40px;
+    height: 40px;
     background: rgba(0, 0, 0, 0.5);
     border: none;
     color: #fff;
     cursor: pointer;
-    font-size: 43.2px;
+    font-size: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.3s;
-    z-index: 1;
+    transition: opacity 0.3s, background 0.3s;
+    z-index: 2;
+    border-radius: 50%;
+    opacity: 0; 
 }
 
 .scroll-button.left {
-    left: 0;
+    left: 0px;
 }
 
 .scroll-button.right {
-    right: 0;
+    right: 0px;
 }
 
 .scroll-button:hover {
-    background: rgba(0, 0, 0, 0.7);
+    background: black;
 }
+
+/* Show Buttons on Hover */
+.scroll-container:hover .scroll-button {
+    opacity: 1;
+}
+
 
 /* Anime List */
 .anime-list {
