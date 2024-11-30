@@ -7,7 +7,7 @@ body {
     margin: 0;
     overflow-x: hidden;
     color: #fff;
-    background-color: #1c1c1c; /* Background color for the page */
+    background-color: #000/*#1c1c1c; */ /* Background color for the page */
 }
 
 /* Main Content */
@@ -245,8 +245,8 @@ body {
 }
 
 .section-title a {
-    background-color: #1c1c1c; /* Match header background */
-    padding: 10px 15px;
+    background-color: #000;/* #1c1c1c; */ /* Match header background */
+    padding: 5px 0px;
     border-radius: 5px;
     color: rgba(255, 255, 255, 0.7);;
     display: inline-flex;
@@ -255,7 +255,6 @@ body {
 }
 
 .section-title a:hover {
-    background-color: #1c1c1c;
     color: #fff;
 }
 
@@ -473,7 +472,7 @@ body {
     left: 0;
     height: 100%;
     width: 70px; /* Collapsed width */
-    background-color: #111;
+    background-color: #000; /*#111; */
     transition: width 0.3s ease;
     overflow-x: hidden;
     z-index: 1000;
