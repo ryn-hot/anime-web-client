@@ -1,7 +1,11 @@
+
+
 /* General styles */
 body {
     font-family: Arial, sans-serif;
+    padding: 0;
     margin: 0;
+    overflow-x: hidden;
     color: #fff;
     background-color: #1c1c1c; /* Background color for the page */
 }
@@ -222,7 +226,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: #1c1c1c;
+    background-color: #000; /*#1c1c1c; */
     padding: 10px 20px;
     position: sticky;
     top: 0;
@@ -238,6 +242,31 @@ body {
     gap: 20px;
     flex: 0 0 auto;
     /* justify-content: flex-start; */
+}
+
+.section-title a {
+    background-color: #1c1c1c; /* Match header background */
+    padding: 10px 15px;
+    border-radius: 5px;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.section-title a:hover {
+    background-color: #333;
+    color: #ff4081;
+}
+
+.section-title i {
+    margin-left: 8px;
+    font-size: 16px;
+    transition: transform 0.3s ease;
+}
+
+.section-title a:hover i {
+    transform: translateX(5px);
 }
 
 /* Hamburger Menu Button */
@@ -277,10 +306,11 @@ body {
     display: flex;
     align-items: center;
     gap: 0px; /* Space between form elements */
-    background-color: #fff; /* Match the white background of the bar */
+    background-color: #000; /* Match the white background of the bar */
     border-radius: 30px; /* Rounded corners */
     padding: 3px; /* Padding around the elements */
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    border: 1px solid #808080;
 }
 
 /* Search Input */
@@ -292,7 +322,7 @@ body {
     font-size: 16px;
     border-radius: 50px;
     background-color: transparent; /* Match the form background */
-    color: #333; /* Dark text for better contrast */
+    color: white; /* Dark text for better contrast */
     margin: 0;
 }
 
@@ -300,7 +330,7 @@ body {
 .search-button {
     background: none; /* Remove background */
     border: none; /* Remove border */
-    color: #000; /* Simple black color for the icon */
+    color: white; /* Simple black color for the icon */
     padding: 0 15px; /* Add some horizontal padding for spacing */
     font-size: 16px;
     cursor: pointer;
@@ -317,7 +347,7 @@ body {
 /* Filter Button */
 .filter-button {
     background-color: #000;
-    border: none;
+    border: 1px solid #808080;
     color: #fff;
     padding: 8px 15px;
     border-radius: 50px;
@@ -418,7 +448,7 @@ body {
     font-size: 16px; /* Text size */
     font-weight: bold; /* Bold text */
     padding: 10px 20px; /* Add padding for a larger button */
-    border: none; /* Remove borders */
+    border: 1px solid #808080;; /* Remove borders */
     border-radius: 30px; /* Rounded corners */
     cursor: pointer; /* Show pointer on hover */
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
