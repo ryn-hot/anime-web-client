@@ -7,7 +7,7 @@ body {
     margin: 0;
     overflow-x: hidden;
     color: #fff;
-    background-color: #000/*#1c1c1c; */ /* Background color for the page */
+    background-color: #1c1c1c; /* #000/* */ /* Background color for the page */
 }
 
 /* Main Content */
@@ -226,8 +226,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: #000; /*#1c1c1c; */
-    padding: 10px 20px;
+    background-color: #000; /*#000; /*#1c1c1c; */
+    padding: 0px;
     position: sticky;
     top: 0;
     z-index: 1000;
@@ -239,13 +239,13 @@ body {
     display: flex;
     align-items: center;
     /*flex-grow: 1;  Allow it to occupy available space */
-    gap: 20px;
+    gap: 0px;
     flex: 0 0 auto;
     /* justify-content: flex-start; */
 }
 
 .section-title a {
-    background-color: #000;/* #1c1c1c; */ /* Match header background */
+    background-color: #1c1c1c;/* #1c1c1c; */ /* Match header background */
     padding: 5px 0px;
     border-radius: 5px;
     color: rgba(255, 255, 255, 0.7);;
@@ -275,11 +275,12 @@ body {
     color: #fff;
     font-size: 24px;
     cursor: pointer;
+    width: 60px;
+    height: 70px;
+    padding: 0;
 }
 
-.menu-button:focus {
-    outline: 2px solid #ff4081;
-}
+
 
 /* Logo Styling */
 .logo {
@@ -451,6 +452,7 @@ body {
     cursor: pointer; /* Show pointer on hover */
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
     transition: background-color 0.3s ease, transform 0.2s ease; /* Add smooth transitions */
+    margin-right: 20px;
 }
 
 .login-button:hover {
