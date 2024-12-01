@@ -388,8 +388,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function toggleSidebar() {
         if (sidebar.classList.contains('expanded')) {
             sidebar.classList.remove('expanded');
+            overlay.classList.remove('active'); // Hide overlay when collapsing
         } else {
             sidebar.classList.add('expanded');
+            overlay.classList.add('active'); // Show overlay when expanding
         }
     }
 
@@ -407,8 +409,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event listener for menu button
     menuButton.addEventListener('click', () => {
         toggleSidebar();
-        showOverlay();
     });
+    
 
     // Event listener for overlay click
     overlay.addEventListener('click', closeSidebar);
