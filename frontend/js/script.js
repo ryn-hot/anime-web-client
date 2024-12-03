@@ -395,10 +395,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Open overlay when sidebar is expanded
-    function showOverlay() {
-        overlay.classList.add('active');
-    }
 
     // Close overlay and sidebar
     function closeSidebar() {

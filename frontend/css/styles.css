@@ -534,7 +534,8 @@ body {
 
 /* Sidebar hover effect */
 .sidebar-item:hover {
-    background-color: #333; /* Highlight on hover */
+    color: black;
+    background-color: white; /* Highlight on hover */
 }
 
 /* Prevent movement during expansion */
@@ -720,6 +721,46 @@ body {
     .sidebar.active {
         left: 0; /* Visible state */
     }
+}
+
+
+/* search.html */
+
+.icon-container {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.icon-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 5px;
+    width: 120px; /* Adjust width for each field */
+}
+
+.icon-field svg {
+    margin-bottom: 5px;
+}
+
+.icon-input {
+    width: 100%;
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #555;
+    background-color: #333;
+    color: #fff;
+    font-size: 14px;
+    text-align: center;
+}
+
+.icon-input:focus {
+    outline: none;
+    border-color: #888;
 }
 
 @media (max-width: 600px) {

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SecretAnime</title>
+    <!-- Link to the external CSS file -->
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Link to Font Awesome for icons -->
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css">
+    <!--Link to Poppins Font-->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav id="sidebar" class="sidebar" role="navigation" aria-label="Main Navigation">
+        <ul class="sidebar-menu">
+            <li>
+                <a href="#" class="sidebar-item">
+                    <i class="fas fa-home"></i>
+                    <span class="sidebar-label">Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="sidebar-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span class="sidebar-label">Trending</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="sidebar-item">
+                    <i class="fas fa-clock"></i>
+                    <span class="sidebar-label">Recents</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="sidebar-item">
+                    <i class="fas fa-search-location"></i>
+                    <span class="sidebar-label">Discover</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="sidebar-item">
+                    <i class="fas fa-history"></i>
+                    <span class="sidebar-label">History</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="sidebar-item">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span class="sidebar-label">Schedule</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Overlay -->
+    <div id="overlay" class="overlay"></div>
+
+    <!-- Header Bar -->
+    <header class="header">
+        <div class="header-left">
+            <!-- Hamburger Menu -->
+            <button class="menu-button" aria-label="Open Menu">
+                <i class="fas fa-bars"></i>
+            </button>
+            <!-- Site Title -->
+            <div class="logo">SecretAnime</div>
+        </div>
+        
+        <div class="header-center">
+            <div class="icon-container">
+                <div class="icon-field">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 512 512"><path fill="currentColor" d="M46.5 0v139.6h23.3c0-23.3 0-69.8 23.3-93.1c23.2-23.3 46.5-23.3 69.8-23.3h46.5v395.6c0 34.9-11.6 69.8-46.5 69.8h-22.8l-.5 23.2h232.7v-23.3H349c-34.9 0-46.5-34.9-46.5-69.8V23.3H349c23.3 0 46.5 0 69.8 23.3s23.3 69.8 23.3 93.1h23.3V0z"/></svg> 
+                    <span> Title </span>
+                    <input type="text" placeholder="Any" class="icon-input" />
+                </div>
+                <div class="icon-field">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 11h.01M14 6h.01M18 6h.01M6.5 13.1h.01M22 5c0 9-4 12-6 12s-6-3-6-12q0-3 6-3c6 0 6 1 6 3"/><path d="M17.4 9.9c-.8.8-2 .8-2.8 0m-4.5-2.8C9 7.2 7.7 7.7 6 8.6c-3.5 2-4.7 3.9-3.7 5.6c4.5 7.8 9.5 8.4 11.2 7.4c.9-.5 1.9-2.1 1.9-4.7"/><path d="M9.1 16.5c.3-1.1 1.4-1.7 2.4-1.4"/></g></svg>
+                    <span>Genre</span>
+                    <select class="icon-input">
+                        <option>Any</option>
+                        <option>Action</option>
+                        <option>Comedy</option>
+                    </select>
+                </div>
+                <div class="icon-field">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2 21q1-6 6-7t6-3m5-9q-2 4-8 4a1 1 0 0 0 0 14a10 11 0 0 0 8-18"/></svg>
+                    <select class="icon-input">
+                        <option>Fall</option>
+                        <option>Winter</option>
+                        <option>Spring</option>
+                        <option>Summer</option>
+                    </select>
+                    <select class="icon-input">
+                        <option>2024</option>
+                        <option>2023</option>
+                    </select>
+                </div>
+                <div class="icon-field">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><path d="m17 2l-5 5l-5-5"/></g></svg>
+                    <span>Format</span>
+                    <select class="icon-input">
+                        <option>TV Show</option>
+                        <option>Movie</option>
+                        <option>OVA</option>
+                    </select>
+                </div>
+                <div class="icon-field">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 7.75a.75.75 0 0 1 1.142-.638l3.664 2.249a.75.75 0 0 1 0 1.278l-3.664 2.25a.75.75 0 0 1-1.142-.64zM7 21h10"/><rect width="20" height="14" x="2" y="3" rx="2"/></g></svg>
+                    <span>Status</span>
+                    <select class="icon-input">
+                        <option>Any</option>
+                        <option>Completed</option>
+                        <option>Ongoing</option>
+                    </select>
+                </div>
+                <div class="icon-field">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 56 56"><path fill="currentColor" fill-rule="evenodd" d="M15.172 10a2 2 0 0 1 2 2v27.2l3.785-3.786a2 2 0 0 1 2.828 2.829l-7.07 7.07l-.122.113l-.128.1a2 2 0 0 1-2.63-.038l-.178-.174l-7.071-7.071a2 2 0 0 1 2.828-2.829l3.758 3.758V12a2 2 0 0 1 2-2M31 28a2 2 0 1 1 0 4h-8a2 2 0 1 1 0-4zm8-8a2 2 0 1 1 0 4H23a2 2 0 1 1 0-4zm8-8a2 2 0 1 1 0 4H23a2 2 0 1 1 0-4z"/></svg>
+                    <span>Sort</span>
+                    <select class="icon-input">
+                        <option>Name</option>
+                        <option>Popularity</option>
+                        <option>Rating</option>
+                    </select>
+                </div>
+            </div>            
+        </div>
+
+        <div class="header-right">
+        </div>
+    </header>
+
+    <main id="main-content">
+    </main>
+
+    <script src="https://code.iconify.design/2/2.1.2/iconify.min.js"></script>
+    <script src="js/script.js"></script>
+
+</body>
+</html>
+
+   
