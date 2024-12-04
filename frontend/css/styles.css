@@ -729,7 +729,7 @@ body {
 
 /* Header Bar */
 .header-search {
-    height: 100px;
+    /* height: 100px; */
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -756,12 +756,12 @@ body {
 .icon-input {
     width: 100%;
     padding: 5px 0px;
-    border-radius: 3px;
+    border-radius: 10px;
     border: 1px solid #555;
     background-color: #333;
     color: #fff;
     font-size: 14px;
-    text-align: center;
+    text-align: left;
 }
 
 .icon-input:focus {
@@ -769,6 +769,16 @@ body {
     border-color: #888;
 }
 
+.icon-input-ss {
+    width: 100px;
+    padding: 5px 0px;
+    border-radius: 10px;
+    border: 1px solid #555;
+    background-color: #333;
+    color: #fff;
+    font-size: 14px;
+    text-align: left;
+}
 /* New styles for icon-label */
 .icon-label {
     display: flex;
@@ -783,7 +793,7 @@ body {
 }
 
 .icon-label span {
-    font-size: 14px;
+    font-size: 20px;
 }
 
 /* New styles for select-group */
@@ -791,28 +801,46 @@ body {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 0px;
+    gap: -5px;
 }
 
 /* Adjust .icon-field */
 .icon-field {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    text-align: center;
+    align-items: flex-start;
+    text-align: left;
     gap: 0px;
     flex: 1 1 100px;
 }
 
-.icon-field .select-group {
-    gap: 5px; /* Ensure small gap between Season and Year */
-    margin: 0; /* Reset any inherited margin */
-    padding: 0; /* Reset any inherited padding */
-    align-items: center; /* Vertically center both dropdowns */
-}
 
 .icon-field svg {
     margin-bottom: 5px;
+}
+
+
+/* Styles for input with icon */
+.input-with-icon {
+    position: relative;
+    width: 100%;
+}
+
+.input-with-icon i {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #aaa; /* Adjust icon color as needed */
+    font-size: 16px; /* Adjust icon size as needed */
+    pointer-events: none; /* Allow clicks to pass through to the input field */
+}
+
+.input-with-icon .icon-input {
+    width: 100%;
+    padding-left: 35px; /* Adjust padding to make space for the icon */
+    padding-right: 10px; /* Optional: adjust right padding */
+    box-sizing: border-box; /* Include padding in the total width */
 }
 
 @media (max-width: 600px) {
