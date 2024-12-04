@@ -290,6 +290,7 @@ body {
 }
 
 /* Search Content */
+
 .search-content {
     display: flex;
     align-items: center;
@@ -366,7 +367,7 @@ body {
 
 /* Header Center (Empty) */
 .header-center {
-    flex: 1;
+    flex: 1 1 auto;
     display: flex;
     align-items: center;
     justify-content: center; /* Center the search bar horizontally */
@@ -726,12 +727,27 @@ body {
 
 /* search.html */
 
+/* Header Bar */
+.header-search {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #000; /*#000; /*#1c1c1c; */
+    padding: 0px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    transition: margin-left 0.3s ease; /*,Removed shifting */
+}
+
 .icon-container {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
+    justify-content: flex-start;
     flex-wrap: wrap;
     gap: 20px;
+    width: 90%;
 }
 
 
@@ -739,8 +755,8 @@ body {
 
 .icon-input {
     width: 100%;
-    padding: 5px 10px;
-    border-radius: 5px;
+    padding: 5px 0px;
+    border-radius: 3px;
     border: 1px solid #555;
     background-color: #333;
     color: #fff;
@@ -775,7 +791,7 @@ body {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 1px;
+    gap: 0px;
 }
 
 /* Adjust .icon-field */
@@ -785,6 +801,14 @@ body {
     align-items: center;
     text-align: center;
     gap: 0px;
+    flex: 1 1 100px;
+}
+
+.icon-field .select-group {
+    gap: 5px; /* Ensure small gap between Season and Year */
+    margin: 0; /* Reset any inherited margin */
+    padding: 0; /* Reset any inherited padding */
+    align-items: center; /* Vertically center both dropdowns */
 }
 
 .icon-field svg {
