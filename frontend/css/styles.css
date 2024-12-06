@@ -631,7 +631,7 @@ body {
     flex: 0 0 auto;
     width: 135px;
     overflow: hidden;
-    text-align: center;
+    text-align: left;
 }
 
 .anime-item img {
@@ -841,6 +841,67 @@ body {
     padding-left: 35px; /* Adjust padding to make space for the icon */
     padding-right: 10px; /* Optional: adjust right padding */
     box-sizing: border-box; /* Include padding in the total width */
+}
+
+/* anime grid */
+.anime-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 135px); /* 8 columns, each 135px wide */
+    gap: 30px;
+    padding-top: 20px;
+    justify-content: center; /* Center the entire grid horizontally */
+    margin: 0 auto; /* Ensure the grid container itself is centered if it has extra space */
+}
+
+/* Each anime card (when data is loaded) */
+.anime-card {
+    width: 135px;
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+
+.anime-card img {
+    width: 100%;
+    border-radius: 5px;
+}
+
+.anime-card .anime-title {
+    font-size: 14px;
+    margin-top: 5px;
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+}
+
+/* Placeholder shimmer styles */
+.placeholder-card {
+    width: 135px;
+    height: 200px; 
+    border-radius: 5px;
+    background: #2C2C2C;
+    position: relative;
+    overflow: hidden;
+}
+
+.placeholder-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -150px;
+    width: 150px;
+    height: 100%;
+    background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+    animation: shimmer 1.5s infinite;
+}
+
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-150px);
+    }
+    100% {
+        transform: translateX(150px);
+    }
 }
 
 @media (max-width: 600px) {
