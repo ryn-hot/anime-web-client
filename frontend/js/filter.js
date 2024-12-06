@@ -224,6 +224,7 @@ function updateAnimeList() {
           coverImage {
             medium
             extraLarge
+            color
           }
           season
           seasonYear
@@ -296,16 +297,22 @@ function displayAnime(animeList) {
         const animeItem = document.createElement('div');
         animeItem.classList.add('anime-item'); // Use the same class as on the landing page
 
-        const animeImage = document.createElement('img');
+        // Create the image wrapper
+        const imageWrapper = document.createElement('div');
+        imageWrapper.classList.add('image-wrapper');
+
+        const img = document.createElement('img');
         // Use large if available, fallback to medium
-        animeImage.src = anime.coverImage.extraLarge // || anime.coverImage.medium;
-        animeImage.alt = anime.title.romaji;
+        img.src = anime.coverImage.extraLarge || anime.coverImage.medium;
+        img.alt = anime.title.romaji;
 
-        const animeTitle = document.createElement('h3');
-        animeTitle.textContent = anime.title.english || anime.title.romaji;
+        imageWrapper.appendChild(img);
+        animeItem.appendChild(imageWrapper);
 
-        animeItem.appendChild(animeImage);
-        animeItem.appendChild(animeTitle);
+        const title = document.createElement('h3');
+        title.textContent = anime.title.english || anime.title.romaji;
+
+        animeItem.appendChild(title);
 
         grid.appendChild(animeItem);
     });
