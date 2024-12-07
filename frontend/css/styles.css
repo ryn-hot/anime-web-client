@@ -628,8 +628,9 @@ body {
 
 /* Anime Item */
 .anime-item {
-    width: 135px;
+    width: 150px;
     text-align: left; 
+    flex-shrink: 0;
     /* Remove height: 200px; and overflow: hidden; so the container can grow with content */
 }
 
@@ -650,8 +651,12 @@ body {
 
 .anime-item h3 {
     font-size: 12px;
-    margin: 5px 0;
-    padding: 0 5px;
+    margin: 10px 0 0 0; /* 5px gap on top now */
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
     /* text styling as before */
 }
 
@@ -850,32 +855,14 @@ body {
 /* anime grid */
 .anime-grid {
     display: grid;
-    grid-template-columns: repeat(8, 135px); /* 8 columns, each 135px wide */
+    grid-template-columns: repeat(8, 150px); /* 8 columns, each 135px wide */
     gap: 30px;
     padding-top: 20px;
     justify-content: center; /* Center the entire grid horizontally */
     margin: 0 auto; /* Ensure the grid container itself is centered if it has extra space */
 }
 
-/* Each anime card (when data is loaded) */
-.anime-card {
-    width: 135px;
-    display: flex;
-    flex-direction: column;
-    text-align: left;
-}
 
-.anime-card img {
-    width: 100%;
-    border-radius: 5px;
-}
-
-.anime-card .anime-title {
-    font-size: 14px;
-    margin-top: 5px;
-    color: #fff;
-    font-family: 'Poppins', sans-serif;
-}
 
 /* Placeholder shimmer styles */
 .placeholder-card {
