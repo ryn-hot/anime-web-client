@@ -32,43 +32,66 @@ document.addEventListener('DOMContentLoaded', () => {
     populateYearSelect();
 
 
-    // Query selectors for filters
-    const titleInput = document.querySelector('.icon-input[placeholder="Any"]'); // Title field
+    // Query selectors by name attribute
+    const searchInput = document.querySelector('.search-input[name="keyword"]');
     const genreSelect = document.querySelector('.icon-input[name="genre"]');
-    const seasonSelect = document.querySelector('.icon-input-ss[name="season"]');
-    const yearSelect = document.querySelector('.icon-input-ss[name="year"]');
-    const formatSelect = document.querySelector('.icon-field:nth-child(4) .icon-input'); // 4th icon-field is Format
-    const statusSelect = document.querySelector('.icon-field:nth-child(5) .icon-input'); // 5th is Status
-    const sortSelect = document.querySelector('.icon-field:nth-child(6) .icon-input'); // 6th is Sort
+    const seasonSelect = document.querySelector('.icon-input[name="season"]');
+    const yearSelect = document.querySelector('.icon-input[name="year"]');
+    const formatSelect = document.querySelector('.icon-input[name="format"]');
+    const statusSelect = document.querySelector('.icon-input[name="status"]');
+    const sortSelect = document.querySelector('.icon-input[name="sort"]');
 
-    // Listen for changes in filters
-    [titleInput, genreSelect, seasonSelect, yearSelect, formatSelect, statusSelect, sortSelect].forEach(el => {
+
+    // Put all filter elements into an array (excluding searchInput if you only want update on user typing)
+    // If you want updates on search input typing, include searchInput as well.
+    const filterElements = [genreSelect, seasonSelect, yearSelect, formatSelect, statusSelect, sortSelect].filter(el => el !== null);
+
+    // Attach listeners to each filter
+    filterElements.forEach(el => {
         el.addEventListener('change', updateAnimeList);
-        el.addEventListener('input', updateAnimeList); // For text fields on input
+        el.addEventListener('input', updateAnimeList);
     });
 
     // Initial fetch on load
     updateAnimeList();
 
+    /** 
+     * Polling logic for the search bar:
+     * We'll check every 500ms if the search text has changed.
+     */
+    let lastSearchValue = searchInput ? searchInput.value.trim() : '';
+
+    setInterval(() => {
+        if (!searchInput) return;
+        const currentValue = searchInput.value.trim();
+        if (currentValue !== lastSearchValue) {
+            // The value changed; call updateAnimeList()
+            lastSearchValue = currentValue;
+            updateAnimeList();
+        }
+    }, 1000); // Poll every 500ms
+
+    // Toggle sidebar expand/collapse
+    function toggleSidebar() {
+        if (sidebar.classList.contains('expanded')) {
+            sidebar.classList.remove('expanded');
+            overlay.classList.remove('active'); // Hide overlay when collapsing
+        } else {
+            sidebar.classList.add('expanded');
+            overlay.classList.add('active'); // Show overlay when expanding
+        }
+    }
+
+    // Close overlay and sidebar
+    function closeSidebar() {
+        sidebar.classList.remove('expanded');
+        overlay.classList.remove('active');
+    }
+
 });
 
 
-// Toggle sidebar expand/collapse
-function toggleSidebar() {
-    if (sidebar.classList.contains('expanded')) {
-        sidebar.classList.remove('expanded');
-        overlay.classList.remove('active'); // Hide overlay when collapsing
-    } else {
-        sidebar.classList.add('expanded');
-        overlay.classList.add('active'); // Show overlay when expanding
-    }
-}
 
-// Close overlay and sidebar
-function closeSidebar() {
-    sidebar.classList.remove('expanded');
-    overlay.classList.remove('active');
-}
 
 function fetchGenres() {
     const query = `
@@ -122,7 +145,7 @@ function populateGenreSelect(genres) {
 function populateYearSelect() {
     const currentYear = new Date().getFullYear();
     const startYear = 1950; // Adjust as needed
-    const yearSelect = document.querySelector('.icon-input-ss[name="year"]');
+    const yearSelect = document.querySelector('.icon-input[name="year"]');
 
     // Clear existing options
     yearSelect.innerHTML = '';
@@ -163,30 +186,32 @@ function highlightActiveLink() {
  * Display shimmering placeholders while loading.
  */
 function updateAnimeList() {
-    const titleInput = document.querySelector('.icon-input[placeholder="Any"]');
-    const genreSelect = document.querySelector('.icon-input[name="genre"]');
-    const seasonSelect = document.querySelector('.icon-input-ss[name="season"]');
-    const yearSelect = document.querySelector('.icon-input-ss[name="year"]');
-    const formatSelect = document.querySelectorAll('.icon-field')[3].querySelector('.icon-input');
-    const statusSelect = document.querySelectorAll('.icon-field')[4].querySelector('.icon-input');
-    const sortSelect = document.querySelectorAll('.icon-field')[5].querySelector('.icon-input');
+    const searchInput = document.querySelector('.search-input[name="keyword"]');
+    const genreSelect = document.querySelector('select[name="genre"]');
+    const seasonSelect = document.querySelector('select[name="season"]');
+    const yearSelect = document.querySelector('select[name="year"]');
+    const formatSelect = document.querySelector('select[name="format"]');
+    const statusSelect = document.querySelector('select[name="status"]');
+    const sortSelect = document.querySelector('select[name="sort"]');
 
-    const title = titleInput.value.trim();
-    const genre = genreSelect.value;
-    const season = seasonSelect.value === "Any" ? null : seasonSelect.value.toUpperCase();
-    const year = yearSelect.value ? parseInt(yearSelect.value) : null;
-    let format = formatSelect.value;
+    const title = searchInput ? searchInput.value.trim() : '';
+    const genre = genreSelect ? genreSelect.value : '';
+    const seasonVal = (seasonSelect && seasonSelect.value !== "Any") ? seasonSelect.value.toUpperCase() : null;
+    const year = yearSelect && yearSelect.value ? parseInt(yearSelect.value) : null;
+
     // AniList supports formats like TV, TV_SHORT, OVA, ONA, MOVIE, SPECIAL, etc.
     // Map user-friendly formats to AniList formats if needed:
-    let mappedFormat = "";
-    switch(format) {
-        case "TV Show": mappedFormat = "TV"; break;
-        case "Movie": mappedFormat = "MOVIE"; break;
-        case "TV Short": mappedFormat = "TV_SHORT"; break;
-        case "Special": mappedFormat = "SPECIAL"; break;
-        case "OVA": mappedFormat = "OVA"; break;
-        case "ONA": mappedFormat = "ONA"; break;
-        default: mappedFormat = null;
+    let mappedFormat = null;
+    if (formatSelect) {
+        switch(formatSelect.value) {
+            case "TV Show": mappedFormat = "TV"; break;
+            case "Movie": mappedFormat = "MOVIE"; break;
+            case "TV Short": mappedFormat = "TV_SHORT"; break;
+            case "Special": mappedFormat = "SPECIAL"; break;
+            case "OVA": mappedFormat = "OVA"; break;
+            case "ONA": mappedFormat = "ONA"; break;
+            default: mappedFormat = null;
+        }
     }
 
     const statusMap = {
@@ -196,60 +221,57 @@ function updateAnimeList() {
         "Not Yet Aired": "NOT_YET_RELEASED",
         "Cancelled": "CANCELLED"
     };
-    const status = statusMap[statusSelect.value] || null;
+    const status = (statusSelect && statusSelect.value in statusMap) ? statusMap[statusSelect.value] : null;
 
-    // AniList sort options: ["POPULARITY_DESC", "TRENDING_DESC", "SCORE_DESC", "START_DATE_DESC", ...]
-    let sortVal = [];
-    switch(sortSelect.value) {
-        case "Score": sortVal = ["SCORE_DESC"]; break;
-        case "Popularity": sortVal = ["POPULARITY_DESC"]; break;
-        case "Trending": sortVal = ["TRENDING_DESC"]; break;
-        case "Release Date": sortVal = ["START_DATE_DESC"]; break;
-        case "Updated Date": sortVal = ["UPDATED_AT_DESC"]; break;
-        default: sortVal = ["POPULARITY_DESC"]; // Default sort
+    let sortVal = ["POPULARITY_DESC"];
+    if (sortSelect) {
+        switch(sortSelect.value) {
+            case "Score": sortVal = ["SCORE_DESC"]; break;
+            case "Popularity": sortVal = ["POPULARITY_DESC"]; break;
+            case "Trending": sortVal = ["TRENDING_DESC"]; break;
+            case "Release Date": sortVal = ["START_DATE_DESC"]; break;
+            case "Updated Date": sortVal = ["UPDATED_AT_DESC"]; break;
+            case "Name":
+            default: sortVal = ["POPULARITY_DESC"];
+        }
     }
 
-    // Display placeholders
     showPlaceholders();
 
     const query = `
     query($page:Int,$perPage:Int,$search:String,$genre:[String],$season:MediaSeason,$seasonYear:Int,$format:MediaFormat,$status:MediaStatus,$sort:[MediaSort]) {
-      Page(page:$page,perPage:$perPage) {
-        media(search:$search,genre_in:$genre,season:$season,seasonYear:$seasonYear,format:$format,status:$status,sort:$sort,type:ANIME) {
-          id
-          title {
-            english
-            romaji
-          }
-          coverImage {
-            medium
-            extraLarge
-            color
-          }
-          season
-          seasonYear
+        Page(page:$page, perPage:$perPage) {
+            media(search:$search, genre_in:$genre, season:$season, seasonYear:$seasonYear, format:$format, status:$status, sort:$sort, type:ANIME) {
+                id
+                title {
+                    english
+                    romaji
+                }
+                coverImage {
+                    medium
+                    extraLarge
+                    color
+                }
+                season
+                seasonYear
+            }
         }
-      }
     }`;
 
-    // We want 32 results per request, for simplicity set perPage=32
     const variables = {
         page: 1,
         perPage: 32,
         search: title || undefined,
         genre: genre || undefined,
-        season: season || undefined,
+        season: seasonVal || undefined,
         seasonYear: year || undefined,
         format: mappedFormat || undefined,
         status: status || undefined,
         sort: sortVal
     };
 
-    // Clean up variables by removing undefined
     Object.keys(variables).forEach(key => {
-        if (variables[key] === undefined) {
-            delete variables[key];
-        }
+        if (variables[key] === undefined) delete variables[key];
     });
 
     fetch('https://graphql.anilist.co', {
@@ -267,7 +289,7 @@ function updateAnimeList() {
     })
     .catch(error => {
         console.error('Error fetching anime:', error);
-        displayAnime([]); // In case of error, show empty
+        displayAnime([]);
     });
 }
 

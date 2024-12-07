@@ -6,9 +6,33 @@ body {
     padding: 0;
     margin: 0;
     overflow-x: hidden;
+    overflow-y: scroll; /* Forces scrollbar to always show */
+    scrollbar-gutter: stable; /* Modern browsers - reserves space for scrollbar */
     color: #fff;
     background-color: #1c1c1c; /* #000/* */ /* Background color for the page */
 }
+
+/* Custom Scrollbar for WebKit Browsers (Chrome, Safari, Edge) */
+body::-webkit-scrollbar {
+    margin: 0;
+    padding: 0;
+    width: 6px; /* Sets the width of the scrollbar */
+}
+
+body::-webkit-scrollbar-track {
+    background: #1c1c1c; /* Matches the background color of your site */
+}
+
+body::-webkit-scrollbar-thumb {
+    background-color: #555; /* Color of the scrollbar thumb */
+    border-radius: 3px; /* Rounds the corners of the thumb */
+    border: 1px solid #1c1c1c; /* Adds a border to blend with the track */
+}
+
+body::-webkit-scrollbar-thumb:hover {
+    background-color:  #888; /* Changes thumb color on hover for better visibility */
+}
+
 
 /* Main Content */
 #main-content {
@@ -745,25 +769,14 @@ body {
     background-color: #1c1c1c; /* a background to differentiate from content */
     padding: 20px;
     z-index: 10; /* ensure it's on top of the grid */
-}
-
-.header-search {
-    /* height: 100px; */
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background-color: #000; /*#000; /*#1c1c1c; */
-    padding: 0px;
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    transition: margin-left 0.3s ease; /*,Removed shifting */
+    display: flex;           /* Add this */
+    justify-content: center; /* Add this */
 }
 
 .icon-container {
     display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: center;
     flex-wrap: wrap;
     gap: 20px;
     width: 90%;
