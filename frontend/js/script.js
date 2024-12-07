@@ -45,20 +45,28 @@ function displayAnime(data, containerId) {
     const animeList = data.data.Page.media;
     const container = document.getElementById(containerId);
 
+    // Clear container if needed
+    container.innerHTML = '';
+
     animeList.forEach(anime => {
         const animeItem = document.createElement('div');
         animeItem.classList.add('anime-item');
 
-        const animeImage = document.createElement('img');
-        animeImage.src = anime.coverImage.large;
-        animeImage.alt = anime.title.english || anime.title.romaji;
-
+        // Create the image wrapper
+        const imageWrapper = document.createElement('div');
+        imageWrapper.classList.add('image-wrapper');
+ 
+        const img = document.createElement('img');
+        img.src = anime.coverImage.large;
+        img.alt = anime.title.english || anime.title.romaji;
+ 
+        imageWrapper.appendChild(img);
+        animeItem.appendChild(imageWrapper);
+ 
         const animeTitle = document.createElement('h3');
         animeTitle.textContent = anime.title.english || anime.title.romaji;
-
-        animeItem.appendChild(animeImage);
         animeItem.appendChild(animeTitle);
-
+ 
         container.appendChild(animeItem);
     });
 }
