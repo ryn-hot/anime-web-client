@@ -68,6 +68,35 @@
         </div>
         
         <div class="header-center">
+            <!-- Search Container -->
+            <div class="search-content">
+                <form action="/search" autocomplete="off">
+                    <button type="submit" class="search-button">
+                        <i class="fas fa-search"></i>
+                    </button><!--
+                    --><input
+                        type="text"
+                        class="form-control search-input"
+                        name="keyword"
+                        placeholder="Search anime..."
+                        required=""
+                    />
+                    <button type="button" class="filter-button" onclick="window.location.href='/filter'">
+                        <i class="fas fa-filter"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <!-- Login Button -->
+            <button class="login-button" id="login-button">Login with Anilist</button>
+        </div>
+    </header>
+
+    <main id="main-content">
+        <!-- New filters overlay container -->
+        <div class="filters-overlay">
             <div class="icon-container">
                 <!-- Title Field -->
                 <div class="icon-field">
@@ -168,16 +197,11 @@
                     </select>
                 </div>
 
-            </div>            
-        </div>
+            </div>
+        </div>          
 
-        <div class="header-right">
-            <!-- Login Button -->
-            <button class="login-button" id="login-button">Login with Anilist</button>
-        </div>
-    </header>
 
-    <main id="main-content">
+
          <!-- Container for anime results -->
          <div class="anime-grid" id="anime-grid"></div>
     </main>
