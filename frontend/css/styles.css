@@ -737,6 +737,16 @@ body {
 /* search.html */
 
 /* Header Bar */
+.filters-overlay {
+    position: sticky; /* or absolute if you want it fixed at top */
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: #1c1c1c; /* a background to differentiate from content */
+    padding: 20px;
+    z-index: 10; /* ensure it's on top of the grid */
+}
+
 .header-search {
     /* height: 100px; */
     display: flex;
