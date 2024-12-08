@@ -90,6 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
+let currentPage = 1;
+let lastFilters = {};
 
 
 
@@ -185,7 +187,7 @@ function highlightActiveLink() {
  * Fetch and update anime list based on filters.
  * Display shimmering placeholders while loading.
  */
-function updateAnimeList() {
+function updateAnimeList(append = false) {
     const searchInput = document.querySelector('.search-input[name="keyword"]');
     const genreSelect = document.querySelector('select[name="genre"]');
     const seasonSelect = document.querySelector('select[name="season"]');
@@ -201,9 +203,10 @@ function updateAnimeList() {
 
     // AniList supports formats like TV, TV_SHORT, OVA, ONA, MOVIE, SPECIAL, etc.
     // Map user-friendly formats to AniList formats if needed:
-    let mappedFormat = null;
+    let mappedFormat = undefined;
     if (formatSelect) {
         switch(formatSelect.value) {
+            case "Any": mappedFormat = undefined; break;
             case "TV Show": mappedFormat = "TV"; break;
             case "Movie": mappedFormat = "MOVIE"; break;
             case "TV Short": mappedFormat = "TV_SHORT"; break;
