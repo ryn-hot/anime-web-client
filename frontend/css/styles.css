@@ -765,18 +765,20 @@ body::-webkit-scrollbar-thumb:hover {
     position: sticky; /* or absolute if you want it fixed at top */
     top: 0;
     left: 0;
-    width: 100%;
+    width: 95%;
     background-color: #1c1c1c; /* a background to differentiate from content */
     padding: 20px;
     z-index: 10; /* ensure it's on top of the grid */
     display: flex;           /* Add this */
     justify-content: center; /* Add this */
+    margin-left: 30px;
 }
 
 .icon-container {
     display: flex;
     align-items: center;
-    justify-content: center;
+    width: 1300px;
+    /* justify-content: center; */
     flex-wrap: wrap;
     gap: 20px;
     width: 90%;
@@ -793,7 +795,7 @@ body::-webkit-scrollbar-thumb:hover {
     border: 1px solid #555;
     background-color: #333;
     color: #fff;
-    font-size: 12px;
+    font-size: 14px;
     text-align: left;
 }
 
