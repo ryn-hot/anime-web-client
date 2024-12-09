@@ -786,13 +786,14 @@ body::-webkit-scrollbar-thumb:hover {
 
 
 .icon-input {
-    width: 100%;
+    width: 70%;
+    height: 35px;
     padding: 5px 0px;
-    border-radius: 10px;
+    border-radius: 5px;
     border: 1px solid #555;
     background-color: #333;
     color: #fff;
-    font-size: 14px;
+    font-size: 12px;
     text-align: left;
 }
 
@@ -801,16 +802,6 @@ body::-webkit-scrollbar-thumb:hover {
     border-color: #888;
 }
 
-.icon-input-ss {
-    width: 100px;
-    padding: 5px 0px;
-    border-radius: 10px;
-    border: 1px solid #555;
-    background-color: #333;
-    color: #fff;
-    font-size: 14px;
-    text-align: left;
-}
 /* New styles for icon-label */
 .icon-label {
     display: flex;
