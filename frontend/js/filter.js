@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM Content Loaded Event Fired!"); 
     const menuButton = document.querySelector('.menu-button');
@@ -24,6 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    window.addEventListener('scroll', handleInfiniteScroll);
+
 
     // Fetch and populate genres
     fetchGenres();
@@ -48,8 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Attach listeners to each filter
     filterElements.forEach(el => {
-        el.addEventListener('change', updateAnimeList);
-        el.addEventListener('input', updateAnimeList);
+        el.addEventListener('change', () => updateAnimeList());
+        el.addEventListener('input', ()  => updateAnimeList());
     });
 
     // Initial fetch on load
@@ -59,13 +62,12 @@ document.addEventListener('DOMContentLoaded', () => {
      * Polling logic for the search bar:
      * We'll check every 500ms if the search text has changed.
      */
-    let lastSearchValue = searchInput ? searchInput.value.trim() : '';
+    let lastSearchValue = searchInput ? searchInput.value.trim() : '';  
 
     setInterval(() => {
         if (!searchInput) return;
         const currentValue = searchInput.value.trim();
         if (currentValue !== lastSearchValue) {
-            // The value changed; call updateAnimeList()
             lastSearchValue = currentValue;
             updateAnimeList();
         }
@@ -88,11 +90,25 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.classList.remove('active');
     }
 
+    function handleInfiniteScroll() {
+        const scrollTop = window.scrollY;
+        const windowHeight = window.innerHeight;
+        const docHeight = document.documentElement.offsetHeight;
+    
+        const scrolledRatio = (scrollTop + windowHeight) / docHeight;
+    
+        // If scrolledRatio > 0.9 means user is at 90% down
+        if (scrolledRatio > 0.9 && !isFetching) {
+            isFetching = true;
+            updateAnimeList(true); // append = true
+        }
+    }
+
 });
 
 let currentPage = 1;
 let lastFilters = {};
-
+let isFetching = false;
 
 
 function fetchGenres() {
@@ -168,26 +184,13 @@ function populateYearSelect() {
 
 
 
-// Function to highlight active sidebar link
-function highlightActiveLink() {
-    const sections = document.querySelectorAll('main section');
-    const sidebarLinks = document.querySelectorAll('.sidebar-menu li a');
-
-    let index = sections.length;
-
-    while(--index && window.scrollY + 50 < sections[index].offsetTop) {}
-
-    sidebarLinks.forEach((link) => link.classList.remove('active'));
-    if(sidebarLinks[index]) {
-        sidebarLinks[index].classList.add('active');
-    }
-}
 
 /** 
  * Fetch and update anime list based on filters.
  * Display shimmering placeholders while loading.
  */
 function updateAnimeList(append = false) {
+    console.log("append: ", append);
     const searchInput = document.querySelector('.search-input[name="keyword"]');
     const genreSelect = document.querySelector('select[name="genre"]');
     const seasonSelect = document.querySelector('select[name="season"]');
@@ -239,7 +242,33 @@ function updateAnimeList(append = false) {
         }
     }
 
-    showPlaceholders();
+    // Current filter set to detect changes
+    const currentFilters = {
+        title,
+        genre,
+        seasonVal,
+        year,
+        mappedFormat,
+        status,
+        sortVal: sortVal.toString() // Convert array to string for comparison
+    };
+
+    // Check if filters changed (compare with lastFilters)
+    // If filters changed, reset currentPage = 1 and clear old results
+    const filtersChanged = JSON.stringify(currentFilters) !== JSON.stringify(lastFilters);
+    if (filtersChanged) {
+        console.log("filters changed")
+        currentPage = 1;
+        lastFilters = currentFilters;
+    }
+
+
+    // Show placeholders only if we are not appending
+    if (!append) {
+        showPlaceholders();
+    }
+
+
 
     const query = `
     query($page:Int,$perPage:Int,$search:String,$genre:[String],$season:MediaSeason,$seasonYear:Int,$format:MediaFormat,$status:MediaStatus,$sort:[MediaSort]) {
@@ -262,7 +291,7 @@ function updateAnimeList(append = false) {
     }`;
 
     const variables = {
-        page: 1,
+        page: currentPage,
         perPage: 32,
         search: title || undefined,
         genre: genre || undefined,
@@ -288,11 +317,17 @@ function updateAnimeList(append = false) {
     .then(res => res.json())
     .then(data => {
         const animeList = data.data.Page.media;
-        displayAnime(animeList);
+        if (animeList.length > 0) {
+            currentPage++;
+        }
+        displayAnime(animeList, append);
+        isFetching = false; // Allow more fetches
+        
     })
     .catch(error => {
         console.error('Error fetching anime:', error);
-        displayAnime([]);
+        if (!append) displayAnime([]);
+        isFetching = false;
     });
 }
 
@@ -306,16 +341,27 @@ function showPlaceholders() {
     }
 }
 
-function displayAnime(animeList) {
+function displayAnime(animeList, append = false) {
     const grid = document.getElementById('anime-grid');
-    grid.innerHTML = ''; // Clear placeholders
 
-    if (animeList.length === 0) {
+    if (!append) {
+        // If not appending, clear placeholders
+        console.log("clearing grid in display anime");
+        grid.innerHTML = ''; 
+    } 
+
+    if (animeList.length === 0 && !append) {
         const msg = document.createElement('p');
         msg.style.color = 'white';
         msg.textContent = 'No results found.';
         grid.appendChild(msg);
         return;
+    }
+
+    if (animeList.length === 0 && append) {
+        // No more data
+        // Potentially remove the event listener or set a flag that no more data is available
+        window.removeEventListener('scroll', handleInfiniteScroll);
     }
 
     animeList.forEach(anime => {
@@ -342,9 +388,3 @@ function displayAnime(animeList) {
         grid.appendChild(animeItem);
     });
 }
-
-// Listen to scroll events
-window.addEventListener('scroll', highlightActiveLink);
-
-// Initial highlight
-highlightActiveLink();
