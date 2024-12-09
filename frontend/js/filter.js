@@ -1,6 +1,12 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM Content Loaded Event Fired!"); 
+    const urlParams = new URLSearchParams(window.location.search);
+    const seasonParam = urlParams.get('season');
+    const seasonYearParam = urlParams.get('seasonYear');
+    const sortParam = urlParams.get('sort');
+    const genreParam = urlParams.get('genre');
+    
     const menuButton = document.querySelector('.menu-button');
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.overlay');
@@ -44,6 +50,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusSelect = document.querySelector('.icon-input[name="status"]');
     const sortSelect = document.querySelector('.icon-input[name="sort"]');
 
+    if (seasonParam && seasonSelect) {
+        seasonSelect.value = capitalizeFirstLetter(seasonParam.toLowerCase()); 
+        // If your select uses "Spring" "Winter" etc. ensure the case matches or map them
+    }
+
+    if (seasonYearParam && yearSelect) {
+        yearSelect.value = seasonYearParam;
+    }
+
+    if (sortParam && sortSelect) {
+        // Ensure the sort options in search.html match AniList sort naming or map them
+        // Example: if sortParam=TRENDING_DESC and you have an option named "Trending"
+        // you might need to handle mapping. Or ensure the search page logic supports it.
+        setSortByParam(sortSelect, sortParam);
+    }
+    
+
+    if (genreParam && genreSelect) {
+        genreSelect.value = genreParam;
+    }
 
     // Put all filter elements into an array (excluding searchInput if you only want update on user typing)
     // If you want updates on search input typing, include searchInput as well.
@@ -110,6 +136,22 @@ let currentPage = 1;
 let lastFilters = {};
 let isFetching = false;
 
+function capitalizeFirstLetter(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function setSortByParam(select, sortVal) {
+  // If your search page's "Sort" field uses human-readable names,
+  // you may need to map AniList sort options to those names.
+  // If your code already supports these exact strings, just set select.value = ...
+  // For example:
+  switch(sortVal) {
+    case 'TRENDING_DESC': select.value = 'Trending'; break;
+    case 'POPULARITY_DESC': select.value = 'Popularity'; break;
+    // Add other mappings as needed
+    default: break;
+  }
+}
 
 function fetchGenres() {
     const query = `
