@@ -3,7 +3,7 @@ function getCurrentSeason() {
     const month = new Date().getMonth() + 1;
     if (month >= 3 && month <= 5) return 'SPRING';
     if (month >= 6 && month <= 8) return 'SUMMER';
-    if (month >= 9 && month <= 11) return 'FALL';
+    if (month >= 9 && month <= 12) return 'FALL';
     return 'WINTER';
 }
 
@@ -392,6 +392,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.overlay');
 
+    const currentYear = new Date().getFullYear();
+    const currentSeason = getCurrentSeason(); 
+
+    const popularThisSeasonLink = document.getElementById('popular-this-season-link');
+    if (popularThisSeasonLink) {
+        popularThisSeasonLink.href = `search.html?season=${currentSeason}&seasonYear=${currentYear}&sort=POPULARITY_DESC`;
+    }
+
+    
     // Toggle sidebar expand/collapse
     function toggleSidebar() {
         if (sidebar.classList.contains('expanded')) {
