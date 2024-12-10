@@ -10,9 +10,9 @@ function getCurrentSeason() {
 // Function to fetch and display anime
 function fetchAndDisplayAnime(variables, containerId) {
     const query = `
-    query ($page: Int, $perPage: Int, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int) {
+    query ($page: Int, $perPage: Int, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int, $genre: [String]) {
         Page(page: $page, perPage: $perPage) {
-            media(sort: $sort, type: ANIME, season: $season, seasonYear: $seasonYear) {
+            media(sort: $sort, type: ANIME, genre_in: $genre, season: $season, seasonYear: $seasonYear) {
                 id
                 title {
                     romaji
@@ -25,6 +25,12 @@ function fetchAndDisplayAnime(variables, containerId) {
             }
         }
     }`;
+
+    // Adjust if genre is present:
+    if (variables.genre) {
+        variables.genre = [variables.genre];
+    }
+
 
     fetch('https://graphql.anilist.co', {
         method: 'POST',
@@ -70,6 +76,36 @@ function displayAnime(data, containerId) {
         container.appendChild(animeItem);
     });
 }
+
+function fetchGenres() {
+    const query = `
+        query {
+            GenreCollection
+        }
+    `;
+  
+    return fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        },
+        body: JSON.stringify({ query: query }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        const genres = data.data.GenreCollection;
+        return genres;
+    })
+    .catch(error => {
+        console.error('Error fetching genres:', error);
+    });
+}
+
+let genres = [];
+let genreIndex = 0; // Tracks how many genres we've already used
+let isAppendingGenres = false; // To prevent multiple triggers
+const genresPerBatch = 4; // Number of genre containers per load
 
 
 // Event listener for scroll buttons
@@ -391,6 +427,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const menuButton = document.querySelector('.menu-button');
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.overlay');
+    initializeScrollButtons();
+    
 
     const currentYear = new Date().getFullYear();
     const currentSeason = getCurrentSeason(); 
@@ -400,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         popularThisSeasonLink.href = `search.html?season=${currentSeason}&seasonYear=${currentYear}&sort=POPULARITY_DESC`;
     }
 
-    
+
     // Toggle sidebar expand/collapse
     function toggleSidebar() {
         if (sidebar.classList.contains('expanded')) {
@@ -437,6 +475,29 @@ document.addEventListener('DOMContentLoaded', () => {
             closeSidebar();
         }
     });
+
+    fetchGenres().then(g => {
+        genres = g; 
+    })
+
+    // Listen to scroll events
+    window.addEventListener('scroll', () => {
+        highlightActiveLink();
+
+        const scrollTop = window.scrollY;
+        const windowHeight = window.innerHeight;
+        const docHeight = document.documentElement.offsetHeight;
+        const scrolledRatio = (scrollTop + windowHeight) / docHeight;
+
+        // If scrolled more than 90% and not currently appending genres
+        if (scrolledRatio > 0.9 && !isAppendingGenres) {
+            // Add genre containers if we still have genres left
+            if (genreIndex < genres.length) {
+                isAppendingGenres = true;
+                appendGenreContainers();
+            }
+        }
+    });
 });
 
 
@@ -457,8 +518,124 @@ function highlightActiveLink() {
     }
 }
 
-// Listen to scroll events
-window.addEventListener('scroll', highlightActiveLink);
+
+
+
+function appendGenreContainers() {
+    const mainContent = document.getElementById('main-content');
+    const end = Math.min(genreIndex + genresPerBatch, genres.length);
+    const batch = genres.slice(genreIndex, end);
+
+    // Create a fragment for better performance
+    const fragment = document.createDocumentFragment();
+
+    batch.forEach(genre => {
+        // Create section
+        const section = document.createElement('section');
+
+        // Create h2 with link
+        const h2 = document.createElement('h2');
+        h2.classList.add('section-title');
+
+        // The link directs to search with genre preselected and popular sort
+        const a = document.createElement('a');
+        a.href = `search.html?genre=${encodeURIComponent(genre)}&sort=POPULARITY_DESC`;
+        a.textContent = genre;
+        const i = document.createElement('i');
+        i.classList.add('fas', 'fa-chevron-right');
+
+        a.appendChild(i);
+        h2.appendChild(a);
+        section.appendChild(h2);
+
+        // Create scroll container structure
+        const scrollContainer = document.createElement('div');
+        scrollContainer.classList.add('scroll-container');
+
+        // Left button
+        const leftButton = document.createElement('button');
+        leftButton.classList.add('scroll-button', 'left');
+        const leftIcon = document.createElement('i');
+        leftIcon.classList.add('fas', 'fa-chevron-left');
+        leftButton.appendChild(leftIcon);
+
+        // Right button
+        const rightButton = document.createElement('button');
+        rightButton.classList.add('scroll-button', 'right');
+        const rightIcon = document.createElement('i');
+        rightIcon.classList.add('fas', 'fa-chevron-right');
+        rightButton.appendChild(rightIcon);
+
+        const containerId = `genre-${genreIndex}-${genre.replace(/\s+/g, '-')}`;
+        const animeListDiv = document.createElement('div');
+        animeListDiv.id = containerId;
+        animeListDiv.classList.add('anime-list');
+
+        leftButton.setAttribute('data-container', containerId);
+        rightButton.setAttribute('data-container', containerId);
+
+        scrollContainer.appendChild(leftButton);
+        scrollContainer.appendChild(animeListDiv);
+        scrollContainer.appendChild(rightButton);
+
+        section.appendChild(scrollContainer);
+        fragment.appendChild(section);
+
+        // Fetch data for this genre
+        fetchAndDisplayAnime({
+            page: 1,
+            perPage: 20,
+            sort: ['POPULARITY_DESC'],
+            genre: genre // we can add genre filter in fetchAndDisplayAnime by modifying it
+        }, containerId);
+    });
+
+    mainContent.appendChild(fragment);
+
+    // Re-add event listeners for scroll buttons (new elements)
+    initializeScrollButtons();
+
+    // Update genreIndex
+    genreIndex = end;
+
+    // We're done appending
+    isAppendingGenres = false;
+}
+
+// Re-initialize scroll buttons after dynamically adding them
+function initializeScrollButtons() {
+    document.querySelectorAll('.scroll-button').forEach(button => {
+        const containerId = button.getAttribute('data-container');
+        const container = document.getElementById(containerId);
+        const direction = button.classList.contains('left') ? 'left' : 'right';
+
+        button.removeEventListener('mouseover', handleMouseOverScroll); // Remove any old listeners first
+        button.removeEventListener('mouseout', handleMouseOutScroll);
+        button.removeEventListener('click', handleClickScroll);
+
+        function handleMouseOverScroll() {
+            const speed = direction === 'left' ? -20 : 20;
+            startAutoScroll(container, speed);
+        }
+
+        function handleMouseOutScroll() {
+            stopAutoScroll();
+        }
+
+        function handleClickScroll() {
+            stopAutoScroll();
+            const scrollAmount = direction === 'left' ? -container.offsetWidth : container.offsetWidth;
+            container.scrollBy({
+                left: scrollAmount,
+                behavior: 'smooth'
+            });
+        }
+
+        button.addEventListener('mouseover', handleMouseOverScroll);
+        button.addEventListener('mouseout', handleMouseOutScroll);
+        button.addEventListener('click', handleClickScroll);
+    });
+}
 
 // Initial highlight
 highlightActiveLink();
