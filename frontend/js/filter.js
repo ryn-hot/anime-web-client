@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const seasonYearParam = urlParams.get('seasonYear');
     const sortParam = urlParams.get('sort');
     const genreParam = urlParams.get('genre');
-    
+
     const menuButton = document.querySelector('.menu-button');
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.overlay');
@@ -148,6 +148,7 @@ function setSortByParam(select, sortVal) {
   switch(sortVal) {
     case 'TRENDING_DESC': select.value = 'Trending'; break;
     case 'POPULARITY_DESC': select.value = 'Popularity'; break;
+    case 'SCORE_DESC': select.value = 'Score'; break;
     // Add other mappings as needed
     default: break;
   }
