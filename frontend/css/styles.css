@@ -467,17 +467,18 @@ body::-webkit-scrollbar-thumb:hover {
 
 /* Login Button Styling */
 .login-button {
-    background-color: #000; /* Button background color */
-    color: white; /* Button text color */
-    font-size: 16px; /* Text size */
-    font-weight: bold; /* Bold text */
-    padding: 10px 20px; /* Add padding for a larger button */
-    border: 1px solid #808080;; /* Remove borders */
-    border-radius: 30px; /* Rounded corners */
-    cursor: pointer; /* Show pointer on hover */
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-    transition: background-color 0.3s ease, transform 0.2s ease; /* Add smooth transitions */
+    border: none;  /* Add this line */
+    background-color: #000;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 10px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
     margin-right: 20px;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .login-button:hover {
