@@ -17,7 +17,7 @@
     <nav id="sidebar" class="sidebar" role="navigation" aria-label="Main Navigation">
         <ul class="sidebar-menu">
             <li>
-                <a href="#" class="sidebar-item">
+                <a href="index.html" class="sidebar-item">
                     <i class="fas fa-home"></i>
                     <span class="sidebar-label">Home</span>
                 </a>
@@ -73,7 +73,7 @@
             <!-- Search Container -->
             <div class="search-content">
                 <form action="/search" autocomplete="off">
-                    <button type="submit" class="search-button">
+                    <button type="submit" class="search-button" id="search-button">
                         <i class="fas fa-search"></i>
                     </button><!--
                     --><input
@@ -83,7 +83,7 @@
                         placeholder="Search anime..."
                         required=""
                     />
-                    <button type="button" class="filter-button" onclick="window.location.href='/filter'">
+                    <button type="button" class="filter-button" id="filter-button">
                         <i class="fas fa-filter"></i>
                     </button>
                 </form>
@@ -92,7 +92,9 @@
 
         <div class="header-right">
             <!-- Login Button -->
-            <button class="login-button" id="login-button">Login with Anilist</button>
+            <button class="login-button" id="login-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21v-2h7V5h-7V3h7q.825 0 1.413.588T21 5v14q0 .825-.587 1.413T19 21zm-2-4l-1.375-1.45l2.55-2.55H3v-2h8.175l-2.55-2.55L10 7l5 5z"/></svg>
+            </button>
         </div>
     </header>
 
@@ -185,7 +187,7 @@
         </section>
     </main>
 
-    <script src="js/script.js"></script>
+    <script type="module" src="js/script.js"></script>
 
 </body>
 </html>

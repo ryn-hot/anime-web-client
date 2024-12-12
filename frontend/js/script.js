@@ -1,3 +1,9 @@
+import { AniListAPI } from "./bottleneck.js";
+
+// Create a singleton instance
+const anilistAPI = new AniListAPI();
+
+
 // Helper function to get the current season
 function getCurrentSeason() {
     const month = new Date().getMonth() + 1;
@@ -32,50 +38,48 @@ function fetchAndDisplayAnime(variables, containerId) {
     }
 
 
-    fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        },
-        body: JSON.stringify({ query, variables })
-    })
-    .then(response => response.json())
-    .then(data => displayAnime(data, containerId))
-    .catch(error => console.error('Error fetching data:', error));
+    anilistAPI.makeRequest({ query, variables })
+        .then(data => displayAnime(data, containerId))
+        .catch(error => console.error('Error fetching data:', error));
 }
 
-// Function to display anime data
-function displayAnime(data, containerId) {
-    console.log("Display Anime Called");
-    const animeList = data.data.Page.media;
-    const container = document.getElementById(containerId);
+    // Function to display anime data
+    function displayAnime(data, containerId) {
+        console.log("Display Anime Called");
+        const animeList = data.data.Page.media;
+        const container = document.getElementById(containerId);
 
-    // Clear container if needed
-    container.innerHTML = '';
+        // Clear container if needed
+        container.innerHTML = '';
 
-    animeList.forEach(anime => {
-        const animeItem = document.createElement('div');
-        animeItem.classList.add('anime-item');
+        animeList.forEach(anime => {
+            const animeItem = document.createElement('div');
+            animeItem.classList.add('anime-item');
 
-        // Create the image wrapper
-        const imageWrapper = document.createElement('div');
-        imageWrapper.classList.add('image-wrapper');
- 
-        const img = document.createElement('img');
-        img.src = anime.coverImage.large;
-        img.alt = anime.title.english || anime.title.romaji;
- 
-        imageWrapper.appendChild(img);
-        animeItem.appendChild(imageWrapper);
- 
-        const animeTitle = document.createElement('h3');
-        animeTitle.textContent = anime.title.english || anime.title.romaji;
-        animeItem.appendChild(animeTitle);
- 
-        container.appendChild(animeItem);
-    });
-}
+            // Create the image wrapper
+            const imageWrapper = document.createElement('div');
+            imageWrapper.classList.add('image-wrapper');
+    
+            const img = document.createElement('img');
+            img.src = anime.coverImage.large;
+            img.alt = anime.title.english || anime.title.romaji;
+    
+            imageWrapper.appendChild(img);
+            animeItem.appendChild(imageWrapper);
+    
+            const animeTitle = document.createElement('h3');
+            animeTitle.textContent = anime.title.english || anime.title.romaji;
+            animeItem.appendChild(animeTitle);
+    
+            container.appendChild(animeItem);
+        });
+    }
+
+let genres = [];
+let genreData = {};
+let genreIndex = 0; // Tracks how many genres we've already used
+let isAppendingGenres = false; // To prevent multiple triggers
+const genresPerBatch = 4; // Number of genre containers per load
 
 function fetchGenres() {
     const query = `
@@ -84,29 +88,167 @@ function fetchGenres() {
         }
     `;
   
-    return fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        },
-        body: JSON.stringify({ query: query }),
-    })
-    .then(response => response.json())
-    .then(data => {
-        const genres = data.data.GenreCollection;
-        return genres;
-    })
-    .catch(error => {
-        console.error('Error fetching genres:', error);
+    return anilistAPI.makeRequest({ query })
+        .then(data => {
+            const genres = data.data.GenreCollection;
+            return genres;
+        })
+        .catch(error => {
+            console.error('Error fetching genres:', error);
+        });
+}
+
+// Function to prefetch all genres and their data
+function prefetchAllGenres() {
+    console.log("prefetchAllGenres Called")
+    return fetchGenres().then(g => {
+        genres = g;
+        return fetchGenreAnimeData(genres);
+    }).then(map => {
+        genreData = map;
+        // Now all genre data is ready to be appended on scroll
+        console.log("All genre data prefetched!");
     });
 }
 
-let genres = [];
-let genreIndex = 0; // Tracks how many genres we've already used
-let isAppendingGenres = false; // To prevent multiple triggers
-const genresPerBatch = 4; // Number of genre containers per load
 
+// Fetch all genres data at once and store in memory
+async function fetchGenreAnimeData(genreList) {
+    const query = `
+    query {
+        ${genreList.map((genre, index) => `
+        g${index}: Page(page: 1, perPage: 20) {
+            media(genre_in: "${genre}", sort: POPULARITY_DESC, type: ANIME) {
+                id
+                title {
+                    romaji
+                    english
+                    native
+                }
+                coverImage {
+                    large
+                }
+            }
+        }`).join('\n')}
+    }`;
+
+    console.log('fetchGenreAnimeData Called'); // Debug log to see the constructed query
+
+    try {
+        const data = await anilistAPI.makeRequest({ query });
+        
+        // Transform the response into the same format as before
+        const map = {};
+        genreList.forEach((genre, index) => {
+            map[genre] = data.data[`g${index}`].media;
+        });
+        
+        return map;
+    } catch (error) {
+        console.error('Error fetching genre data:', error);
+        return {};
+    }
+}
+
+// Function to display anime from memory (similar to displayAnime but no fetch)
+function displayAnimeListFromMemory(animeList, containerId) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    animeList.forEach(anime => {
+        const animeItem = document.createElement('div');
+        animeItem.classList.add('anime-item');
+
+        const imageWrapper = document.createElement('div');
+        imageWrapper.classList.add('image-wrapper');
+
+        const img = document.createElement('img');
+        img.src = anime.coverImage.large;
+        img.alt = anime.title.english || anime.title.romaji;
+
+        imageWrapper.appendChild(img);
+        animeItem.appendChild(imageWrapper);
+
+        const animeTitle = document.createElement('h3');
+        animeTitle.textContent = anime.title.english || anime.title.romaji;
+        animeItem.appendChild(animeTitle);
+
+        container.appendChild(animeItem);
+    });
+}
+
+// Function to append the next batch of genre containers from memory
+function appendGenreContainersFromMemory() {
+    const mainContent = document.getElementById('main-content');
+    const end = Math.min(genreIndex + genresPerBatch, genres.length);
+    const batch = genres.slice(genreIndex, end);
+
+    const fragment = document.createDocumentFragment();
+    const containersToPopulate = []; // Store the data for later
+
+    batch.forEach((genre, localIndex) => {
+        const section = document.createElement('section');
+        const h2 = document.createElement('h2');
+        h2.classList.add('section-title');
+
+        const a = document.createElement('a');
+        a.href = `search.html?genre=${encodeURIComponent(genre)}&sort=POPULARITY_DESC`;
+        a.textContent = genre;
+        const i = document.createElement('i');
+        i.classList.add('fas', 'fa-chevron-right');
+
+        a.appendChild(i);
+        h2.appendChild(a);
+        section.appendChild(h2);
+
+        const scrollContainer = document.createElement('div');
+        scrollContainer.classList.add('scroll-container');
+
+        const leftButton = document.createElement('button');
+        leftButton.classList.add('scroll-button', 'left');
+        const leftIcon = document.createElement('i');
+        leftIcon.classList.add('fas', 'fa-chevron-left');
+        leftButton.appendChild(leftIcon);
+
+        const rightButton = document.createElement('button');
+        rightButton.classList.add('scroll-button', 'right');
+        const rightIcon = document.createElement('i');
+        rightIcon.classList.add('fas', 'fa-chevron-right');
+        rightButton.appendChild(rightIcon);
+
+        const containerId = `genre-${genreIndex + localIndex}-${genre.replace(/\s+/g, '-')}`;
+        const animeListDiv = document.createElement('div');
+        animeListDiv.id = containerId;
+        animeListDiv.classList.add('anime-list');
+
+        leftButton.setAttribute('data-container', containerId);
+        rightButton.setAttribute('data-container', containerId);
+
+        scrollContainer.appendChild(leftButton);
+        scrollContainer.appendChild(animeListDiv);
+        scrollContainer.appendChild(rightButton);
+
+        section.appendChild(scrollContainer);
+        fragment.appendChild(section);
+
+        // Store the data instead of displaying immediately
+        containersToPopulate.push({
+            genre,
+            containerId,
+            animeList: genreData[genre] || []
+        });
+    });
+
+    mainContent.appendChild(fragment);
+
+    // Now populate the containers after they exist in the DOM
+    containersToPopulate.forEach(({ containerId, animeList }) => {
+        displayAnimeListFromMemory(animeList, containerId);
+    });
+
+    initializeScrollButtons();
+    genreIndex = end;
+    isAppendingGenres = false;
+}
 
 // Event listener for scroll buttons
 document.querySelectorAll('.scroll-button').forEach(button => {
@@ -205,20 +347,11 @@ function fetchTopAnimeBanner() {
         seasonYear: new Date().getFullYear()
     };
 
-    fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        },
-        body: JSON.stringify({ query, variables })
-    })
-    .then(response => response.json())
-    .then(data => {
-        createBannerCarousel(data.data.Page.media);
-    
-    })
-    .catch(error => console.error('Error fetching banner data:', error));
+    anilistAPI.makeRequest({ query, variables })
+       .then(data => {
+           createBannerCarousel(data.data.Page.media);
+       })
+       .catch(error => console.error('Error fetching banner data:', error));
 }
 
 
@@ -385,39 +518,49 @@ function initAutoScrolling(wrapper) {
 }
 
 
-// Fetch and display banners on page load
-fetchTopAnimeBanner();
+
 // Fetch data for each category
 
-// Fetch Popular This Season
-fetchAndDisplayAnime({
-    page: 1,
-    perPage: 20,
-    sort: ['POPULARITY_DESC'],
-    season: getCurrentSeason(),
-    seasonYear: new Date().getFullYear()
-}, 'popular-this-season');
+// Sequential category fetches
+async function fetchAllCategories() {
 
-// Fetch Trending Now
-fetchAndDisplayAnime({
-    page: 1,
-    perPage: 20,
-    sort: ['TRENDING_DESC']
-}, 'trending-now');
+    try {
+        // Fetch Popular This Season
+        await fetchAndDisplayAnime({
+            page: 1,
+            perPage: 20,
+            sort: ['POPULARITY_DESC'],
+            season: getCurrentSeason(),
+            seasonYear: new Date().getFullYear()
+        }, 'popular-this-season');
 
-// Fetch Popular All Time
-fetchAndDisplayAnime({
-    page: 1,
-    perPage: 20,
-    sort: ['POPULARITY_DESC']
-}, 'popular-all-time');
+        // Fetch Trending Now
+        await fetchAndDisplayAnime({
+            page: 1,
+            perPage: 20,
+            sort: ['TRENDING_DESC']
+        }, 'trending-now');
 
-// Fetch Top Rated
-fetchAndDisplayAnime({
-    page: 1,
-    perPage: 20,
-    sort: ['SCORE_DESC']
-}, 'top-rated');
+        // Fetch Popular All Time
+        await fetchAndDisplayAnime({
+            page: 1,
+            perPage: 20,
+            sort: ['POPULARITY_DESC']
+        }, 'popular-all-time');
+
+        // Fetch Top Rated
+        await fetchAndDisplayAnime({
+            page: 1,
+            perPage: 20,
+            sort: ['SCORE_DESC']
+        }, 'top-rated');
+    }
+    catch (error) {
+        console.error('Error fetching categories:', error);
+    }
+    
+}
+
 
 
 console.log("Script started - before all functions");
@@ -428,7 +571,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.overlay');
     initializeScrollButtons();
+
+    // Fetch and display banners on page load
+    fetchTopAnimeBanner();
+
+    fetchAllCategories();
     
+    prefetchAllGenres().then(() => {
+        // Now we can listen for scroll events
+        window.addEventListener('scroll', () => {
+            highlightActiveLink();
+
+            const scrollTop = window.scrollY;
+            const windowHeight = window.innerHeight;
+            const docHeight = document.documentElement.offsetHeight;
+            const scrolledRatio = (scrollTop + windowHeight) / docHeight;
+
+            // If scrolled more than 90% and not currently appending genres
+            if (scrolledRatio > 0.9 && !isAppendingGenres) {
+                // Add genre containers if we still have genres left
+                if (genreIndex < genres.length) {
+                    isAppendingGenres = true;
+                    appendGenreContainersFromMemory();
+                }
+            }
+        });
+    });
 
     const currentYear = new Date().getFullYear();
     const currentSeason = getCurrentSeason(); 
@@ -465,9 +633,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event listener for overlay click
     overlay.addEventListener('click', closeSidebar);
-    
 
+    const searchButton = document.getElementById('search-button');
+    if (searchButton) {
+        searchButton.addEventListener('click', () => {
+            const searchSelect = document.querySelector('.search-input[name="keyword"]');
+            const searchValue = searchSelect ? searchSelect.value.trim() : '';
+            window.location.href = `search.html${searchValue ? `?search=${encodeURIComponent(searchValue)}` : ''}`;
+        });
+    }
     
+    const filterButton = document.getElementById('filter-button');
+    if (filterButton) {
+        filterButton.addEventListener('click', () => {
+            const searchSelect = document.querySelector('.search-input[name="keyword"]');
+            const searchValue = searchSelect ? searchSelect.value.trim() : '';
+            window.location.href = `search.html${searchValue ? `?search=${encodeURIComponent(searchValue)}` : ''}`;
+        });
+    }
 
     // Event listener for Escape key
     document.addEventListener('keydown', (event) => {
@@ -476,28 +659,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    fetchGenres().then(g => {
-        genres = g; 
-    })
-
-    // Listen to scroll events
-    window.addEventListener('scroll', () => {
-        highlightActiveLink();
-
-        const scrollTop = window.scrollY;
-        const windowHeight = window.innerHeight;
-        const docHeight = document.documentElement.offsetHeight;
-        const scrolledRatio = (scrollTop + windowHeight) / docHeight;
-
-        // If scrolled more than 90% and not currently appending genres
-        if (scrolledRatio > 0.9 && !isAppendingGenres) {
-            // Add genre containers if we still have genres left
-            if (genreIndex < genres.length) {
-                isAppendingGenres = true;
-                appendGenreContainers();
-            }
-        }
-    });
 });
 
 
@@ -526,18 +687,13 @@ function appendGenreContainers() {
     const end = Math.min(genreIndex + genresPerBatch, genres.length);
     const batch = genres.slice(genreIndex, end);
 
-    // Create a fragment for better performance
     const fragment = document.createDocumentFragment();
 
     batch.forEach(genre => {
-        // Create section
         const section = document.createElement('section');
-
-        // Create h2 with link
         const h2 = document.createElement('h2');
         h2.classList.add('section-title');
 
-        // The link directs to search with genre preselected and popular sort
         const a = document.createElement('a');
         a.href = `search.html?genre=${encodeURIComponent(genre)}&sort=POPULARITY_DESC`;
         a.textContent = genre;
@@ -548,18 +704,15 @@ function appendGenreContainers() {
         h2.appendChild(a);
         section.appendChild(h2);
 
-        // Create scroll container structure
         const scrollContainer = document.createElement('div');
         scrollContainer.classList.add('scroll-container');
 
-        // Left button
         const leftButton = document.createElement('button');
         leftButton.classList.add('scroll-button', 'left');
         const leftIcon = document.createElement('i');
         leftIcon.classList.add('fas', 'fa-chevron-left');
         leftButton.appendChild(leftIcon);
 
-        // Right button
         const rightButton = document.createElement('button');
         rightButton.classList.add('scroll-button', 'right');
         const rightIcon = document.createElement('i');
@@ -581,24 +734,15 @@ function appendGenreContainers() {
         section.appendChild(scrollContainer);
         fragment.appendChild(section);
 
-        // Fetch data for this genre
-        fetchAndDisplayAnime({
-            page: 1,
-            perPage: 20,
-            sort: ['POPULARITY_DESC'],
-            genre: genre // we can add genre filter in fetchAndDisplayAnime by modifying it
-        }, containerId);
+        // Instead of fetchAndDisplayAnime, we now directly use genreData
+        const animeList = genreData[genre] || [];
+        displayAnimeListFromMemory(animeList, containerId);
     });
 
     mainContent.appendChild(fragment);
 
-    // Re-add event listeners for scroll buttons (new elements)
     initializeScrollButtons();
-
-    // Update genreIndex
     genreIndex = end;
-
-    // We're done appending
     isAppendingGenres = false;
 }
 

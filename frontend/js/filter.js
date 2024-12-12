@@ -1,11 +1,16 @@
+import { AniListAPI } from "./bottleneck.js";
+
+const anilistAPI = new AniListAPI();
+
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM Content Loaded Event Fired!"); 
     const urlParams = new URLSearchParams(window.location.search);
+    const searchParam = urlParams.get('search');
     const seasonParam = urlParams.get('season');
     const seasonYearParam = urlParams.get('seasonYear');
     const sortParam = urlParams.get('sort');
-    const genreParam = urlParams.get('genre');
+    // const genreParam = urlParams.get('genre');
 
     const menuButton = document.querySelector('.menu-button');
     const sidebar = document.querySelector('.sidebar');
@@ -66,10 +71,13 @@ document.addEventListener('DOMContentLoaded', () => {
         setSortByParam(sortSelect, sortParam);
     }
     
-
-    if (genreParam && genreSelect) {
-        genreSelect.value = genreParam;
+    if (searchParam && searchInput) {
+        searchInput.value = searchParam;
     }
+    /* if (genreParam && genreSelect) {
+        console.log("Genre Param: ", genreParam);
+        genreSelect.value = genreParam;
+    } */
 
     // Put all filter elements into an array (excluding searchInput if you only want update on user typing)
     // If you want updates on search input typing, include searchInput as well.
@@ -97,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
             lastSearchValue = currentValue;
             updateAnimeList();
         }
-    }, 1000); // Poll every 500ms
+    }, 2000); // Poll every 2000ms
 
     // Toggle sidebar expand/collapse
     function toggleSidebar() {
@@ -116,21 +124,22 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.classList.remove('active');
     }
 
-    function handleInfiniteScroll() {
-        const scrollTop = window.scrollY;
-        const windowHeight = window.innerHeight;
-        const docHeight = document.documentElement.offsetHeight;
-    
-        const scrolledRatio = (scrollTop + windowHeight) / docHeight;
-    
-        // If scrolledRatio > 0.9 means user is at 90% down
-        if (scrolledRatio > 0.9 && !isFetching) {
-            isFetching = true;
-            updateAnimeList(true); // append = true
-        }
-    }
 
 });
+
+function handleInfiniteScroll() {
+    const scrollTop = window.scrollY;
+    const windowHeight = window.innerHeight;
+    const docHeight = document.documentElement.offsetHeight;
+
+    const scrolledRatio = (scrollTop + windowHeight) / docHeight;
+
+    // If scrolledRatio > 0.9 means user is at 90% down
+    if (scrolledRatio > 0.9 && !isFetching) {
+        isFetching = true;
+        updateAnimeList(true); // append = true
+    }
+}
 
 let currentPage = 1;
 let lastFilters = {};
@@ -161,18 +170,21 @@ function fetchGenres() {
         }
     `;
   
-    fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        },
-        body: JSON.stringify({ query: query }),
-    })
-    .then(response => response.json())
+    anilistAPI.makeRequest({ query })
     .then(data => {
         const genres = data.data.GenreCollection;
         populateGenreSelect(genres);
+
+        // Set the genre value after populating options
+        const genreParam = new URLSearchParams(window.location.search).get('genre');
+        if (genreParam) {
+            const genreSelect = document.querySelector('.icon-input[name="genre"]');
+            if (genreSelect) {
+                genreSelect.value = genreParam;
+                // Trigger update after setting the value
+                updateAnimeList();
+            }
+        }
     })
     .catch(error => {
         console.error('Error fetching genres:', error);
@@ -349,29 +361,20 @@ function updateAnimeList(append = false) {
         if (variables[key] === undefined) delete variables[key];
     });
 
-    fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-        },
-        body: JSON.stringify({ query, variables }),
-    })
-    .then(res => res.json())
-    .then(data => {
-        const animeList = data.data.Page.media;
-        if (animeList.length > 0) {
-            currentPage++;
-        }
-        displayAnime(animeList, append);
-        isFetching = false; // Allow more fetches
-        
-    })
-    .catch(error => {
-        console.error('Error fetching anime:', error);
-        if (!append) displayAnime([]);
-        isFetching = false;
-    });
+    anilistAPI.makeRequest({ query, variables })
+        .then(data => {
+            const animeList = data.data.Page.media;
+            if (animeList.length > 0) {
+                currentPage++;
+            }
+            displayAnime(animeList, append);
+            isFetching = false; // Allow more fetches
+        })
+        .catch(error => {
+            console.error('Error fetching anime:', error);
+            if (!append) displayAnime([]);
+            isFetching = false;
+        });
 }
 
 function showPlaceholders() {
