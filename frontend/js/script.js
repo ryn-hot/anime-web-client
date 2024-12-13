@@ -653,7 +653,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    
+
     const filterButton = document.getElementById('filter-button');
     if (filterButton) {
         filterButton.addEventListener('click', () => {
@@ -692,70 +692,6 @@ function highlightActiveLink() {
 
 
 
-
-function appendGenreContainers() {
-    const mainContent = document.getElementById('main-content');
-    const end = Math.min(genreIndex + genresPerBatch, genres.length);
-    const batch = genres.slice(genreIndex, end);
-
-    const fragment = document.createDocumentFragment();
-
-    batch.forEach(genre => {
-        const section = document.createElement('section');
-        const h2 = document.createElement('h2');
-        h2.classList.add('section-title');
-
-        const a = document.createElement('a');
-        a.href = `search.html?genre=${encodeURIComponent(genre)}&sort=POPULARITY_DESC`;
-        a.textContent = genre;
-        const i = document.createElement('i');
-        i.classList.add('fas', 'fa-chevron-right');
-
-        a.appendChild(i);
-        h2.appendChild(a);
-        section.appendChild(h2);
-
-        const scrollContainer = document.createElement('div');
-        scrollContainer.classList.add('scroll-container');
-
-        const leftButton = document.createElement('button');
-        leftButton.classList.add('scroll-button', 'left');
-        const leftIcon = document.createElement('i');
-        leftIcon.classList.add('fas', 'fa-chevron-left');
-        leftButton.appendChild(leftIcon);
-
-        const rightButton = document.createElement('button');
-        rightButton.classList.add('scroll-button', 'right');
-        const rightIcon = document.createElement('i');
-        rightIcon.classList.add('fas', 'fa-chevron-right');
-        rightButton.appendChild(rightIcon);
-
-        const containerId = `genre-${genreIndex}-${genre.replace(/\s+/g, '-')}`;
-        const animeListDiv = document.createElement('div');
-        animeListDiv.id = containerId;
-        animeListDiv.classList.add('anime-list');
-
-        leftButton.setAttribute('data-container', containerId);
-        rightButton.setAttribute('data-container', containerId);
-
-        scrollContainer.appendChild(leftButton);
-        scrollContainer.appendChild(animeListDiv);
-        scrollContainer.appendChild(rightButton);
-
-        section.appendChild(scrollContainer);
-        fragment.appendChild(section);
-
-        // Instead of fetchAndDisplayAnime, we now directly use genreData
-        const animeList = genreData[genre] || [];
-        displayAnimeListFromMemory(animeList, containerId);
-    });
-
-    mainContent.appendChild(fragment);
-
-    initializeScrollButtons();
-    genreIndex = end;
-    isAppendingGenres = false;
-}
 
 // Re-initialize scroll buttons after dynamically adding them
 function initializeScrollButtons() {
