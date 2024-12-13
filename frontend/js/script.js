@@ -643,6 +643,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    const searchForm = document.querySelector('.search-content form');
+    if (searchForm) {
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault(); // Prevent the default form submission
+            const searchSelect = document.querySelector('.search-input[name="keyword"]');
+            const searchValue = searchSelect ? searchSelect.value.trim() : '';
+            window.location.href = `search.html${searchValue ? `?search=${encodeURIComponent(searchValue)}` : ''}`;
+        });
+    }
+
+    
     const filterButton = document.getElementById('filter-button');
     if (filterButton) {
         filterButton.addEventListener('click', () => {
