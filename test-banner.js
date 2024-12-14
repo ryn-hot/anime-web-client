@@ -17,7 +17,12 @@ function fetchTopAnimeBanner() {
                     romaji
                     english
                 }
-                bannerImage
+                bannerImage,
+                format,
+                trailer {
+                    id,
+                    site
+                }
             }
         }
     }`;

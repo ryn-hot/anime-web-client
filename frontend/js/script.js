@@ -20,6 +20,7 @@ function fetchAndDisplayAnime(variables, containerId) {
         Page(page: $page, perPage: $perPage) {
             media(sort: $sort, type: ANIME, genre_in: $genre, season: $season, seasonYear: $seasonYear) {
                 id
+                idMal
                 title {
                     romaji
                     english
@@ -27,7 +28,20 @@ function fetchAndDisplayAnime(variables, containerId) {
                 }
                 coverImage {
                     large
+                    extraLarge
                 }
+                description(asHtml: false)
+                bannerImage
+                format,
+                status,
+                episodes,
+                duration,
+                genres,
+                trailer {
+                    id,
+                    site
+                }
+
             }
         }
     }`;
@@ -56,12 +70,32 @@ function fetchAndDisplayAnime(variables, containerId) {
             const animeItem = document.createElement('div');
             animeItem.classList.add('anime-item');
 
+            // recording anime data
+            animeItem.dataset.id = anime.id;
+            animeItem.dataset.idMal = anime.idMal
+            animeItem.dataset.title = anime.title.english || anime.title.romanji;
+            animeItem.dataset.description = anime.description;
+            animeItem.dataset.idtrailer = anime.trailer?.id || '';
+            animeItem.dataset.site = anime.trailer?.site || '';
+            
+            if (!animeItem.dataset.id || !animeItem.dataset.site || animeItem.dataset.site != 'youtube' ) {
+                animeItem.dataset.bannerImage = anime.bannerImage || '';
+            }
+
+            animeItem.dataset.status = anime.status;
+            animeItem.dataset.format = anime.format;
+            animeItem.dataset.episodes = anime.episodes;
+            animeItem.dataset.duration = anime.duration;
+            animeItem.dataset.genres = anime.genres;
+
+
+
             // Create the image wrapper
             const imageWrapper = document.createElement('div');
             imageWrapper.classList.add('image-wrapper');
     
             const img = document.createElement('img');
-            img.src = anime.coverImage.large;
+            img.src = anime.coverImage.extraLarge || anime.coverImage.large ;
             img.alt = anime.title.english || anime.title.romaji;
     
             imageWrapper.appendChild(img);
@@ -79,6 +113,7 @@ let genres = [];
 let genreData = {};
 let genreIndex = 0; // Tracks how many genres we've already used
 let isAppendingGenres = false; // To prevent multiple triggers
+let isGenreDataReady = false;
 const genresPerBatch = 4; // Number of genre containers per load
 
 function fetchGenres() {
@@ -106,6 +141,7 @@ function prefetchAllGenres() {
         return fetchGenreAnimeData(genres);
     }).then(map => {
         genreData = map;
+        isGenreDataReady = true;
         // Now all genre data is ready to be appended on scroll
         console.log("All genre data prefetched!");
     });
@@ -114,6 +150,7 @@ function prefetchAllGenres() {
 
 // Fetch all genres data at once and store in memory
 async function fetchGenreAnimeData(genreList) {
+    const start = performance.now();
     const query = `
     query {
         ${genreList.map((genre, index) => `
@@ -126,17 +163,33 @@ async function fetchGenreAnimeData(genreList) {
                     native
                 }
                 coverImage {
+                    extraLarge
                     large
+                }
+                description(asHtml: false)
+                bannerImage
+                format,
+                status,
+                episodes,
+                duration,
+                genres,
+                trailer {
+                    id,
+                    site
                 }
             }
         }`).join('\n')}
     }`;
-
+    
+    
     console.log('fetchGenreAnimeData Called'); // Debug log to see the constructed query
 
     try {
         const data = await anilistAPI.makeRequest({ query });
         
+        const end = performance.now();
+        console.log(`api response time taken: ${end - start}`);
+
         // Transform the response into the same format as before
         const map = {};
         genreList.forEach((genre, index) => {
@@ -150,6 +203,54 @@ async function fetchGenreAnimeData(genreList) {
     }
 }
 
+// Create a placeholder function for genre containers
+function showGenrePlaceholders(batchSize) {
+    const mainContent = document.getElementById('main-content');
+    const fragment = document.createDocumentFragment();
+
+    for (let i = 0; i < batchSize; i++) {
+        const section = document.createElement('section');
+        
+        // Add placeholder title
+        const titlePlaceholder = document.createElement('h2');
+        titlePlaceholder.classList.add('section-title', 'placeholder-title');
+        const titleBar = document.createElement('div');
+        titleBar.classList.add('placeholder-card');
+        titleBar.style.width = '150px';  // Adjust width as needed
+        titleBar.style.height = '30px';  // Adjust height as needed
+        titlePlaceholder.appendChild(titleBar);
+        section.appendChild(titlePlaceholder);
+
+        const scrollContainer = document.createElement('div');
+        scrollContainer.classList.add('scroll-container');
+        
+        // Create placeholder anime list with proper horizontal layout
+        const animeListDiv = document.createElement('div');
+        animeListDiv.classList.add('anime-list');
+        animeListDiv.style.display = 'flex';
+        animeListDiv.style.gap = '20px';  // Match your regular gap
+        
+        // Add placeholder cards
+        for (let j = 0; j < 20; j++) {
+            const placeholderCard = document.createElement('div');
+            placeholderCard.classList.add('placeholder-card');
+            placeholderCard.style.width = '150px';  // Match your anime-item width
+            placeholderCard.style.height = '200px'; // Match your anime-item height
+            placeholderCard.style.flexShrink = '0'; // Prevent shrinking
+            animeListDiv.appendChild(placeholderCard);
+        }
+
+        scrollContainer.appendChild(animeListDiv);
+        section.appendChild(scrollContainer);
+        fragment.appendChild(section);
+
+        // Add margin between sections
+        section.style.marginBottom = '20px';
+    }
+
+    mainContent.appendChild(fragment);
+}
+
 // Function to display anime from memory (similar to displayAnime but no fetch)
 function displayAnimeListFromMemory(animeList, containerId) {
     const container = document.getElementById(containerId);
@@ -157,6 +258,24 @@ function displayAnimeListFromMemory(animeList, containerId) {
     animeList.forEach(anime => {
         const animeItem = document.createElement('div');
         animeItem.classList.add('anime-item');
+
+        //anime data store
+        animeItem.dataset.id = anime.id;
+        animeItem.dataset.idMal = anime.idMal;
+        animeItem.dataset.title = anime.title.english || anime.title.romanji;
+        animeItem.dataset.description = anime.description;
+        animeItem.dataset.idtrailer = anime.trailer?.id || '';
+        animeItem.dataset.site = anime.trailer?.site || '';
+        
+        if (!animeItem.dataset.id || !animeItem.dataset.site || animeItem.dataset.site != 'youtube' ) {
+            animeItem.dataset.bannerImage = anime.bannerImage || '';
+        }
+
+        animeItem.dataset.status = anime.status;
+        animeItem.dataset.format = anime.format;
+        animeItem.dataset.episodes = anime.episodes;
+        animeItem.dataset.duration = anime.duration;
+        animeItem.dataset.genres = anime.genres;
 
         const imageWrapper = document.createElement('div');
         imageWrapper.classList.add('image-wrapper');
@@ -176,8 +295,37 @@ function displayAnimeListFromMemory(animeList, containerId) {
     });
 }
 
-// Function to append the next batch of genre containers from memory
+
 function appendGenreContainersFromMemory() {
+    if (!isGenreDataReady) {
+        // Show placeholders if data isn't ready
+        console.log("Showing placeholders while waiting for genre data");
+        showGenrePlaceholders(genresPerBatch);
+        
+        // Wait for data to be ready
+        const checkInterval = setInterval(() => {
+            if (isGenreDataReady) {
+                clearInterval(checkInterval);
+                // Remove placeholders and show real content
+                const mainContent = document.getElementById('main-content');
+                const existingPlaceholders = mainContent.querySelectorAll('.placeholder-card');
+                existingPlaceholders.forEach(placeholder => {
+                    placeholder.closest('section').remove();
+                });
+                appendRealGenreContainers();
+            }
+        }, 100); // Check every 100ms
+        
+        isAppendingGenres = false;
+        return;
+    }
+
+    // If data is ready, append real containers
+    appendRealGenreContainers();
+}
+
+// Function to append the next batch of genre containers from memory
+function appendRealGenreContainers() {
     const mainContent = document.getElementById('main-content');
     const end = Math.min(genreIndex + genresPerBatch, genres.length);
     const batch = genres.slice(genreIndex, end);
@@ -324,6 +472,7 @@ function fetchTopAnimeBanner() {
         Page(page: $page, perPage: $perPage) {
             media(sort: $sort, type: ANIME, season: $season, seasonYear: $seasonYear) {
                 id
+                idMal
                 title {
                     romaji
                     english
@@ -335,6 +484,8 @@ function fetchTopAnimeBanner() {
                 episodes
                 season
                 seasonYear
+                status,
+                duration,
             }
         }
     }`;
@@ -375,6 +526,11 @@ function createBannerCarousel(animeList) {
     animeList.forEach((anime, index) => {
         const bannerSlide = document.createElement('div');
         bannerSlide.classList.add('banner-slide');
+    
+        bannerSlide.dataset.title = anime.title.english || anime.title.romaji;
+        bannerSlide.dataset.episodes = anime.episodes;
+        bannerSlide.dataset.id = anime.id;
+        bannerSlide.dataset.idMal = anime.idMal;
 
         // Incorporate the gradient into the background image
         bannerSlide.style.backgroundImage = `linear-gradient(to right, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0) 80%), url(${anime.bannerImage})`;
@@ -577,26 +733,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fetchAllCategories();
     
-    prefetchAllGenres().then(() => {
-        // Now we can listen for scroll events
-        window.addEventListener('scroll', () => {
-            highlightActiveLink();
+    // Now we can listen for scroll events
+    window.addEventListener('scroll', () => {
+        highlightActiveLink();
 
-            const scrollTop = window.scrollY;
-            const windowHeight = window.innerHeight;
-            const docHeight = document.documentElement.offsetHeight;
-            const scrolledRatio = (scrollTop + windowHeight) / docHeight;
+        const scrollTop = window.scrollY;
+        const windowHeight = window.innerHeight;
+        const docHeight = document.documentElement.offsetHeight;
+        const scrolledRatio = (scrollTop + windowHeight) / docHeight;
 
-            // If scrolled more than 90% and not currently appending genres
-            if (scrolledRatio > 0.9 && !isAppendingGenres) {
-                // Add genre containers if we still have genres left
-                if (genreIndex < genres.length) {
-                    isAppendingGenres = true;
-                    appendGenreContainersFromMemory();
-                }
+        // If scrolled more than 90% and not currently appending genres
+        if (scrolledRatio > 0.9 && !isAppendingGenres) {
+            // Add genre containers if we still have genres left
+            if (genreIndex < genres.length) {
+                isAppendingGenres = true;
+                appendGenreContainersFromMemory();
             }
-        });
+        }
     });
+
+    prefetchAllGenres()
 
     const currentYear = new Date().getFullYear();
     const currentSeason = getCurrentSeason(); 

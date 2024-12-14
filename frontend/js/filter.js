@@ -337,7 +337,6 @@ function updateAnimeList(append = false) {
                 coverImage {
                     medium
                     extraLarge
-                    color
                 }
                 season
                 seasonYear
@@ -413,6 +412,23 @@ function displayAnime(animeList, append = false) {
     animeList.forEach(anime => {
         const animeItem = document.createElement('div');
         animeItem.classList.add('anime-item'); // Use the same class as on the landing page
+
+        animeItem.dataset.id = anime.id;
+        animeItem.dataset.idMal = anime.idMal;
+        animeItem.dataset.title = anime.title.english || anime.title.romanji;
+        animeItem.dataset.description = anime.description;
+        animeItem.dataset.idtrailer = anime.trailer?.id || '';
+        animeItem.dataset.site = anime.trailer?.site || '';
+        
+        if (!animeItem.dataset.id || !animeItem.dataset.site || animeItem.dataset.site != 'youtube' ) {
+            animeItem.dataset.bannerImage = anime.bannerImage || '';
+        }
+
+        animeItem.dataset.status = anime.status;
+        animeItem.dataset.format = anime.format;
+        animeItem.dataset.episodes = anime.episodes;
+        animeItem.dataset.duration = anime.duration;
+        animeItem.dataset.genres = anime.genres;
 
         // Create the image wrapper
         const imageWrapper = document.createElement('div');
