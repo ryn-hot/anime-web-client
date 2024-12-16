@@ -29,11 +29,14 @@ async function main() {
     const trs_results = [];
     const english_title = 'BLEACH: Thousand-Year Blood War';
     const romanji_title = 'Bleach: Sennen Kessen-hen';
-    const type = false;
+    const type = true; 
     const alID = 116674;
     let season_number = 1; // hardcoded for better fetching accuracy
     const episode_number = 5; 
+    const server_mirror = [];
+  
 
+    
     const sea_dex_query = sea_dex_query_creator(alID, type,  episode_number);
     const sea_dex_query_results = await seadex_finder(...sea_dex_query);
     trs_results.push(...sea_dex_query_results)
@@ -49,14 +52,15 @@ async function main() {
         trs_results.push(...nyaa_fallback_results);
     }
 
-    if (trs_results.length == 0) {
-        const gogo_query = gogoanime_query_creator(romanji_title, episode_number, 'sub');
-    }
+    
+    const gogo_query = gogoanime_query_creator(romanji_title, episode_number, 'sub');
+    const gogo_link = gogo_anime_finder(...gogo_query);
+    server_mirror.push(gogo_link);
 
     const trs_results_deduped = dedupeMagnetLinks(trs_results);
 
     // const sea_dex_result = await seadex_finder(sea_dex_query[0], sea_dex_query[1], sea_dex_query[2]);
-
+    
     console.log(trs_results_deduped);
 }
 
