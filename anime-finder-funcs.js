@@ -13,6 +13,25 @@ async function parse_title(title) {
     return results;
 }
 
+async function parse_title_reserve(title) {
+    
+    let results = await anitomy(title);
+    if (results.episode_number == undefined) {
+        const regex = /(?:[Ss](?:eason)?\s*\d+\s*[Ee](?:pisode)?\s*(\d+))|(?:Season\s*\d+\s*Episode\s*(\d+))|\b[Ee](\d{1,2})\b|-\s*(\d{1,2})\s*-/;
+        const match = title.match(regex);
+        if (match) {
+            console.log(`regex matched`)
+              // Iterate through capturing groups to find the one that matched
+            for (let i = 1; i < match.length; i++) {
+                if (match[i] !== undefined) {
+                    console.log(`episode found: `, parseInt(match[i], 10))
+                    results.episode_number = parseInt(match[i], 10);
+                }
+            }
+        }
+    }
+    return results;
+}
 // season_data is the data extracted from parse_title
 async function seadex_finder(alID, dub, episode) {
     const rec_url = `https://releases.moe/api/collections/entries/records?filter=alID=${alID}`;
@@ -201,6 +220,7 @@ async function nyaa_reserve_extract(reserve_torrents, episode) {
     const trsContainingEpisode = [];
 
     for (const trs of reserve_torrents) {
+        console.log(`\n\n\nTorrent Currently being processed:`, trs);
 
         const nyaa_response = await fetch(trs.url); 
         console.log(`Fetching Torrent Url: `, trs.url);
@@ -211,14 +231,16 @@ async function nyaa_reserve_extract(reserve_torrents, episode) {
         if (!(episode === undefined)) {
 
             for (const mkvFile of mkvFiles) {
-                // console.log(mkvFile);
-                const episode_info = await parse_title(mkvFile);
+                console.log(`mkvfile: `, mkvFile);
+                const episode_info = await parse_title_reserve(mkvFile);
+                console.log(`episode_info: \n`, episode_info);
                 if (episode_info.episode_number == episode) {
                     trsContainingEpisode.push(trs);
                 }
             }
 
         }
+        console.log('\n\n\n');
     }
 
     return trsContainingEpisode;
@@ -365,7 +387,8 @@ async function gogo_anime_finder(title, episode, type) {
         const rawText = await sourceResponse.text();
         //console.log('Raw response:', rawText);
         
-        extractGogoLink(rawText);
+        return extractGogoLink(rawText);
+        
         //extractGogoLink(rawText);
         /*const possibleVideoLinks = extractVideoLinks(rawText);
         console.log('--- Printing Links Using For Loop ---');
@@ -391,8 +414,9 @@ function extractGogoLink(html) {
       
         // Decode HTML entities in the URL
         // iframeSrc = he.decode(iframeSrc);
-      
+        
         console.log('Iframe Source URL:', iframeSrc);
+        return iframeSrc;
       } else {
         console.log('No iframe element found.');
       }
@@ -700,3 +724,5 @@ nyaa_html_finder(url, query, set_title, season_number, episode_number, dub); */
 // console.log(result);
 // console.log(output)
 //let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)"; 
+
+//console.log(await parse_title_reserve(`Mecha 27 [1BCEF3BD].mkv`))
