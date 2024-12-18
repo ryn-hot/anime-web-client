@@ -726,4 +726,4 @@ nyaa_html_finder(url, query, set_title, season_number, episode_number, dub); */
 // console.log(output)
 //let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)"; 
 
-//console.log(await parse_title_reserve(`Mecha 27 [1BCEF3BD].mkv`))
+//console.log(await parse_title_reserve(`[SubsPlease] Dandadan - 11 (1080p) [8748535F].mkv `));
