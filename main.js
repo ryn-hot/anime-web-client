@@ -59,21 +59,19 @@ async function main() {
         console.log(`specific_torrent:`, specific_torrent);
     } */ 
 
-    const magnetLink = 'magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fsintel.torrent';
-    let magnetLink_final = Array.isArray(magnetLink)
-            ? magnetLink[0] 
-            : magnetLink;
+    const magnetLink = 'magnet:?xt=urn:btih:b5b435316e592b642db961fd63abae9af3799662&amp;dn=%5BEMBER%5D%20Bleach%3A%20Thousand-Year%20Blood%20War%20%282022%29%20%28Season%201%29%20%5B1080p%5D%20%5BDual%20Audio%20HEVC%20WEBRip%5D%20%28Bleach%3A%20Sennen%20Kessen-hen%29%20%28Batch%29&amp;tr=http%3A%2F%2Fnyaa.tracker.wf%3A7777%2Fannounce&amp;tr=udp%3A%2F%2Fopen.stealth.si%3A80%2Fannounce&amp;tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&amp;tr=udp%3A%2F%2Fexodus.desync.com%3A6969%2Fannounce&amp;tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce';
+
         
-    const specific_torrent = await fetchTorrentMetadata(magnetLink_final, 5);
+    const specific_torrent = await fetchTorrentMetadata(magnetLink, 5);
     
     // const sea_dex_result = await seadex_finder(sea_dex_query[0], sea_dex_query[1], sea_dex_query[2]);
     
 }
 
-async function torrent_extract(magnetLink, episode_number) {
+async function fetchTorrentMetadata(magnetURI, episode_number) {
     const client = new WebTorrent({ wrtc })
 
-    const magnetURI = 'magnet:?xt=urn:btih:b5b435316e592b642db961fd63abae9af3799662&amp;dn=%5BEMBER%5D%20Bleach%3A%20Thousand-Year%20Blood%20War%20%282022%29%20%28Season%201%29%20%5B1080p%5D%20%5BDual%20Audio%20HEVC%20WEBRip%5D%20%28Bleach%3A%20Sennen%20Kessen-hen%29%20%28Batch%29&amp;tr=http%3A%2F%2Fnyaa.tracker.wf%3A7777%2Fannounce&amp;tr=udp%3A%2F%2Fopen.stealth.si%3A80%2Fannounce&amp;tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&amp;tr=udp%3A%2F%2Fexodus.desync.com%3A6969%2Fannounce&amp;tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce';
+    //const magnetURI = 'magnet:?xt=urn:btih:b5b435316e592b642db961fd63abae9af3799662&amp;dn=%5BEMBER%5D%20Bleach%3A%20Thousand-Year%20Blood%20War%20%282022%29%20%28Season%201%29%20%5B1080p%5D%20%5BDual%20Audio%20HEVC%20WEBRip%5D%20%28Bleach%3A%20Sennen%20Kessen-hen%29%20%28Batch%29&amp;tr=http%3A%2F%2Fnyaa.tracker.wf%3A7777%2Fannounce&amp;tr=udp%3A%2F%2Fopen.stealth.si%3A80%2Fannounce&amp;tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&amp;tr=udp%3A%2F%2Fexodus.desync.com%3A6969%2Fannounce&amp;tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce';
 
     console.log('Torrent added. Waiting for metadata...');
     const torrent = client.add(magnetURI)
@@ -84,6 +82,7 @@ async function torrent_extract(magnetLink, episode_number) {
 
     torrent.on('metadata', async () => {
     console.log('Metadata event fired!')
+
     console.log('Starting health check...')
 
     try {
@@ -141,7 +140,7 @@ async function torrent_extract(magnetLink, episode_number) {
             // Store this information in your database for future retrieval:
             // Example structure:
             const fileInfo = {
-              magnetLink: magnetLink,
+              magnetLink: magnetURI,
               fileIndex: desiredFileIndex,
               fileName: desiredFileName
             };
