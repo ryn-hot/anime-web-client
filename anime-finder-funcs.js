@@ -702,6 +702,7 @@ export {
     nyaa_html_finder,
     gogo_anime_finder,
     nyaa_reserve_extract,
+    parse_title_reserve,
     delay
 }
 // console.log(results); 
