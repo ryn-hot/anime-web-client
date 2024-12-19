@@ -1,4 +1,6 @@
-import { seadex_finder, nyaa_html_finder, gogo_anime_finder, parse_title_reserve } from "./anime-finder-funcs.js";
+//https://api.ani.zip/mappings?anilist_id=' + media.id storing future api call
+
+import { seadex_finder, gogo_anime_finder, parse_title_reserve } from "./anime-finder-funcs.js";
 import { sea_dex_query_creator, nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } from "./query-creator.js";
 import { nyaa_function_dispatch } from "./query-dispatcher.js";
 import WebTorrent from "webtorrent";
@@ -8,7 +10,7 @@ await main();
 
 
 async function main() {
-    /*const trs_results = [];
+    const trs_results = [];
     const english_title = 'BLEACH: Thousand-Year Blood War';
     const romanji_title = 'Bleach: Sennen Kessen-hen';
     const type = true; 
@@ -49,162 +51,141 @@ async function main() {
         const raw_torrent = trs_results_deduped[i];
         console.log(`raw_torrent magnetLink:`, raw_torrent.magnetLink);
        // Ensure we get a single magnet link string
-        let magnetLink = Array.isArray(raw_torrent.magnetLink)
+       let magnetLink = Array.isArray(raw_torrent.magnetLink)
             ? raw_torrent.magnetLink[0] 
             : raw_torrent.magnetLink;
 
+        magnetLink = magnetLink.replace(/&amp;/g, '&');
+
         console.log(`processed magnetLink:`,magnetLink);
 
-        const specific_torrent = await fetchTorrentMetadata(magnetLink, episode_number);
-        console.log(`specific_torrent:`, specific_torrent);
-    } */ 
-
-    const magnetLink = 'magnet:?xt=urn:btih:4b37ff0e0edc511bd96448c0039c0f7a9913ac4e&amp;dn=%5BJudas%5D%20Kimi%20no%20Na%20Wa.%20%28Your%20Name.%29%20%5BBD%202160p%204K%20UHD%5D%5BHEVC%20x265%2010bit%5D%5BDual-Audio%5D%5BMulti-Subs%5D&amp;tr=http%3A%2F%2Fnyaa.tracker.wf%3A7777%2Fannounce&amp;tr=udp%3A%2F%2Fopen.stealth.si%3A80%2Fannounce&amp;tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&amp;tr=udp%3A%2F%2Fexodus.desync.com%3A6969%2Fannounce&amp;tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce';
-
-        
-    const specific_torrent = await fetchTorrentMetadata(magnetLink, undefined);
-    
-    // const sea_dex_result = await seadex_finder(sea_dex_query[0], sea_dex_query[1], sea_dex_query[2]);
+        await fetchTorrentMetadata(magnetLink, episode_number);
+    } 
+z
     
 }
 
 //episode is undefined for movies 
-async function fetchTorrentMetadata(magnetURI, episode_number) { 
-    const client = new WebTorrent({ wrtc })
-
-    //const magnetURI = 'magnet:?xt=urn:btih:b5b435316e592b642db961fd63abae9af3799662&amp;dn=%5BEMBER%5D%20Bleach%3A%20Thousand-Year%20Blood%20War%20%282022%29%20%28Season%201%29%20%5B1080p%5D%20%5BDual%20Audio%20HEVC%20WEBRip%5D%20%28Bleach%3A%20Sennen%20Kessen-hen%29%20%28Batch%29&amp;tr=http%3A%2F%2Fnyaa.tracker.wf%3A7777%2Fannounce&amp;tr=udp%3A%2F%2Fopen.stealth.si%3A80%2Fannounce&amp;tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&amp;tr=udp%3A%2F%2Fexodus.desync.com%3A6969%2Fannounce&amp;tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce';
-
-    console.log('Torrent added. Waiting for metadata...');
-    const torrent = client.add(magnetURI)
-
-    torrent.on('infoHash', () => {
-    console.log(`InfoHash event fired: ${torrent.infoHash}`)
-    })
-
-    torrent.on('metadata', async () => {
-    console.log('Metadata event fired!')
-
-    console.log('Starting health check...')
-
-    try {
-        // Wait 10 seconds to see if we connect to any peers
-        await new Promise((resolveHealth, rejectHealth) => {
-        const healthCheckTimeout = setTimeout(() => {
-            console.log('Health check timeout triggered');
-            if (torrent.numPeers === 0) {
-            console.log('Peer Health Check Failed - no peers found.');
-            rejectHealth(new Error('No peers found, torrent likely unhealthy.'));
-            } else {
-            console.log(`Peer Health Passed - ${torrent.numPeers} peer(s) connected.`);
-            resolveHealth();
-            }
-        }, 10000); // 10 seconds
-
-        // If the torrent errors during this period, abort
-        torrent.on('error', (err) => {
-            clearTimeout(healthCheckTimeout);
-            rejectHealth(err);
-        });
-        });
-
-        // If we got here, it means we have peers and the torrent is considered healthy.
-        console.log('Torrent is healthy. Proceeding with file inspection.');
-
-        // Print out file names
-        console.log('Files in torrent:')
-        if (episode_number != undefined) {
-
-        
+async function fetchTorrentMetadata(magnetURI, episode_number) {
+    return new Promise((resolve, reject) => {
+      const client = new WebTorrent({ wrtc })
+      console.log('Torrent added. Waiting for metadata...');
+    
+      const torrent = client.add(magnetURI)
+  
+      torrent.on('infoHash', () => {
+        console.log(`InfoHash event fired: ${torrent.infoHash}`)
+      })
+    
+      torrent.on('metadata', async () => {
+        console.log('Metadata event fired!')
+        console.log('Starting health check...')
+    
+        try {
+          // Health check promise
+          await new Promise((resolveHealth, rejectHealth) => {
+            const healthCheckTimeout = setTimeout(() => {
+              console.log('Health check timeout triggered');
+              if (torrent.numPeers === 0) {
+                console.log('Peer Health Check Failed - no peers found.');
+                rejectHealth(new Error('No peers found, torrent likely unhealthy.'));
+              } else {
+                console.log(`Peer Health Passed - ${torrent.numPeers} peer(s) connected.`);
+                resolveHealth();
+              }
+            }, 10000);
+  
+            torrent.on('error', (err) => {
+              clearTimeout(healthCheckTimeout);
+              rejectHealth(err);
+            });
+          });
+    
+          console.log('Torrent is healthy. Proceeding with file inspection.');
+          console.log('Files in torrent:')
+  
+          let fileInfo = null;
+  
+          if (episode_number !== undefined) {
             let desiredFileFound = false;
             let desiredFileIndex = null;
             let desiredFileName = null;
-
-            // Iterate over files in the torrent
+  
             for (let i = 0; i < torrent.files.length; i++) {
-                const file = torrent.files[i];
-                console.log(`Checking file: ${file.name}`);
-
-                if (file.name.toLowerCase().endsWith('.mkv')) {
-                    // Parse the file name to extract episode info
-                    const file_title_data = await parse_title_reserve(file.name);
-
-                    // Check if the parsed episode number matches the target episode
-                    if (file_title_data.episode_number == episode_number) {
-                        console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
-                        desiredFileFound = true;
-                        desiredFileIndex = i;
-                        desiredFileName = file.name;
-                        break;
-                    }
+              const file = torrent.files[i];
+              console.log(`Checking file: ${file.name}`);
+  
+              if (file.name.toLowerCase().endsWith('.mkv')) {
+                const file_title_data = await parse_title_reserve(file.name);
+                if (file_title_data.episode_number == episode_number) {
+                  console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
+                  desiredFileFound = true;
+                  desiredFileIndex = i;
+                  desiredFileName = file.name;
+                  break;
                 }
+              }
             }
-
+  
             if (desiredFileFound) {
-                // At this point, we have the magnet link, file index, and file name
-                // Store this information in your database for future retrieval:
-                // Example structure:
-                const fileInfo = {
+              fileInfo = {
                 magnetLink: magnetURI,
                 fileIndex: desiredFileIndex,
                 fileName: desiredFileName
-                };
-        
-                console.log('Storing episode file info:', fileInfo);
-        
-            // TODO: Insert fileInfo into your DB. For example:
-            // await db.insertEpisodeSource(alID, episode_number, fileInfo);
-    
-        } else {
-            console.log(`No MKV file matching episode ${episode_number} was found in this torrent.`);
+              };
+              console.log('Storing episode file info:', fileInfo);
+            } else {
+              console.log(`No MKV file matching episode ${episode_number} was found in this torrent.`);
+            }
+          } else {
+            console.log('Checking for movie file...');
+            const mkvFiles = torrent.files.filter(file => file.name.toLowerCase().endsWith('.mkv'));
+            if (mkvFiles.length === 0) {
+              console.log('No MKV files found. Could not identify a movie file.');
+              client.destroy(() => {
+                console.log('Client destroyed. No valid movie file found.');
+                // resolve the main promise here so caller can continue
+                resolve(null);
+              });
+              return;
+            }
+  
+            mkvFiles.sort((a, b) => b.length - a.length);
+            const mainMovieFile = mkvFiles[0];
+            console.log(`Selected movie file: ${mainMovieFile.name} (size: ${mainMovieFile.length})`);
+  
+            fileInfo = {
+              magnetLink: magnetURI,
+              fileIndex: torrent.files.indexOf(mainMovieFile),
+              fileName: mainMovieFile.name
+            };
+  
+            console.log('Storing file info:', fileInfo);
+          }
+  
+          // Cleanup and resolve once done
+          client.destroy(() => {
+            console.log('Client destroyed. Test complete.');
+            resolve(fileInfo); // Resolve the main promise
+          });
+  
+        } catch (err) {
+          console.error('Health check failed or torrent error:', err.message);
+          client.destroy(() => {
+            console.log('Client destroyed due to health check failure.');
+            reject(err); // Reject the main promise to indicate failure
+          });
         }
-    } else {
-        console.log(`Checking for movie file...`);
-
-        const mkvFiles = torrent.files.filter(file => file.name.toLowerCase().endsWith('.mkv'));
-        if (mkvFiles.length === 0) {
-            console.log('No MKV files found. Could not identify a movie file.');
-            client.destroy(() => {
-            console.log('Client destroyed. No valid movie file found.');
-            });
-            return;
-        }
-
-        // If multiple mkv files exist, select the largest
-        mkvFiles.sort((a, b) => b.length - a.length);
-        const mainMovieFile = mkvFiles[0];
-        console.log(`Selected movie file: ${mainMovieFile.name} (size: ${mainMovieFile.length})`);
-        
-        // Here you can store the file info (no episode logic needed)
-        const fileInfo = {
-            magnetLink: magnetURI,
-            fileIndex: torrent.files.indexOf(mainMovieFile),
-            fileName: mainMovieFile.name
-        };
-
-        console.log('Storing file info:', fileInfo);
+      });
     
-    }
-
-        // Once done, destroy the client
+      torrent.on('error', (err) => {
+        console.error('Torrent error:', err);
         client.destroy(() => {
-        console.log('Client destroyed. Test complete.')
+          reject(err); 
         });
-
-    } catch (err) {
-        // If we failed the health check (no peers) or had another error
-        console.error('Health check failed or torrent error:', err.message);
-
-        // Destroy the client to clean up resources
-        client.destroy(() => {
-        console.log('Client destroyed due to health check failure.');
-        });
-    }
+      });
     });
-
-    torrent.on('error', (err) => {
-    console.error('Torrent error:', err)
-    });
-}
+  }
   
 
 function dedupeMagnetLinks(entries) {
