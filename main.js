@@ -11,12 +11,12 @@ await main();
 
 async function main() {
     const trs_results = [];
-    const english_title = 'BLEACH: Thousand-Year Blood War';
-    const romanji_title = 'Bleach: Sennen Kessen-hen';
+    const english_title = 'Your Name.';
+    const romanji_title = 'Kimi no Na Wa';
     const type = true; 
-    const alID = 116674;
-    let season_number = 1; // hardcoded for better fetching accuracy
-    const episode_number = 5; 
+    const alID = 21519;
+    let season_number = null // 1; // hardcoded for better fetching accuracy
+    const episode_number = null; 
     const server_mirror = [];
   
 
