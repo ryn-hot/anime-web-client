@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS anime (
     anidb_id      INTEGER,
     english_title TEXT,
     romanji_title TEXT,
+    episode_number INTEGER,
+    format        TEXT
     -- any other fields, e.g. year, average_rating, etc.
 
     -- Optional indexes on these fields if you often look up by them:

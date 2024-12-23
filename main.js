@@ -15,8 +15,8 @@ async function main() {
     const romanji_title = 'Kimi no Na Wa';
     const type = true; 
     const alID = 21519;
-    let season_number = null // 1; // hardcoded for better fetching accuracy
-    const episode_number = null; 
+    let season_number = 1; // hardcoded for better fetching accuracy
+    const episode_number = null; // null for movies 
     const server_mirror = [];
   
 
@@ -61,7 +61,6 @@ async function main() {
 
         await fetchTorrentMetadata(magnetLink, episode_number);
     } 
-z
     
 }
 
