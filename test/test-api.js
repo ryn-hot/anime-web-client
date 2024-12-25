@@ -27,10 +27,16 @@ export async function getTrendingNow(page = 1, perPage = 16) {
       Page(page: $page, perPage: $perPage) {
         media(sort: TRENDING_DESC, type: ANIME) {
           id
+          episodes
           title {
             romaji
             english
             native
+          }
+          nextAiringEpisode {
+            airingAt
+            timeUntilAiring
+            episode
           }
           coverImage {
             large
@@ -109,6 +115,7 @@ export async function getTopRated(page = 1, perPage = 16) {
       Page(page: $page, perPage: $perPage) {
         media(sort: SCORE_DESC, type: ANIME) {
           id
+          episodes
           title {
             romaji
             english
@@ -125,5 +132,38 @@ export async function getTopRated(page = 1, perPage = 16) {
   return fetchAniListData(query, variables);
 }
 
+async function alIdFetch(alID = 163134) {
+  const query = `
+  query ($id: Int) {
+    Media(id: $id, type: ANIME) {
+      episodes
+      status
+      nextAiringEpisode {
+          airingAt
+          timeUntilAiring
+          episode
+        }
+    }
+  }
+  `
 
-console.log(getTrendingNow())
+  const response = await fetch('https://graphql.anilist.co', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query,
+      variables: { id: alID }
+    })
+  });
+  const data = await response.json();
+  return data;
+
+}
+
+async function main() {
+  const result = await alIdFetch();
+  console.log(result);
+  console.log(result.data.Media.nextAiringEpisode);
+}
+
+main();

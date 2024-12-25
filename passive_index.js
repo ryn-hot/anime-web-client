@@ -128,6 +128,8 @@ class AnimeDatabase {
     }
 }
 
+const tasksQueue = [];
+
 // Example usage:
 async function main() {
     const db = new AnimeDatabase('./anime.db');
@@ -149,7 +151,7 @@ async function main() {
     }
 }
 
-async function passive_index(db) {
+async function passive_index_queuer(db) {
     const query = `
     query ($page: Int, $perPage: Int) {
         Page(page: $page, perPage: $perPage) {
@@ -180,7 +182,6 @@ async function passive_index(db) {
     let page = 1;
     let hasNextPage = true;
 
-    const tasksQueue = [];
 
     while (hasNextPage) {
         const pageData = await fetchAnimeData(page);
@@ -208,13 +209,30 @@ async function passive_index(db) {
             const format = anime.format;
             const englishTitle = anime.title?.english || null;
             const romanjiTitle = anime.title?.romaji || null;
-            const anilistEpisodes = anime.episodes || 0;   // AniList-supplied total
+            const episodesResponse = anime.episodes || anime.nextAiringEpisode.episode || 0;   // AniList-supplied total
+            const animestatus = anime.status;
+
+            let anilistEpisodes; 
             
-            if (anilistEpisodes == 0 && format != 'Movie') {
-                const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + anime.id)
-                const json = await mappingsResponse.json()
-            }   
-        
+            if (animestatus == 'RELEASING') {
+
+                if (episodesResponse == 0) {
+                    //unlimited tag -1 means to use indefinite iteration to find the boundaries of episodes. 
+                    anilistEpisodes = -1;
+                } else if (anime.episodes > anime.nextAiringEpisode.episode) {
+                    anilistEpisodes = anime.nextAiringEpisode.episode - 1;
+                } else {
+                    anilistEpisodes = anime.episodes;
+                }
+
+            } else {
+                if (episodesResponse == 0) {
+                    //unlimited tag
+                    anilistEpisodes = -1;
+                } else {
+                    anilistEpisodes = anime.episodes
+                }
+            }
 
 
             // 4.1 If the anime does NOT exist in the local DB
@@ -228,7 +246,6 @@ async function passive_index(db) {
                 englishTitle,
                 romanjiTitle,
                 // We also store "localAiringStatus" or original AniList status
-                airingStatus: localAiringStatus,
                 anilistEpisodes,
                 });
 
@@ -237,26 +254,24 @@ async function passive_index(db) {
 
             } else {
                 // 4.2 The anime already exists
-                // Let's see if the local DB's anime row has a different airing_status
-                const existingAnime = existingPageIds.get(anilistId);
 
                 // 4.3 Now check episodes
                 const localStats = episodeStats.get(anilistId) || { localCount: 0, maxEpisode: 0 };
                 const localMaxEp = localStats.maxEpisode || 0;
 
                 if (anilistEpisodes > localMaxEp) {
-                // There's a difference in episode counts 
-                // We queue missing episodes individually
-                for (let epNum = localMaxEp + 1; epNum <= anilistEpisodes; epNum++) {
-                    tasksQueue.push({
-                    type: 'episode',
-                    anilistId,
-                    episodeNumber: epNum
-                    // In your instructions, you said "We don't update the database 
-                    // for these new episodes until they are found." So we only queue them.
-                    });
-                }
-                console.log(`Queueing ${anilistEpisodes - localMaxEp} missing episodes for anime ${anilistId}`);
+                    // There's a difference in episode counts 
+                    // We queue missing episodes individually
+                    for (let epNum = localMaxEp + 1; epNum <= anilistEpisodes; epNum++) {
+                        tasksQueue.push({
+                        type: 'episode',
+                        anilistId,
+                        episodeNumber: epNum
+                        // In your instructions, you said "We don't update the database 
+                        // for these new episodes until they are found." So we only queue them.
+                        });
+                    }
+                    console.log(`Queueing ${anilistEpisodes - localMaxEp} missing episodes for anime ${anilistId}`);
                 }
             }
         } // end for loop of media
@@ -275,6 +290,9 @@ async function passive_index(db) {
       
 }
 
+async function passive_index_processor() {
+
+}
 async function fetchAnimeData(page = 1, perPage = 50) {
     const variables = { page, perPage };
   
