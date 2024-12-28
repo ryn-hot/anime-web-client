@@ -160,10 +160,19 @@ async function alIdFetch(alID = 163134) {
 
 }
 
-async function main() {
-  const result = await alIdFetch();
-  console.log(result);
-  console.log(result.data.Media.nextAiringEpisode);
+async function test_anidb() {
+  const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + 21);
+  const json = await mappingsResponse.json();
+  const ep = json?.episodeCount || -1;
+  const anidbId = json?.mappings?.anidb_id || -1;
+  console.log(ep);
+  console.log(anidbId);
+
 }
+async function main() {
+  await test_anidb();
+}
+
+
 
 main();
