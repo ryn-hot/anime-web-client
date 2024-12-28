@@ -33,7 +33,7 @@ async function parse_title_reserve(title) {
     return results;
 }
 // season_data is the data extracted from parse_title
-async function seadex_finder(alID, dub, episode) {
+async function seadex_finder(alID, audio, episode) {
     const rec_url = `https://releases.moe/api/collections/entries/records?filter=alID=${alID}`;
     const response = await fetch(rec_url);
     const data = await response.json();
@@ -52,7 +52,7 @@ async function seadex_finder(alID, dub, episode) {
         if (!(data.url.includes("nyaa"))) {
             continue;
         }
-        if (dub === true && data.dualAudio === false) {
+        if (audio === 'dub' && data.dualAudio === false) {
             continue;
         }
 
@@ -104,6 +104,7 @@ async function seadex_finder(alID, dub, episode) {
     return entries
 }
 
+//async function anime_tosho_finder(anidb_id, )
 
 async function nyaa_html_finder(url, query, set_title, season_number, episode_number, dub) {
     let torrentList = [];
@@ -160,7 +161,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
         
         torrent_info.anime_title = processTitle(torrent_info.anime_title, set_title);
 
-        if (dub === true && !hasDualAudioOrEnglishDub(torrent.title)) {
+        if (dub === 'dub' && !hasDualAudioOrEnglishDub(torrent.title)) {
             console.log(`Episode does not have English Dub`);
             continue;
         }

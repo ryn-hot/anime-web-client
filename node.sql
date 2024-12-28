@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS anime (
 
 CREATE TABLE IF NOT EXISTS episodes (
     anilist_id    INTEGER NOT NULL,
+    anidb_id      INTEGER, --optional
     episode_number INTEGER NOT NULL,
     episode_title  TEXT,
     -- Possibly store "season_number" here if relevant
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS episodes (
 CREATE TABLE IF NOT EXISTS sources (
     source_id       INTEGER PRIMARY KEY AUTOINCREMENT,
     anilist_id      INTEGER NOT NULL,
+    anidb_id        INTEGER, --optional
     episode_number  INTEGER NOT NULL,
 
     -- sub, dub, or both
@@ -38,10 +40,12 @@ CREATE TABLE IF NOT EXISTS sources (
     category        TEXT NOT NULL,
 
     -- For torrent category
-    magnet_link     TEXT,  -- if category = 'torrent'
-    info_hash       TEXT,  -- optional
-    file_index      INTEGER,  -- optional
-    file_name       TEXT,  -- optional
+    magnet_link  TEXT,  -- if category = 'torrent'
+    info_hash    TEXT,  -- optional
+    file_index   INTEGER,  -- optional
+    file_name    TEXT,  -- optional
+    seeders      INTEGER, 
+
 
     -- For http/hosted category
     video_url       TEXT,  -- if category = 'http'
@@ -51,3 +55,14 @@ CREATE TABLE IF NOT EXISTS sources (
 
     FOREIGN KEY (anilist_id, episode_number) REFERENCES episodes(anilist_id, episode_number)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_sources ON sources (
+    anilist_id,
+    episode_number,
+    audio_type,
+    category,
+    COALESCE(magnet_link, ''),
+    COALESCE(video_url, ''),
+    COALESCE(nzb_data, '')
+);
+

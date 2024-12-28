@@ -6,46 +6,56 @@ import { nyaa_function_dispatch } from "./query-dispatcher.js";
 import WebTorrent from "webtorrent";
 import wrtc from 'wrtc'
 
-await main();
+// await main();
 
 
-async function main() {
-    const trs_results = [];
+async function crawler_dispatch(proxy, db, english_title, romanji_title, audio, alID, anidbId, episode_number) {
+    /* const trs_results = [];
     const english_title = 'Your Name.';
     const romanji_title = 'Kimi no Na Wa';
     const type = true; 
     const alID = 21519;
+    const episode_number = null; null for movies */
     let season_number = 1; // hardcoded for better fetching accuracy
-    const episode_number = null; // null for movies 
-    const server_mirror = [];
-  
+    
+    const trs_results = [];
 
     
-    const sea_dex_query = sea_dex_query_creator(alID, type,  episode_number);
+    const sea_dex_query = sea_dex_query_creator(alID, audio, episode_number);
     const sea_dex_query_results = await seadex_finder(...sea_dex_query);
     trs_results.push(...sea_dex_query_results)
 
-    const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, type);
+    const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, audio);
     const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
     // console.log(nyaa_results);
     trs_results.push(...nyaa_results);
 
     if (nyaa_results.length < 1) {
-        const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, type);
+        const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, audio);
         const nyaa_fallback_results = await nyaa_function_dispatch(nyaa_fallback_q, false, true);
         trs_results.push(...nyaa_fallback_results);
     }
 
     
-    const gogo_query = gogoanime_query_creator(romanji_title, episode_number, 'sub');
+    const gogo_query = gogoanime_query_creator(romanji_title, episode_number, audio);
     const gogo_link = await gogo_anime_finder(...gogo_query);
-    server_mirror.push(gogo_link);
+    
+    if (gogo_link) {
+        db.storeEpisodeAndSource({
+            anilistId: alID, 
+            anidbId: anidbId, 
+            episodeNumber: episode_number, 
+            audioType: audio, 
+            category: 'http', 
+            videoUrl: gogo_link
+        });
+    }
 
     const trs_results_deduped = dedupeMagnetLinks(trs_results);
 
     console.log(trs_results_deduped);
 
-    const trs_final = []; 
+    // const trs_final = []; 
 
     for (let i = 0; i < trs_results_deduped.length; i++) {
         const raw_torrent = trs_results_deduped[i];
@@ -54,18 +64,21 @@ async function main() {
        let magnetLink = Array.isArray(raw_torrent.magnetLink)
             ? raw_torrent.magnetLink[0] 
             : raw_torrent.magnetLink;
-
+        
         magnetLink = magnetLink.replace(/&amp;/g, '&');
+
+        const seeders = raw_torrent.seeders;
+        const audio_type = raw_torrent.audio_type; 
 
         console.log(`processed magnetLink:`,magnetLink);
 
-        await fetchTorrentMetadata(magnetLink, episode_number);
+        await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio_type, alID, anidbId, db);
     } 
     
 }
 
 //episode is undefined for movies 
-async function fetchTorrentMetadata(magnetURI, episode_number) {
+async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_type, alID, anidbId, db) {
     return new Promise((resolve, reject) => {
       const client = new WebTorrent({ wrtc })
       console.log('Torrent added. Waiting for metadata...');
@@ -121,6 +134,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number) {
                   desiredFileFound = true;
                   desiredFileIndex = i;
                   desiredFileName = file.name;
+
                   break;
                 }
               }
@@ -132,6 +146,19 @@ async function fetchTorrentMetadata(magnetURI, episode_number) {
                 fileIndex: desiredFileIndex,
                 fileName: desiredFileName
               };
+
+              db.storeEpisodeAndSource({
+                anilistId: alID,
+                anidbId: anidbId,
+                episodeNumber: episode_number,
+                audioType: audio_type,
+                category: 'torrent',
+                magnetLink: fileInfo.magnetLink,
+                fileIndex: fileInfo.fileIndex,
+                fileName: fileInfo.fileName,
+                seeders: seeders,
+              });
+
               console.log('Storing episode file info:', fileInfo);
             } else {
               console.log(`No MKV file matching episode ${episode_number} was found in this torrent.`);
@@ -158,7 +185,19 @@ async function fetchTorrentMetadata(magnetURI, episode_number) {
               fileIndex: torrent.files.indexOf(mainMovieFile),
               fileName: mainMovieFile.name
             };
-  
+            
+            db.storeEpisodeAndSource({
+                anilistId: alID,
+                anidbId: anidbId,
+                episodeNumber: episode_number,
+                audioType: audio_type,
+                category: 'torrent',
+                magnetLink: fileInfo.magnetLink,
+                fileIndex: fileInfo.fileIndex,
+                fileName: fileInfo.fileName,
+                seeders: seeders,
+            });
+
             console.log('Storing file info:', fileInfo);
           }
   
