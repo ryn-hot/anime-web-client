@@ -2,7 +2,8 @@ import Database from "better-sqlite3";
 import fs from 'fs/promises';
 import { enqueue, dequeue, size } from './tasks-queue.js';
 import { nextProxy, reportFailure} from './proxy-manager.js';
-
+import { crawler_dispatch } from "./main.js";
+import fetch from 'node-fetch';
 
 class AnimeDatabase {
     constructor(dbPath) {
@@ -280,9 +281,10 @@ async function main() {
         // Initialize with schema
         await db.initializeFromSchema('./node.sql');
         
-        // Check if anime exists
-        const exists = db.checkAnimeExists(123);
-        console.log('Anime exists:', exists);
+        await passive_index_queuer(db);
+
+        await passive_index_process({ mode: 'sequential' }, db); 
+
     } catch (error) {
         console.error('Database operation failed:', error);
     } finally {
@@ -323,7 +325,7 @@ async function passive_index_queuer(db) {
 
 
     while (hasNextPage) {
-        const pageData = await fetchAnimeData(page);
+        const pageData = await fetchAnimeData(query, page);
         
         if (!pageData || !pageData.media) {
             console.log('No page data or media found. Stopping pagination.');
@@ -346,10 +348,17 @@ async function passive_index_queuer(db) {
             const anilistId = anime.id;
             const myAnimeListId = anime.idMal; 
             const format = anime.format;
-            const englishTitle = anime.title?.english || '';
-            const romanjiTitle = anime.title?.romaji || '';
+            let englishTitle = anime.title?.english || '';
+            let romanjiTitle = anime.title?.romaji || '';
             const episodesResponse = anime.episodes || anime.nextAiringEpisode.episode || 0;   // AniList-supplied total
             const animestatus = anime.status;
+
+            if (englishTitle === '' && romanjiTitle !== '') {
+                englishTitle = romanjiTitle;
+            }
+            if (romanjiTitle === '' && englishTitle !== '') {
+                romanjiTitle = englishTitle;
+            }
 
             let anilistEpisodes; 
             
@@ -389,14 +398,14 @@ async function passive_index_queuer(db) {
 
 
                 enqueue({
-                type: 'anime',
-                anilistId,
-                myAnimeListId,
-                anidbId,
-                format,
-                englishTitle,
-                romanjiTitle,
-                episodeNumber: anilistEpisodes,
+                    type: 'anime',
+                    anilistId,
+                    myAnimeListId,
+                    anidbId,
+                    format,
+                    englishTitle,
+                    romanjiTitle,
+                    episodeNumber: anilistEpisodes,
                 });
 
                 console.log(`Queueing missing anime ID ${anilistId} for insertion.`);
@@ -414,17 +423,25 @@ async function passive_index_queuer(db) {
                     // We queue missing episodes individually
                     for (let epNum = localMaxEp + 1; epNum <= anilistEpisodes; epNum++) {
                         enqueue({
-                        type: 'episode',
-                        anilistId,
-                        episodeNumber: epNum,
-                        audio: 'sub'
-                        // In your instructions, you said "We don't update the database 
-                        // for these new episodes until they are found." So we only queue them.
+                            type: 'episode',
+                            anilistId,
+                            myAnimeListId,
+                            anidbId,
+                            englishTitle,
+                            romanjiTitle,
+                            episodeNumber: epNum,
+                            audio: 'sub'
+                            // In your instructions, you said "We don't update the database 
+                            // for these new episodes until they are found." So we only queue them.
                         });
 
                         enqueue({
                             type: 'episode',
                             anilistId,
+                            myAnimeListId,
+                            anidbId,
+                            englishTitle,
+                            romanjiTitle,
                             episodeNumber: epNum,
                             audio: 'dub'
                             // In your instructions, you said "We don't update the database 
@@ -437,7 +454,7 @@ async function passive_index_queuer(db) {
         } // end for loop of media
 
         // Move to next page
-        hasNextPage = pageData.pageInfo.hasNextPage;
+        hasNextPage = false // pageData.pageInfo.hasNextPage;
         page++;
 
         // Throttle requests
@@ -452,14 +469,14 @@ async function passive_index_queuer(db) {
 async function passive_index_process({ mode = 'sequential', concurrency = 1 }, db) {
     if (mode === 'sequential') {
         // Start a single worker that processes tasks one by one
-        processTasksSequentially(db);
+        await processTasksSequentially(db, concurrency);
       } else if (mode === 'concurrent') {
         // Start a worker pool that can handle multiple tasks concurrently
         processTasksConcurrently(concurrency, db);
       }
 }
 
-async function processTasksSequentially(db) {
+async function processTasksSequentially(db, concurrency) {
     while (true) {
       const task = dequeue();
       if (!task) {
@@ -467,11 +484,15 @@ async function processTasksSequentially(db) {
         await sleep(500);
         continue;
       }
-      await handleTask(task, db);  // do one at a time
+      await handleTask(task, db, concurrency);  // do one at a time
     }
 }
 
-function processTasksConcurrently(concurrency) {
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function processTasksConcurrently(concurrency, db) {
     let activeCount = 0;
     
     async function next() {
@@ -495,13 +516,13 @@ function processTasksConcurrently(concurrency) {
     }
 }
   
-async function handleTask(task, db) {
+async function handleTask(task, db, concurrency) {
     switch (task.type) {
       case 'anime':
         await processAnimeTask(task, db);
         break;
       case 'episode':
-        await processEpisodeTask(task, db);
+        await processEpisodeTask(task, db, concurrency);
         break;
       default:
         console.warn('Unknown task type:', task);
@@ -511,6 +532,8 @@ async function handleTask(task, db) {
 async function processAnimeTask(task, db) {
     // Insert or update the anime row in DB if needed
     // If indefinite, store that indefinite flag in DB
+    console.log(`Inserting Anime: ${task.englishTitle}, Episode Count: ${task.episodeNumber}`);
+
     db.insertAnime({
         anilistId: task.anilistId,
         malId: task.myAnimeListId,
@@ -530,6 +553,10 @@ async function processAnimeTask(task, db) {
             enqueue({
                 type: 'episode',
                 anilistId: task.anilistId,
+                myAnimeListId: task.myAnimeListId,
+                anidbId: task.anidbId,
+                englishTitle: task.englishTitle,
+                romanjiTitle: task.romanjiTitle,
                 episodeNumber: i,
                 audio: 'sub'
             });
@@ -537,6 +564,10 @@ async function processAnimeTask(task, db) {
             enqueue({
                 type: 'episode',
                 anilistId: task.anilistId,
+                myAnimeListId: task.myAnimeListId,
+                anidbId: task.anidbId,
+                englishTitle: task.englishTitle,
+                romanjiTitle: task.romanjiTitle,
                 episodeNumber: i,
                 audio: 'dub'
             });
@@ -544,8 +575,8 @@ async function processAnimeTask(task, db) {
     }
 }
 
-async function processEpisodeTask(task, db) {
-    const { anilistId, episodeNumber } = task;
+async function processEpisodeTask(task, db, concurrency) {
+    // const { anilistId, episodeNumber } = task;
 
     // Otherwise, do your crawler dispatch logic:
     // 1. Obtain a proxy if concurrency > 1
@@ -555,7 +586,6 @@ async function processEpisodeTask(task, db) {
     if (concurrency > 1) {
         const proxy = nextProxy();
         await crawler_dispatch(
-            proxy,
             db,
             task.englishTitle,
             task.romanjiTitle,
@@ -563,11 +593,14 @@ async function processEpisodeTask(task, db) {
             task.anilistId,
             task.anidbId,
             task.episodeNumber,
+            proxy,
             );
         
             // e.g. round-robin
         // Then pass this proxy to your crawler logic 
     } else {
+        console.log(`\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }`);
+
         await crawler_dispatch(
             db,
             task.englishTitle,
@@ -578,33 +611,29 @@ async function processEpisodeTask(task, db) {
             task.episodeNumber,
         ); 
     }
-    
-  
-    
-    globalCache.set(cacheKey);
   
     // In indefinite mode, if the crawler finds no sign of epNumber,
     // you can decide to re-queue epNumber again later or increment epNumber by 1, etc.
 }
 
 
-
-async function fetchAnimeData(page = 1, perPage = 50) {
+// perPage = 50
+async function fetchAnimeData(query, page = 1, perPage = 10) {
     const variables = { page, perPage };
-  
+
     try {
-      const response = await fetch('https://graphql.anilist.co', {
+    const response = await fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, variables }),
-      });
-  
-      const data = await response.json();
-      return data.data.Page;
+    });
+
+    const data = await response.json();
+    return data.data.Page;
     } catch (error) {
-      console.error('Error fetching data:', error);
+    console.error('Error fetching data:', error);
     }
-  };
+};
 
 
 await main()
