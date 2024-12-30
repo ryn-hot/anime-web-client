@@ -5,7 +5,7 @@ import fetch from 'node-fetch';
 import levenshtein from 'fast-levenshtein';
 import { JSDOM } from 'jsdom';
 import { load } from 'cheerio';
-
+import { globalTorrentCache, cacheTorrentRange } from './cache.js';
 
 
 async function parse_title(title) {
@@ -20,11 +20,11 @@ async function parse_title_reserve(title) {
         const regex = /(?:[Ss](?:eason)?\s*\d+\s*[Ee](?:pisode)?\s*(\d+))|(?:Season\s*\d+\s*Episode\s*(\d+))|\b[Ee](\d{1,2})\b|-\s*(\d{1,2})\s*-/;
         const match = title.match(regex);
         if (match) {
-            console.log(`regex matched`)
+            // console.log(`regex matched`)
               // Iterate through capturing groups to find the one that matched
             for (let i = 1; i < match.length; i++) {
                 if (match[i] !== undefined) {
-                    console.log(`episode found: `, parseInt(match[i], 10))
+                    // console.log(`episode found: `, parseInt(match[i], 10))
                     results.episode_number = parseInt(match[i], 10);
                 }
             }
@@ -35,7 +35,7 @@ async function parse_title_reserve(title) {
 // season_data is the data extracted from parse_title
 async function seadex_finder(alID, audio, episode) {
     const rec_url = `https://releases.moe/api/collections/entries/records?filter=alID=${alID}`;
-    const response = await fetch(rec_url);
+    const response = await fetchWithRetry(rec_url);
     const data = await response.json();
 
     const trsList = data.items[0].trs;
@@ -45,9 +45,9 @@ async function seadex_finder(alID, audio, episode) {
 
     for (const trs of trsList) {
         const url = `https://releases.moe/api/collections/torrents/records/${trs}`;
-        console.log(url)
-        const response = await fetch(url);
-        //console.log(response);
+        // console.log(url)
+        const response = await fetchWithRetry(url);
+        // console.log(response);
         const data = await response.json();
         if (!(data.url.includes("nyaa"))) {
             continue;
@@ -56,7 +56,7 @@ async function seadex_finder(alID, audio, episode) {
             continue;
         }
 
-        const nyaa_response = await fetch(data.url); 
+        const nyaa_response = await fetchWithRetry(data.url); 
         const html = await nyaa_response.text();
         //console.log(html);
         const mkvFiles = extractMkvFiles(html);
@@ -66,7 +66,7 @@ async function seadex_finder(alID, audio, episode) {
         if (!(episode === undefined)) {
 
             for (const mkvFile of mkvFiles) {
-                console.log(mkvFile);
+                // console.log(mkvFile);
                 const episode_info = await parse_title(mkvFile);
                 if (episode_info.episode_number == episode) {
                     containsEpisode = true;
@@ -82,11 +82,11 @@ async function seadex_finder(alID, audio, episode) {
     
         
         const num_seeders = extractSeeders(html);
-        console.log(num_seeders);
+        // console.log(num_seeders);
         const infoHash = extractInfoHash(html)
-        console.log(infoHash);
+        // console.log(infoHash);
         const magnetLink = extractMagnetLink(html);
-        console.log(magnetLink);
+        // console.log(magnetLink);
         const items = data;
         const entry = {
             magnetLink: magnetLink,
@@ -100,13 +100,13 @@ async function seadex_finder(alID, audio, episode) {
         entries.push(entry);
     }
 
-    console.log(entries);
+    // console.log(entries);
     return entries
 }
 
 //async function anime_tosho_finder(anidb_id, )
 
-async function nyaa_html_finder(url, query, set_title, season_number, episode_number, dub) {
+async function nyaa_html_finder(url, query, set_title, season_number, episode_number, dub, alID) {
     let torrentList = [];
     let reserve_cache = []; 
     let ephemTrsList = [];
@@ -115,7 +115,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
     const nyaa_query_url_first = `${url}&q=${query}&s=seeders&o=desc&p=1`;
     // console.log(nyaa_query_url_first);
     const response_first = await fetchWithRetry(nyaa_query_url_first);
-    console.log(`First page status: ${response_first.status}, url: `, nyaa_query_url_first);
+    // console.log(`First page status: ${response_first.status}, url: `, nyaa_query_url_first);
     const html_first = await response_first.text();
 
     // console.log(`Processing page number 1`);
@@ -132,7 +132,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
         const nyaa_query_url = `https://nyaa.si/?f=0&c=1_2&q=${query}&s=seeders&o=desc&p=${i}`;
         // console.log(nyaa_query_url);
         fetchPromises.push(fetchWithRetry(nyaa_query_url).then(response => {
-            console.log(`Page ${i} status: ${response.status}`);
+            // console.log(`Page ${i} status: ${response.status}`);
             return response.text()
         }));     
     }
@@ -146,8 +146,8 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
     }
 
     // Process the torrent list as per your existing logic
-    for (const torrent of ephemTrsList) {
-        console.log(`\nTitle Eval: ${torrent.title}`);
+    for (let torrent of ephemTrsList) {
+        // console.log(`\nTitle Eval: ${torrent.title}`);
         let title = replaceTildeWithHyphen(torrent.title);
         title = removeSpacesAroundHyphens(title);
         let torrent_info = await parse_title(title);
@@ -162,22 +162,22 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
         torrent_info.anime_title = processTitle(torrent_info.anime_title, set_title);
 
         if (dub === 'dub' && !hasDualAudioOrEnglishDub(torrent.title)) {
-            console.log(`Episode does not have English Dub`);
+            // console.log(`Episode does not have English Dub`);
             continue;
         }
 
         const lev_distance  = levenshtein.get(normalizeTitle(set_title.toLowerCase()), normalizeTitle(torrent_info.anime_title.toLowerCase()));
 
         if (lev_distance > 1) {
-            console.log("Title Mismatch");
-            console.log(`Set Title: ${set_title}, Torrent Info Title: ${torrent_info.anime_title}`);
+            // console.log("Title Mismatch");
+            // console.log(`Set Title: ${set_title}, Torrent Info Title: ${torrent_info.anime_title}`);
             continue;
         }
 
 
         if (season_number != torrent_info.anime_season) {
             if ((season_number != 1 && season_number != undefined) || torrent_info.anime_season != undefined) {
-                console.log("Season Number Mismatch");
+                // console.log("Season Number Mismatch");
                 continue; 
             }
         } 
@@ -186,26 +186,39 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
 
         if (episode_int.length >= 1) {
             const range = getRange(episode_int);
-
+            
             if (!range.includes(episode_number)) {
-                console.log(`Episode Not in Range: ${range}, Episode Number: ${episode_number}`);
+                // console.log(`Episode Not in Range: ${range}, Episode Number: ${episode_number}`);
                 continue;
             }
+
+            // Insert episode slice into cache here.
+            let magnetLink = torrent.magnetLink;
+            if (Array.isArray(magnetLink)) {
+              magnetLink = magnetLink[0]; 
+            }
+
+            if (alID !== undefined) {
+                cacheTorrentRange(alID, range[0], range[range.length - 1], dub, magnetLink, parseInt(torrent.seeders, 10));
+
+                //console.log(`Inserted into cache: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], magnetLink=${magnetLink}`);
+            }
+            
+
         } else {
             if (season_number == torrent_info.anime_season && torrent_info.episode_number == undefined) {
-                console.log(`Torrent Added to Reserve Cache`)
+                // console.log(`Torrent Added to Reserve Cache`)
                 reserve_cache.push(torrent)
             }
             if (season_number != undefined && episode_number != undefined) {
-                console.log(`Episode Not in Range: Query for TV Series`);
+                // console.log(`Episode Not in Range: Query for TV Series`);
                 continue;
             }
         }
 
-      
 
-
-        console.log(`Torrent Added`);
+        // console.log(`Torrent Added`);
+        torrent.seeders = parseInt(torrent.seeders, 10);
         torrentList.push(torrent); 
     }
 
@@ -221,10 +234,10 @@ async function nyaa_reserve_extract(reserve_torrents, episode) {
     const trsContainingEpisode = [];
 
     for (const trs of reserve_torrents) {
-        console.log(`\n\n\nTorrent Currently being processed:`, trs);
+        // console.log(`\n\n\nTorrent Currently being processed:`, trs);
 
         const nyaa_response = await fetch(trs.url); 
-        console.log(`Fetching Torrent Url: `, trs.url);
+        // console.log(`Fetching Torrent Url: `, trs.url);
         const html = await nyaa_response.text();
         // console.log(html);
         const mkvFiles = extractMkvFiles(html);
@@ -232,16 +245,16 @@ async function nyaa_reserve_extract(reserve_torrents, episode) {
         if (!(episode === undefined)) {
 
             for (const mkvFile of mkvFiles) {
-                console.log(`mkvfile: `, mkvFile);
+                // console.log(`mkvfile: `, mkvFile);
                 const episode_info = await parse_title_reserve(mkvFile);
-                console.log(`episode_info: \n`, episode_info);
+                // console.log(`episode_info: \n`, episode_info);
                 if (episode_info.episode_number == episode) {
                     trsContainingEpisode.push(trs);
                 }
             }
 
         }
-        console.log('\n\n\n');
+        // console.log('\n\n\n');
     }
 
     return trsContainingEpisode;
@@ -264,7 +277,7 @@ async function fetchWithRetry(url, retries = 3, delayDuration = 1000) {
         return response; // Return the successful response
         } catch (error) {
         if (i < retries) {
-            console.log(`Fetch failed (attempt ${i + 1}), retrying in ${delayDuration}ms...`);
+            // console.log(`Fetch failed (attempt ${i + 1}), retrying in ${delayDuration}ms...`);
             // console.log(error);
             await delay(delayDuration);
         } else {
@@ -363,8 +376,8 @@ async function gogo_anime_finder(title, episode, type) {
         .replace(/[^\w\s-]/g, '') // Remove special characters
         .replace(/\s+/g, '-');     // Replace spaces with hyphens
         
-        console.log(slugTitle);
-        console.log(episode);
+        // console.log(slugTitle);
+        // console.log(episode);
         // Construct the epid
         let sourceUrl;
 
@@ -416,7 +429,7 @@ function extractGogoLink(html) {
         // Decode HTML entities in the URL
         // iframeSrc = he.decode(iframeSrc);
         
-        console.log('Iframe Source URL:', iframeSrc);
+        // console.log('Iframe Source URL:', iframeSrc);
         return iframeSrc;
       } else {
         console.log('No iframe element found.');
@@ -708,22 +721,27 @@ export {
 }
 // console.log(results); 
 // const title = 'fullmetal alchemist';
-/* const url = `https://nyaa.si/?f=0&c=1_2`;
-const query = 'Bleach:+Sennen+Kessen-hen';
-const season_number = 2;
-const episode_number = 5;
-const set_title = 'Bleach: Sennen Kessen-hen';
+// const url = `https://nyaa.si/?f=0&c=1_2`;
+// const query = 'Bleach:+Sennen+Kessen-hen';
+// const season_number = 1;
+// const episode_number = 5;
+// const set_title = 'Bleach: Sennen Kessen-hen';
 
-const dub = false;
-nyaa_html_finder(url, query, set_title, season_number, episode_number, dub); */
+// const dub = false;
+// const results = await nyaa_html_finder(url, query, set_title, season_number, episode_number, dub); 
+// console.log(results);
+// console.log(globalTorrentCache);
 // gogo_anime_finder(title, 1, 'dub');
 // test_server_id();
 // const title_romanji = `Shingeki no Kyojin`;
 // const result = await hikaritv_anime_extract(16498, 1);
 // Add looser title matching, strict matching but not exact.
 // let query = `One+Piece`;
+
 //const result = await nyaa_html_finder('Tower+Of+God', 'Tower of God', 1, 5);
-// console.log(result);
+//console.log(result);
+
+
 // console.log(output)
 //let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)"; 
 

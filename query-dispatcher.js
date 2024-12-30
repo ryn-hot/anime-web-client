@@ -14,10 +14,10 @@ async function nyaa_function_dispatch(nyaa_queries, release_status_complete, fal
     for (const query of nyaa_queries) {
         // Print the query index
         i += 1;
-        console.log(chalk.blue.bold('\n========================================\n'));
-        console.log(chalk.yellow.bold(`Query ${i}:`));
-        console.log(chalk.greenBright(JSON.stringify(query, null, 2)));
-        console.log(chalk.blue.bold('\n========================================\n'));
+        // console.log(chalk.blue.bold('\n========================================\n'));
+        // console.log(chalk.yellow.bold(`Query ${i}:`));
+        // console.log(chalk.greenBright(JSON.stringify(query, null, 2)));
+        // console.log(chalk.blue.bold('\n========================================\n'));
 
         const result = await nyaa_html_finder(...query);
         results.push(result);
@@ -44,10 +44,10 @@ async function nyaa_function_dispatch(nyaa_queries, release_status_complete, fal
     else {
 
         if (release_status_complete && !fallback) {
-            console.log(`checking reserve torrents:`, uniq_reserve_torrents);
+            // console.log(`checking reserve torrents:`, uniq_reserve_torrents);
             const episode = nyaa_queries[0][4];
             const checked_reserve_torrents = await nyaa_reserve_extract(uniq_reserve_torrents, episode);
-            console.log(`checked_reserve_torrents:`, checked_reserve_torrents);
+            // console.log(`checked_reserve_torrents:`, checked_reserve_torrents);
             return checked_reserve_torrents;
         }
         else {

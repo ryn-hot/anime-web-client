@@ -132,12 +132,17 @@ export async function getTopRated(page = 1, perPage = 16) {
   return fetchAniListData(query, variables);
 }
 
-async function alIdFetch(alID = 163134) {
+async function alIdFetch(alID = 17) {
   const query = `
   query ($id: Int) {
     Media(id: $id, type: ANIME) {
       episodes
       status
+      title {
+        romaji
+        english
+        native
+      }
       nextAiringEpisode {
           airingAt
           timeUntilAiring
@@ -156,21 +161,22 @@ async function alIdFetch(alID = 163134) {
     })
   });
   const data = await response.json();
+  console.log(data.data);
   return data;
 
 }
 
 async function test_anidb() {
-  const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + 21);
+  const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + 17);
   const json = await mappingsResponse.json();
   const ep = json?.episodeCount || -1;
   const anidbId = json?.mappings?.anidb_id || -1;
-  console.log(ep);
+  console.log(json);
   console.log(anidbId);
 
 }
 async function main() {
-  await test_anidb();
+  await alIdFetch();
 }
 
 

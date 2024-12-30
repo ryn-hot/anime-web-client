@@ -3,118 +3,118 @@
 import { seadex_finder, gogo_anime_finder, parse_title_reserve } from "./anime-finder-funcs.js";
 import { sea_dex_query_creator, nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } from "./query-creator.js";
 import { nyaa_function_dispatch } from "./query-dispatcher.js";
-import WebTorrent from "webtorrent";
-import wrtc from 'wrtc'
+import { findMagnetForEpisode } from "./cache.js";
+import { getGlobalClient } from "./webtorrent-client.js";
 
 // await main();
+// let db = null; 
+// await crawler_dispatch(db, 'Re:ZERO -Starting Life in Another World- Season 2', 'Re:ZERO kara Hajimeru Isekai Seikatsu 2nd Season', 'dub', 108632, 14792, 3);
 
-
-async function crawler_dispatch(proxy, db, english_title, romanji_title, audio, alID, anidbId, episode_number) {
+async function crawler_dispatch(db, english_title, romanji_title, audio, alID, anidbId, episode_number, proxy = null) {
     /* const trs_results = [];
     const english_title = 'Your Name.';
     const romanji_title = 'Kimi no Na Wa';
     const type = true; 
     const alID = 21519;
     const episode_number = null; null for movies */
-    let season_number = 1; // hardcoded for better fetching accuracy
-    
-    const trs_results = [];
+    const cached = findMagnetForEpisode(alID, episode_number, audio);
 
-    
-    const sea_dex_query = sea_dex_query_creator(alID, audio, episode_number);
-    const sea_dex_query_results = await seadex_finder(...sea_dex_query);
-    trs_results.push(...sea_dex_query_results)
-
-    const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, audio);
-    const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
-    // console.log(nyaa_results);
-    trs_results.push(...nyaa_results);
-
-    if (nyaa_results.length < 1) {
-        const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, audio);
-        const nyaa_fallback_results = await nyaa_function_dispatch(nyaa_fallback_q, false, true);
-        trs_results.push(...nyaa_fallback_results);
-    }
-
-    
-    const gogo_query = gogoanime_query_creator(romanji_title, episode_number, audio);
-    const gogo_link = await gogo_anime_finder(...gogo_query);
-    
-    if (gogo_link) {
-        db.storeEpisodeAndSource({
-            anilistId: alID, 
-            anidbId: anidbId, 
-            episodeNumber: episode_number, 
-            audioType: audio, 
-            category: 'http', 
-            videoUrl: gogo_link
-        });
-    }
-
-    const trs_results_deduped = dedupeMagnetLinks(trs_results);
-
-    console.log(trs_results_deduped);
-
-    // const trs_final = []; 
-
-    for (let i = 0; i < trs_results_deduped.length; i++) {
-        const raw_torrent = trs_results_deduped[i];
-        console.log(`raw_torrent magnetLink:`, raw_torrent.magnetLink);
-       // Ensure we get a single magnet link string
-       let magnetLink = Array.isArray(raw_torrent.magnetLink)
-            ? raw_torrent.magnetLink[0] 
-            : raw_torrent.magnetLink;
+    if (cached) {
         
-        magnetLink = magnetLink.replace(/&amp;/g, '&');
+        console.log(`cache hit: ${ english_title } episode: ${ episode_number } audio: ${audio} `);
 
-        const seeders = raw_torrent.seeders;
-        const audio_type = raw_torrent.audio_type; 
-
-        console.log(`processed magnetLink:`,magnetLink);
-
-        await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio_type, alID, anidbId, db);
-    } 
+        const magnetLink = cached.magnetLink.replace(/&amp;/g, '&');
     
+        const seeders = cached.seeders; 
+
+        await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db);
+
+
+    } else {
+
+        let season_number = 1; // hardcoded for better fetching accuracy
+    
+        const trs_results = [];
+    
+        
+        
+        const sea_dex_query = sea_dex_query_creator(alID, audio, episode_number);
+        const sea_dex_query_results = await seadex_finder(...sea_dex_query);
+        trs_results.push(...sea_dex_query_results)
+    
+        const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, audio, alID);
+        const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
+        // console.log(nyaa_results);
+        trs_results.push(...nyaa_results);
+    
+        if (nyaa_results.length < 1) {
+            const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, audio, alID);
+            const nyaa_fallback_results = await nyaa_function_dispatch(nyaa_fallback_q, false, true);
+            trs_results.push(...nyaa_fallback_results);
+        }
+    
+        
+        const gogo_query = gogoanime_query_creator(romanji_title, episode_number, audio);
+        const gogo_link = await gogo_anime_finder(...gogo_query);
+        
+        if (gogo_link) {
+            db.storeEpisodeAndSource({
+                anilistId: alID, 
+                anidbId: anidbId, 
+                episodeNumber: episode_number, 
+                audioType: audio, 
+                category: 'http', 
+                videoUrl: gogo_link
+            });
+        }
+    
+        const trs_results_deduped = dedupeMagnetLinks(trs_results);
+        
+        // console.log(`trs_results deduped: `, trs_results);
+        const trs_results_sorted = sortTorrentList(trs_results_deduped);
+        // console.log(`trs_results sorted: `, trs_results_sorted);
+        // console.log(trs_results_deduped);
+    
+        // const trs_final = []; 
+    
+        for (let i = 0; i < Math.min(trs_results_sorted.length, 3); i++) {
+            const raw_torrent = trs_results_sorted[i];
+            // console.log(`raw_torrent magnetLink:`, raw_torrent.magnetLink);
+           // Ensure we get a single magnet link string
+           let magnetLink = Array.isArray(raw_torrent.magnetLink)
+                ? raw_torrent.magnetLink[0] 
+                : raw_torrent.magnetLink;
+            
+            magnetLink = magnetLink.replace(/&amp;/g, '&');
+    
+            const seeders = raw_torrent.seeders;
+            const audio_type = raw_torrent.audio_type; 
+    
+            /*console.log(`processed magnetLink:`,magnetLink);
+            console.log(`\naudio_type:`, audio_type);
+            console.log(`\nseeders:`, seeders); */
+            await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio_type, alID, anidbId, db);
+        } 
+    } 
 }
 
 //episode is undefined for movies 
 async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_type, alID, anidbId, db) {
     return new Promise((resolve, reject) => {
-      const client = new WebTorrent({ wrtc })
-      console.log('Torrent added. Waiting for metadata...');
+      const client = getGlobalClient();
+      // console.log('Torrent added. Waiting for metadata...');
     
       const torrent = client.add(magnetURI)
   
       torrent.on('infoHash', () => {
-        console.log(`InfoHash event fired: ${torrent.infoHash}`)
+        // console.log(`InfoHash event fired: ${torrent.infoHash}`)
       })
     
       torrent.on('metadata', async () => {
-        console.log('Metadata event fired!')
-        console.log('Starting health check...')
+        // console.log('Metadata event fired!')
+        // console.log('Starting health check...')
     
         try {
-          // Health check promise
-          await new Promise((resolveHealth, rejectHealth) => {
-            const healthCheckTimeout = setTimeout(() => {
-              console.log('Health check timeout triggered');
-              if (torrent.numPeers === 0) {
-                console.log('Peer Health Check Failed - no peers found.');
-                rejectHealth(new Error('No peers found, torrent likely unhealthy.'));
-              } else {
-                console.log(`Peer Health Passed - ${torrent.numPeers} peer(s) connected.`);
-                resolveHealth();
-              }
-            }, 10000);
-  
-            torrent.on('error', (err) => {
-              clearTimeout(healthCheckTimeout);
-              rejectHealth(err);
-            });
-          });
-    
-          console.log('Torrent is healthy. Proceeding with file inspection.');
-          console.log('Files in torrent:')
   
           let fileInfo = null;
   
@@ -125,12 +125,12 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
   
             for (let i = 0; i < torrent.files.length; i++) {
               const file = torrent.files[i];
-              console.log(`Checking file: ${file.name}`);
+              // console.log(`Checking file: ${file.name}`);
   
               if (file.name.toLowerCase().endsWith('.mkv')) {
                 const file_title_data = await parse_title_reserve(file.name);
                 if (file_title_data.episode_number == episode_number) {
-                  console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
+                  // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
                   desiredFileFound = true;
                   desiredFileIndex = i;
                   desiredFileName = file.name;
@@ -157,19 +157,19 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                 fileIndex: fileInfo.fileIndex,
                 fileName: fileInfo.fileName,
                 seeders: seeders,
-              });
+              }); 
 
               console.log('Storing episode file info:', fileInfo);
             } else {
-              console.log(`No MKV file matching episode ${episode_number} was found in this torrent.`);
+              // console.log(`No MKV file matching episode ${episode_number} was found in this torrent.`);
             }
           } else {
-            console.log('Checking for movie file...');
+            // console.log('Checking for movie file...');
             const mkvFiles = torrent.files.filter(file => file.name.toLowerCase().endsWith('.mkv'));
             if (mkvFiles.length === 0) {
-              console.log('No MKV files found. Could not identify a movie file.');
-              client.destroy(() => {
-                console.log('Client destroyed. No valid movie file found.');
+              // console.log('No MKV files found. Could not identify a movie file.');
+              torrent.destroy(() => {
+                // console.log('Client destroyed. No valid movie file found.');
                 // resolve the main promise here so caller can continue
                 resolve(null);
               });
@@ -178,7 +178,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
   
             mkvFiles.sort((a, b) => b.length - a.length);
             const mainMovieFile = mkvFiles[0];
-            console.log(`Selected movie file: ${mainMovieFile.name} (size: ${mainMovieFile.length})`);
+            //console.log(`Selected movie file: ${mainMovieFile.name} (size: ${mainMovieFile.length})`);
   
             fileInfo = {
               magnetLink: magnetURI,
@@ -196,20 +196,20 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                 fileIndex: fileInfo.fileIndex,
                 fileName: fileInfo.fileName,
                 seeders: seeders,
-            });
+            }); 
 
             console.log('Storing file info:', fileInfo);
           }
   
           // Cleanup and resolve once done
-          client.destroy(() => {
-            console.log('Client destroyed. Test complete.');
+          torrent.destroy(() => {
+            // console.log('Client destroyed. Test complete.');
             resolve(fileInfo); // Resolve the main promise
           });
   
         } catch (err) {
           console.error('Health check failed or torrent error:', err.message);
-          client.destroy(() => {
+          torrent.destroy(() => {
             console.log('Client destroyed due to health check failure.');
             reject(err); // Reject the main promise to indicate failure
           });
@@ -218,7 +218,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
     
       torrent.on('error', (err) => {
         console.error('Torrent error:', err);
-        client.destroy(() => {
+        torrent.destroy(() => {
           reject(err); 
         });
       });
@@ -247,3 +247,34 @@ function dedupeMagnetLinks(entries) {
         return false;
     });
 }
+
+async function torrentHealthCheck(torrent) {
+    await new Promise((resolveHealth, rejectHealth) => {
+        const healthCheckTimeout = setTimeout(() => {
+          // console.log('Health check timeout triggered');
+          if (torrent.numPeers === 0) {
+            // console.log('Peer Health Check Failed - no peers found.');
+            rejectHealth(new Error('No peers found, torrent likely unhealthy.'));
+          } else {
+            // console.log(`Peer Health Passed - ${torrent.numPeers} peer(s) connected.`);
+            resolveHealth();
+          }
+        }, 10000);
+
+        torrent.on('error', (err) => {
+          clearTimeout(healthCheckTimeout);
+          rejectHealth(err);
+        });
+    });
+
+}
+function sortTorrentList(torrents) {
+    return [...torrents].sort((a, b) => {
+        return b.seeders - a.seeders;
+    });
+}
+
+export {
+    crawler_dispatch
+}
+
