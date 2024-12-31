@@ -6,7 +6,7 @@ const globalTorrentCache = new LRUCache({ max: 100, ttl: 1000 * 60 * 60 });
 
 function cacheTorrentRange(anilistId, startEp, endEp, audioType, magnetLink, seeders = 0) {
     // The cache key for this particular anime ID
-    const cacheKey = `${anilistId}`;
+    const cacheKey = `anime-slices:${anilistId}`;
   
     // Retrieve the existing slices array or create a new empty one
     const existingSlices = globalTorrentCache.get(cacheKey) || [];
@@ -40,7 +40,7 @@ function cacheTorrentRange(anilistId, startEp, endEp, audioType, magnetLink, see
   
 
 function findMagnetForEpisode(anilistId, episodeNumber, audioType) {
-    const slices = globalTorrentCache.get(`${anilistId}`);
+    const slices = globalTorrentCache.get(`anime-slices:${anilistId}`);
     if (!slices) return null;
 
     // Find a slice that covers episodeNumber and matches audioType
@@ -58,10 +58,25 @@ function findMagnetForEpisode(anilistId, episodeNumber, audioType) {
         seeders: match.seeders
     };
 }
-  
+
+
+function storeTorrentMetadata(magnetLink, fileList) {
+    const key = `torrent-metadata:${magnetLink}`;
+    globalTorrentCache.set(key, {
+        fileList
+    });
+}
+
+function getTorrentMetadata(magnetLink) {
+    const key = `torrent-metadata:${magnetLink}`;
+    return globalTorrentCache.get(key) || null;
+}
+
 
 export {
     cacheTorrentRange,
     findMagnetForEpisode,
+    storeTorrentMetadata,
+    getTorrentMetadata,
     globalTorrentCache
 }
