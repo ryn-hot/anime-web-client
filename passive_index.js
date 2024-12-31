@@ -599,7 +599,7 @@ async function processEpisodeTask(task, db, concurrency) {
             // e.g. round-robin
         // Then pass this proxy to your crawler logic 
     } else {
-        console.log(`\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }`);
+        console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }`);
 
         await crawler_dispatch(
             db,

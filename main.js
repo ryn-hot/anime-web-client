@@ -3,7 +3,7 @@
 import { seadex_finder, gogo_anime_finder, parse_title_reserve } from "./anime-finder-funcs.js";
 import { sea_dex_query_creator, nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } from "./query-creator.js";
 import { nyaa_function_dispatch } from "./query-dispatcher.js";
-import { findMagnetForEpisode } from "./cache.js";
+import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata } from "./cache.js";
 import { getGlobalClient } from "./webtorrent-client.js";
 
 // await main();
@@ -26,8 +26,18 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         const magnetLink = cached.magnetLink.replace(/&amp;/g, '&');
     
         const seeders = cached.seeders; 
+        const fileData = getTorrentMetadata(magnetLink);
 
-        await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db);
+        if (fileData) {
+            console.log(`cache hit for torrent metadata`)
+            //console.log(`fileData: ` + `\n`, fileData);
+            await writeTorrentMetadataFromCache(fileData, magnetLink, episode_number, seeders, audio, alID, anidbId, db);
+
+        } else {
+
+            await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db);
+        }
+        
 
 
     } else {
@@ -98,7 +108,59 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
     } 
 }
 
-//episode is undefined for movies 
+async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number, seeders, audio_type, alID, anidbId, db) {
+    const fileList = fileData.fileList;
+    
+    let fileInfo = null;
+  
+    if (episode_number !== undefined) {
+        let desiredFileFound = false;
+        let desiredFileIndex = null;
+        let desiredFileName = null;
+
+        for (let i = 0; i < fileList.length; i++) {
+            const file = fileList[i];
+            // console.log(`Checking file: ${file.name}`);
+
+            if (file.name.toLowerCase().endsWith('.mkv')) {
+                const file_title_data = await parse_title_reserve(file.name);
+                if (file_title_data.episode_number == episode_number) {
+                    // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
+                    desiredFileFound = true;
+                    desiredFileIndex = i;
+                    desiredFileName = file.name;
+
+                    break;
+                }
+            }
+        }
+
+        if (desiredFileFound) {
+            fileInfo = {
+                magnetLink: magnetURI,
+                fileIndex: desiredFileIndex,
+                fileName: desiredFileName
+            };
+
+            db.storeEpisodeAndSource({
+                anilistId: alID,
+                anidbId: anidbId,
+                episodeNumber: episode_number,
+                audioType: audio_type,
+                category: 'torrent',
+                magnetLink: fileInfo.magnetLink,
+                fileIndex: fileInfo.fileIndex,
+                fileName: fileInfo.fileName,
+                seeders: seeders,
+            }); 
+
+            console.log('Storing episode file info:', fileInfo);
+        } else {
+            console.log(`No MKV file matching episode ${episode_number} was found in this torrent.`);
+        }
+    }
+}
+//cache file meta data. 
 async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_type, alID, anidbId, db) {
     return new Promise((resolve, reject) => {
       const client = getGlobalClient();
@@ -107,18 +169,21 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
       const torrent = client.add(magnetURI)
   
       torrent.on('infoHash', () => {
-        // console.log(`InfoHash event fired: ${torrent.infoHash}`)
+        console.log(`InfoHash event fired: ${torrent.infoHash}`)
       })
     
       torrent.on('metadata', async () => {
-        // console.log('Metadata event fired!')
+        console.log('Metadata event fired!')
         // console.log('Starting health check...')
     
         try {
-  
+
+
           let fileInfo = null;
   
           if (episode_number !== undefined) {
+
+
             let desiredFileFound = false;
             let desiredFileIndex = null;
             let desiredFileName = null;
@@ -141,13 +206,22 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
             }
   
             if (desiredFileFound) {
-              fileInfo = {
+
+                const fileList = torrent.files.map((file, idx) => ({
+                    name: file.name,
+                    index: idx
+                    // you could parse episode_number here if you want
+                }));
+    
+                storeTorrentMetadata(magnetURI, fileList);
+
+                fileInfo = {
                 magnetLink: magnetURI,
                 fileIndex: desiredFileIndex,
                 fileName: desiredFileName
-              };
+                };
 
-              db.storeEpisodeAndSource({
+                db.storeEpisodeAndSource({
                 anilistId: alID,
                 anidbId: anidbId,
                 episodeNumber: episode_number,
@@ -157,9 +231,9 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                 fileIndex: fileInfo.fileIndex,
                 fileName: fileInfo.fileName,
                 seeders: seeders,
-              }); 
+                }); 
 
-              console.log('Storing episode file info:', fileInfo);
+                console.log('Storing episode file info:', fileInfo);
             } else {
               // console.log(`No MKV file matching episode ${episode_number} was found in this torrent.`);
             }
@@ -179,7 +253,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
             mkvFiles.sort((a, b) => b.length - a.length);
             const mainMovieFile = mkvFiles[0];
             //console.log(`Selected movie file: ${mainMovieFile.name} (size: ${mainMovieFile.length})`);
-  
+            
             fileInfo = {
               magnetLink: magnetURI,
               fileIndex: torrent.files.indexOf(mainMovieFile),
@@ -277,4 +351,3 @@ function sortTorrentList(torrents) {
 export {
     crawler_dispatch
 }
-

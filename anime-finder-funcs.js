@@ -38,67 +38,79 @@ async function seadex_finder(alID, audio, episode) {
     const response = await fetchWithRetry(rec_url);
     const data = await response.json();
 
+
+
+    if (!data?.items?.length || !data.items[0]?.trs) {
+        // No valid data found, return empty array
+        console.log(`No SeaDex entries found for anime ID: ${alID}`);
+        return [];
+    }
+
+    
     const trsList = data.items[0].trs;
     // console.log(trsList);
 
     let entries = [];
 
-    for (const trs of trsList) {
-        const url = `https://releases.moe/api/collections/torrents/records/${trs}`;
-        // console.log(url)
-        const response = await fetchWithRetry(url);
-        // console.log(response);
-        const data = await response.json();
-        if (!(data.url.includes("nyaa"))) {
-            continue;
-        }
-        if (audio === 'dub' && data.dualAudio === false) {
-            continue;
-        }
-
-        const nyaa_response = await fetchWithRetry(data.url); 
-        const html = await nyaa_response.text();
-        //console.log(html);
-        const mkvFiles = extractMkvFiles(html);
-        let containsEpisode = false;
-        let targetEpData = null; 
-
-        if (!(episode === undefined)) {
-
-            for (const mkvFile of mkvFiles) {
-                // console.log(mkvFile);
-                const episode_info = await parse_title(mkvFile);
-                if (episode_info.episode_number == episode) {
-                    containsEpisode = true;
-                    targetEpData = episode_info;
-                }
-            }
-
-            if (!containsEpisode) {
+    if (trsList.length > 0) {
+        for (const trs of trsList) {
+            const url = `https://releases.moe/api/collections/torrents/records/${trs}`;
+            // console.log(url)
+            const response = await fetchWithRetry(url);
+            // console.log(response);
+            const data = await response.json();
+            if (!(data.url.includes("nyaa"))) {
                 continue;
             }
-
-        }
+            if (audio === 'dub' && data.dualAudio === false) {
+                continue;
+            }
     
+            const nyaa_response = await fetchWithRetry(data.url); 
+            const html = await nyaa_response.text();
+            //console.log(html);
+            const mkvFiles = extractMkvFiles(html);
+            let containsEpisode = false;
+            let targetEpData = null; 
+    
+            if (!(episode === undefined)) {
+    
+                for (const mkvFile of mkvFiles) {
+                    // console.log(mkvFile);
+                    const episode_info = await parse_title(mkvFile);
+                    if (episode_info.episode_number == episode) {
+                        containsEpisode = true;
+                        targetEpData = episode_info;
+                    }
+                }
+    
+                if (!containsEpisode) {
+                    continue;
+                }
+    
+            }
         
-        const num_seeders = extractSeeders(html);
-        // console.log(num_seeders);
-        const infoHash = extractInfoHash(html)
-        // console.log(infoHash);
-        const magnetLink = extractMagnetLink(html);
-        // console.log(magnetLink);
-        const items = data;
-        const entry = {
-            magnetLink: magnetLink,
-            infoHash: infoHash,
-            seeders: num_seeders,
-            DualAudio: data.dualAudio,
-            isBest: data.isBest,
-            episodeData: targetEpData,
             
-        };
-        entries.push(entry);
+            const num_seeders = extractSeeders(html);
+            // console.log(num_seeders);
+            const infoHash = extractInfoHash(html)
+            // console.log(infoHash);
+            const magnetLink = extractMagnetLink(html);
+            // console.log(magnetLink);
+            const items = data;
+            const entry = {
+                magnetLink: magnetLink,
+                infoHash: infoHash,
+                seeders: num_seeders,
+                DualAudio: data.dualAudio,
+                isBest: data.isBest,
+                episodeData: targetEpData,
+                
+            };
+            entries.push(entry);
+        }
     }
+
 
     // console.log(entries);
     return entries
