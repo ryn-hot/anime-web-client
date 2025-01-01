@@ -44,18 +44,21 @@ function findMagnetForEpisode(anilistId, episodeNumber, audioType) {
     if (!slices) return null;
 
     // Find a slice that covers episodeNumber and matches audioType
-    const match = slices.find(slice =>
+    const candidates = slices.filter(slice =>
         slice.audioType === audioType &&
         episodeNumber >= slice.startEp &&
         episodeNumber <= slice.endEp
     );
 
-    if (!match) return null;
+    if (candidates.length === 0) return null;
+
+    candidates.sort((a, b) => b.seeders - a.seeders);
 
     // Return magnet link and seeders (or the entire object)
+    const best = candidates[0];
     return {
-        magnetLink: match.magnetLink,
-        seeders: match.seeders
+        magnetLink: best.magnetLink,
+        seeders: best.seeders
     };
 }
 

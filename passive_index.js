@@ -348,6 +348,7 @@ async function passive_index_queuer(db) {
             const anilistId = anime.id;
             const myAnimeListId = anime.idMal; 
             const format = anime.format;
+            console.log(`format in anilsit: `, format);
             let englishTitle = anime.title?.english || '';
             let romanjiTitle = anime.title?.romaji || '';
             const episodesResponse = anime.episodes || anime.nextAiringEpisode.episode || 0;   // AniList-supplied total
@@ -430,7 +431,8 @@ async function passive_index_queuer(db) {
                             englishTitle,
                             romanjiTitle,
                             episodeNumber: epNum,
-                            audio: 'sub'
+                            audio: 'sub',
+                            format: format
                             // In your instructions, you said "We don't update the database 
                             // for these new episodes until they are found." So we only queue them.
                         });
@@ -443,7 +445,8 @@ async function passive_index_queuer(db) {
                             englishTitle,
                             romanjiTitle,
                             episodeNumber: epNum,
-                            audio: 'dub'
+                            audio: 'dub',
+                            format: format
                             // In your instructions, you said "We don't update the database 
                             // for these new episodes until they are found." So we only queue them.
                         });
@@ -532,8 +535,8 @@ async function handleTask(task, db, concurrency) {
 async function processAnimeTask(task, db) {
     // Insert or update the anime row in DB if needed
     // If indefinite, store that indefinite flag in DB
-    console.log(`Inserting Anime: ${task.englishTitle}, Episode Count: ${task.episodeNumber}`);
-
+    console.log(`Inserting Anime: ${task.englishTitle}, Episode Count: ${task.episodeNumber}, Format: ${task.format}`);
+    
     db.insertAnime({
         anilistId: task.anilistId,
         malId: task.myAnimeListId,
@@ -558,7 +561,8 @@ async function processAnimeTask(task, db) {
                 englishTitle: task.englishTitle,
                 romanjiTitle: task.romanjiTitle,
                 episodeNumber: i,
-                audio: 'sub'
+                audio: 'sub',
+                format: task.format
             });
 
             enqueue({
@@ -569,7 +573,8 @@ async function processAnimeTask(task, db) {
                 englishTitle: task.englishTitle,
                 romanjiTitle: task.romanjiTitle,
                 episodeNumber: i,
-                audio: 'dub'
+                audio: 'dub',
+                format: task.format
             });
         }
     }
@@ -577,7 +582,6 @@ async function processAnimeTask(task, db) {
 
 async function processEpisodeTask(task, db, concurrency) {
     // const { anilistId, episodeNumber } = task;
-
     // Otherwise, do your crawler dispatch logic:
     // 1. Obtain a proxy if concurrency > 1
     // 2. Call your crawler to get the magnet link / direct link
@@ -593,13 +597,14 @@ async function processEpisodeTask(task, db, concurrency) {
             task.anilistId,
             task.anidbId,
             task.episodeNumber,
+            task.format,
             proxy,
-            );
+        );
         
             // e.g. round-robin
         // Then pass this proxy to your crawler logic 
     } else {
-        console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }`);
+        console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }, Format ${task.format}`);
 
         await crawler_dispatch(
             db,
@@ -609,6 +614,7 @@ async function processEpisodeTask(task, db, concurrency) {
             task.anilistId,
             task.anidbId,
             task.episodeNumber,
+            task.format
         ); 
     }
   

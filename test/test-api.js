@@ -161,7 +161,7 @@ async function alIdFetch(alID = 17) {
     })
   });
   const data = await response.json();
-  console.log(data.data);
+  console.log(data.data.Media.episodes);
   return data;
 
 }

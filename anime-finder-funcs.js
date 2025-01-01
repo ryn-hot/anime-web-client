@@ -33,22 +33,27 @@ async function parse_title_reserve(title) {
     return results;
 }
 // season_data is the data extracted from parse_title
-async function seadex_finder(alID, audio, episode) {
+async function seadex_finder(alID, audio, episode, format, english_title, romanji_title) {
+    console.log(`seadex finder`)
     const rec_url = `https://releases.moe/api/collections/entries/records?filter=alID=${alID}`;
     const response = await fetchWithRetry(rec_url);
     const data = await response.json();
 
 
 
+    
+
+    // console.log(data)
     if (!data?.items?.length || !data.items[0]?.trs) {
         // No valid data found, return empty array
         console.log(`No SeaDex entries found for anime ID: ${alID}`);
         return [];
     }
 
-    
+
     const trsList = data.items[0].trs;
-    // console.log(trsList);
+
+    console.log(`trsList Length: `, trsList.length);
 
     let entries = [];
 
@@ -57,23 +62,34 @@ async function seadex_finder(alID, audio, episode) {
             const url = `https://releases.moe/api/collections/torrents/records/${trs}`;
             // console.log(url)
             const response = await fetchWithRetry(url);
-            // console.log(response);
+            // console.log(`Response: `, response);
             const data = await response.json();
+            // console.log(`Data: `, data);
             if (!(data.url.includes("nyaa"))) {
+                // console.log(`non nyaa trs src`);
                 continue;
             }
             if (audio === 'dub' && data.dualAudio === false) {
+                // console.log(`trs not dual audio`);
                 continue;
             }
     
             const nyaa_response = await fetchWithRetry(data.url); 
             const html = await nyaa_response.text();
-            //console.log(html);
-            const mkvFiles = extractMkvFiles(html);
+
+            // console.log(html);
+
+            const mkvFiles  = data.files
+                .map(file => file.name)
+                .filter(name => name.toLowerCase().endsWith('.mkv'));
+            
+            
+            console.log(`mkvFiles Length: `, mkvFiles.length);
+                
             let containsEpisode = false;
             let targetEpData = null; 
     
-            if (!(episode === undefined)) {
+            if (format == 'TV' || format == 'ONA') {
     
                 for (const mkvFile of mkvFiles) {
                     // console.log(mkvFile);
@@ -107,6 +123,40 @@ async function seadex_finder(alID, audio, episode) {
                 episodeData: targetEpData,
                 
             };
+
+            // console.log(`seadex entry found: ` + `\n`, entry);
+            if (mkvFiles.length > 1) {
+                let episodeNum;
+                const startRange = episode;
+                let endRange;
+
+                const anilist_episodes = await alIdFetchEpisodes(alID);
+                
+
+                if (anilist_episodes == null || anilist_episodes == undefined) {
+                    episodeNum = mkvFiles.length; 
+                } else {
+                    episodeNum = Math.min(mkvFiles.length, anilist_episodes);
+                }
+
+                endRange = episode + episodeNum - 1;
+                
+                if (anilist_episodes) {
+                    endRange = Math.min(endRange, anilist_episodes);
+                }
+            
+                console.log(`anilist episodes: `, anilist_episodes);
+                
+        
+                console.log(`Inserted into cache from seadex: anilistId=${alID}, episodes [${startRange}..${endRange}], audio: ${audio}`);
+
+                if (startRange < endRange) {
+                    cacheTorrentRange(alID, startRange, endRange, audio, magnetLink, num_seeders);
+                }
+                
+            }
+            
+
             entries.push(entry);
         }
     }
@@ -297,6 +347,35 @@ async function fetchWithRetry(url, retries = 3, delayDuration = 1000) {
         }
         }
     }
+}
+
+async function alIdFetchEpisodes(alID) {
+    const query = `
+    query ($id: Int) {
+      Media(id: $id, type: ANIME) {
+        episodes
+        status
+        nextAiringEpisode {
+            airingAt
+            timeUntilAiring
+            episode
+          }
+      }
+    }
+    `
+  
+    const response = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        variables: { id: alID }
+      })
+    });
+    const data = await response.json();
+    //console.log(data.data);
+    return data.data.Media.episodes;
+  
 }
 
 function normalizeTitle(title) {
@@ -738,7 +817,6 @@ export {
 // const season_number = 1;
 // const episode_number = 5;
 // const set_title = 'Bleach: Sennen Kessen-hen';
-
 // const dub = false;
 // const results = await nyaa_html_finder(url, query, set_title, season_number, episode_number, dub); 
 // console.log(results);

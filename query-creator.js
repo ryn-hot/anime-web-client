@@ -9,7 +9,9 @@ function nyaa_query_creator(english_title, romanji_title,  season_number, episod
     let nyaa_queries = [];
 
     const season_number_extract = extractSeasonFromTitle(english_title);
-    
+
+    // !!!! add a season in title flag so if the season number is in the title we dont use season queries. !!!!
+
     //extracts season # from title
     if (season_number_extract != null) {
         season_number = season_number_extract;
