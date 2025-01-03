@@ -161,7 +161,7 @@ async function alIdFetch(alID = 17) {
     })
   });
   const data = await response.json();
-  console.log(data.data.Media.episodes);
+  console.log(data.data.Media);
   return data;
 
 }
@@ -175,8 +175,33 @@ async function test_anidb() {
   console.log(anidbId);
 
 }
+
+async function subTest() {
+  const response = await fetch(`https://animeschedule.net/api/v3/anime/jujutsu-kaisen`);
+  const json = await response.json();
+  console.log(json);
+}
+
+function formatString(str) {
+  return str
+    .toLowerCase()
+    // Replace special character and any following space with just a hyphen
+    .replace(/[^a-z0-9\s]\s*/g, '-')
+    // Replace remaining spaces with hyphens
+    .replace(/\s+/g, '-')
+    // Clean up multiple hyphens
+    .replace(/-+/g, '-')
+    // Remove any trailing/leading hyphens
+    .replace(/^-+|-+$/g, '');
+}
+
+
+
 async function main() {
-  await alIdFetch();
+  // Test cases
+  console.log(formatString("Dr. Slump"));  // "dr-slump"
+  console.log(formatString("Re:Creation")); // "re-creation"
+  console.log(formatString("Hello!!!World")); // "hello-world"
 }
 
 

@@ -11,9 +11,10 @@ function nyaa_query_creator(english_title, romanji_title,  season_number, episod
     const season_number_extract = extractSeasonFromTitle(english_title);
 
     // !!!! add a season in title flag so if the season number is in the title we dont use season queries. !!!!
-
+    let season_in_title_flag = false;
     //extracts season # from title
     if (season_number_extract != null) {
+        season_in_title_flag = true;
         season_number = season_number_extract;
     }
 
@@ -27,20 +28,37 @@ function nyaa_query_creator(english_title, romanji_title,  season_number, episod
     const erai_url = `https://nyaa.si/user/Erai-raws?f=0&c=1_2`;
     const subsplease_url = `https://nyaa.si/user/subsplease?f=0&c=1_2`;
     const judas_url = `https://nyaa.si/user/Judas?f=0&c=1_2`;
+    const horribleSubs_url = `https://nyaa.si/user/HorribleSubs?f=0&c=1_2`;
 
-    const query1 = [default_url, replaceSpacesWithPlus(`${english_title} - S${season_pad}E${episode_pad}`), english_title, season_number, episode_number, dub, alID];
+    if (season_in_title_flag) {
 
-    const query2 = [default_url, replaceSpacesWithPlus(`${romanji_title} - S${season_pad}E${episode_pad}`), romanji_title, season_number, episode_number, dub, alID];
+        const query3 = [default_url, replaceSpacesWithPlus(`${english_title}`), english_title, season_number, episode_number, dub, alID];
 
-    const query3 = [default_url, replaceSpacesWithPlus(`${english_title}`), english_title, season_number, episode_number, dub, alID];
+        const query4 = [default_url, replaceSpacesWithPlus(`${romanji_title}`), romanji_title, season_number, episode_number, dub, alID];
+    
+        const query5 = [default_url, replaceSpacesWithPlus(`${english_title} Season ${season_number}`), english_title, season_number, episode_number, dub, alID];
+    
+        const query6 = [default_url, replaceSpacesWithPlus(`${romanji_title} Season ${season_number}`), english_title, season_number, episode_number, dub, alID];
 
-    const query4 = [default_url, replaceSpacesWithPlus(`${romanji_title}`), romanji_title, season_number, episode_number, dub, alID];
+        nyaa_queries.push(query3, query4, query5, query6);
 
-    const query5 = [default_url, replaceSpacesWithPlus(`${english_title} Season ${season_number}`), english_title, season_number, episode_number, dub, alID];
+    } else {
 
-    const query6 = [default_url, replaceSpacesWithPlus(`${romanji_title} Season ${season_number}`), english_title, season_number, episode_number, dub, alID];
+        const query1 = [default_url, replaceSpacesWithPlus(`${english_title} - S${season_pad}E${episode_pad}`), english_title, season_number, episode_number, dub, alID];
 
-    nyaa_queries.push(query1, query2, query3, query4, query5, query6);
+        const query2 = [default_url, replaceSpacesWithPlus(`${romanji_title} - S${season_pad}E${episode_pad}`), romanji_title, season_number, episode_number, dub, alID];
+
+        const query3 = [default_url, replaceSpacesWithPlus(`${english_title}`), english_title, season_number, episode_number, dub, alID];
+
+        const query4 = [default_url, replaceSpacesWithPlus(`${romanji_title}`), romanji_title, season_number, episode_number, dub, alID];
+
+        const query5 = [default_url, replaceSpacesWithPlus(`${english_title} Season ${season_number}`), english_title, season_number, episode_number, dub, alID];
+
+        const query6 = [default_url, replaceSpacesWithPlus(`${romanji_title} Season ${season_number}`), english_title, season_number, episode_number, dub, alID];
+
+        nyaa_queries.push(query1, query2, query3, query4, query5, query6);
+    }
+
 
     //nyaa special provider queries:
     if (dub == 'dub') {
@@ -65,7 +83,11 @@ function nyaa_query_creator(english_title, romanji_title,  season_number, episod
 
         const queryJudas2 = [judas_url, replaceSpacesWithPlus(`${romanji_title}`), romanji_title, season_number, episode_number, dub, alID];
 
-        nyaa_queries.push(queryErai1, queryErai2, querySubsPlease1, querySubsPlease2, queryJudas1, queryJudas2);
+        const queryHorribleSubs1 = [horribleSubs_url, replaceSpacesWithPlus(`${english_title}`), english_title, season_number, episode_number, dub, alID];
+
+        const queryHorribleSubs2 = [horribleSubs_url, replaceSpacesWithPlus(`${romanji_title}`), romanji_title, season_number, episode_number, dub, alID];
+
+        nyaa_queries.push(queryErai1, queryErai2, querySubsPlease1, querySubsPlease2, queryJudas1, queryJudas2, queryHorribleSubs1, queryHorribleSubs2);
     }
 
     
@@ -88,12 +110,20 @@ function nyaa_fallback_queries(english_title, romanji_title, episode_number, dub
     const queryReserve1_season_number = 1;
     const query_reserve_1 = [default_url, replaceSpacesWithPlus(queryReserve1_text_input), english_title, queryReserve1_season_number, episode_number, dub, alID];
 
-
-    const queryReserve2_text_input = `${romanji_title} - ${episode_pad}`;
+    const query2_text_input = `${english_title}`;
     const queryReserve2_season_number = 1;
-    const query_reserve_2 = [default_url, replaceSpacesWithPlus(queryReserve2_text_input), romanji_title, queryReserve2_season_number, episode_number, dub, alID];
+    const query_reserve_2 = [default_url, replaceSpacesWithPlus(query2_text_input), english_title, queryReserve2_season_number, episode_number, dub, alID];
 
-    nyaa_queries.push(query_reserve_1, query_reserve_2);
+
+    const queryReserve3_text_input = `${romanji_title} - ${episode_pad}`;
+    const queryReserve3_season_number = 1;
+    const query_reserve_3 = [default_url, replaceSpacesWithPlus(queryReserve3_text_input), romanji_title, queryReserve3_season_number, episode_number, dub, alID];
+
+    const queryReserve4_text_input = `${romanji_title}`;
+    const queryReserve4_season_number = 1;
+    const query_reserve_4 = [default_url, replaceSpacesWithPlus(queryReserve4_text_input), romanji_title, queryReserve4_season_number, episode_number, dub, alID];
+
+    nyaa_queries.push(query_reserve_1, query_reserve_2, query_reserve_3, query_reserve_4);
 
     return nyaa_queries
 }

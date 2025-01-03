@@ -32,6 +32,17 @@ async function parse_title_reserve(title) {
     }
     return results;
 }
+
+async function animetosho_finder(anidb_id, title, episode) {
+    const query = replaceSpacesWithPlus(title);
+    /*const url = 
+    const search_url = fetch();*/
+}
+
+function replaceSpacesWithPlus(str) {
+    return str.replace(/\s+/g, '+');
+}
+
 // season_data is the data extracted from parse_title
 async function seadex_finder(alID, audio, episode, format, english_title, romanji_title) {
     console.log(`seadex finder`)
@@ -284,7 +295,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
         torrentList.push(torrent); 
     }
 
-    if (torrentList.length >= 1) {
+    if (torrentList.length >= 3) {
         reserve_cache.length = 0;
     }
 
@@ -808,6 +819,7 @@ export {
     gogo_anime_finder,
     nyaa_reserve_extract,
     parse_title_reserve,
+    fetchWithRetry,
     delay
 }
 // console.log(results); 

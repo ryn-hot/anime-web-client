@@ -58,7 +58,7 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         // console.log(nyaa_results);
         trs_results.push(...nyaa_results);
     
-        if (nyaa_results.length < 1) {
+        if (nyaa_results.length < 3) {
             const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, audio, alID);
             const nyaa_fallback_results = await nyaa_function_dispatch(nyaa_fallback_q, false, true);
             trs_results.push(...nyaa_fallback_results);
@@ -173,7 +173,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
             torrent.destroy(() => {
               resolve(null); // or reject, depending on how you want to handle it
             });
-          }, 15000);
+          }, 30000);
 
         const torrent = client.add(magnetURI)
 
