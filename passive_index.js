@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import { enqueue, dequeue, size } from './tasks-queue.js';
 import { nextProxy, reportFailure} from './proxy-manager.js';
 import { crawler_dispatch } from "./main.js";
+import { checkMALDubs, animescheduleDubCheck } from "./dubcheck.js";
 import fetch from 'node-fetch';
 
 class AnimeDatabase {
@@ -103,7 +104,7 @@ class AnimeDatabase {
                     english_title,
                     romanji_title,
                     episode_number,
-                    format
+                    format,
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
             `);
     
@@ -353,6 +354,7 @@ async function passive_index_queuer(db) {
             let romanjiTitle = anime.title?.romaji || '';
             const episodesResponse = anime.episodes || anime.nextAiringEpisode.episode || 0;   // AniList-supplied total
             const animestatus = anime.status;
+            
 
             if (englishTitle === '' && romanjiTitle !== '') {
                 englishTitle = romanjiTitle;
@@ -360,6 +362,9 @@ async function passive_index_queuer(db) {
             if (romanjiTitle === '' && englishTitle !== '') {
                 romanjiTitle = englishTitle;
             }
+
+
+            const isDubbed = await checkMALDubs(myAnimeListId) || await animescheduleDubCheck(romanjiTitle);
 
             let anilistEpisodes; 
             
@@ -407,6 +412,7 @@ async function passive_index_queuer(db) {
                     englishTitle,
                     romanjiTitle,
                     episodeNumber: anilistEpisodes,
+                    isDubbed
                 });
 
                 console.log(`Queueing missing anime ID ${anilistId} for insertion.`);
@@ -433,23 +439,22 @@ async function passive_index_queuer(db) {
                             episodeNumber: epNum,
                             audio: 'sub',
                             format: format
-                            // In your instructions, you said "We don't update the database 
-                            // for these new episodes until they are found." So we only queue them.
                         });
 
-                        enqueue({
-                            type: 'episode',
-                            anilistId,
-                            myAnimeListId,
-                            anidbId,
-                            englishTitle,
-                            romanjiTitle,
-                            episodeNumber: epNum,
-                            audio: 'dub',
-                            format: format
-                            // In your instructions, you said "We don't update the database 
-                            // for these new episodes until they are found." So we only queue them.
-                        });
+                        if (isDubbed) {
+                            enqueue({
+                                type: 'episode',
+                                anilistId,
+                                myAnimeListId,
+                                anidbId,
+                                englishTitle,
+                                romanjiTitle,
+                                episodeNumber: epNum,
+                                audio: 'dub',
+                                format: format
+                            });
+                        }
+                       
                     }
                     console.log(`Queueing ${anilistEpisodes - localMaxEp} missing episodes for anime ${anilistId}`);
                 }
@@ -565,17 +570,19 @@ async function processAnimeTask(task, db) {
                 format: task.format
             });
 
-            enqueue({
-                type: 'episode',
-                anilistId: task.anilistId,
-                myAnimeListId: task.myAnimeListId,
-                anidbId: task.anidbId,
-                englishTitle: task.englishTitle,
-                romanjiTitle: task.romanjiTitle,
-                episodeNumber: i,
-                audio: 'dub',
-                format: task.format
-            });
+            if (task.isDubbed) {
+                enqueue({
+                    type: 'episode',
+                    anilistId: task.anilistId,
+                    myAnimeListId: task.myAnimeListId,
+                    anidbId: task.anidbId,
+                    englishTitle: task.englishTitle,
+                    romanjiTitle: task.romanjiTitle,
+                    episodeNumber: i,
+                    audio: 'dub',
+                    format: task.format
+                });
+            } 
         }
     }
 }
@@ -614,7 +621,7 @@ async function processEpisodeTask(task, db, concurrency) {
             task.anilistId,
             task.anidbId,
             task.episodeNumber,
-            task.format
+            task.format,
         ); 
     }
   

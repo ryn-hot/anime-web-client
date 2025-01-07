@@ -13,6 +13,31 @@ async function parse_title(title) {
     return results;
 }
 
+
+async function modified_anitomy(...args) {
+    const res = await anitomyscript(...args);
+
+    const parseObjs = Array.isArray(res) ? res : [res]
+
+    for (const obj of parseObjs) {
+        obj.anime_title ??= ''
+        const seasonMatch = obj.anime_title.match(/S(\d{2})E(\d{2})/)
+        if (seasonMatch) {
+          obj.anime_season = seasonMatch[1]
+          obj.episode_number = seasonMatch[2]
+          obj.anime_title = obj.anime_title.replace(/S(\d{2})E(\d{2})/, '')
+        }
+        const yearMatch = obj.anime_title.match(/ (19[5-9]\d|20\d{2})/)
+        if (yearMatch && Number(yearMatch[1]) <= (new Date().getUTCFullYear() + 1)) {
+          obj.anime_year = yearMatch[1]
+          obj.anime_title = obj.anime_title.replace(/ (19[5-9]\d|20\d{2})/, '')
+        }
+        if (Number(obj.anime_season) > 1) obj.anime_title += ' S' + obj.anime_season
+    }
+    
+    return parseObjs
+}
+    
 async function parse_title_reserve(title) {
     
     let results = await anitomy(title);
@@ -33,10 +58,51 @@ async function parse_title_reserve(title) {
     return results;
 }
 
-async function animetosho_finder(anidb_id, title, episode) {
+async function animetosho_torrent_exctracter(anidb_id, title, episode, format) {
+    
     const query = replaceSpacesWithPlus(title);
-    /*const url = 
-    const search_url = fetch();*/
+    let url;
+    let page = 1;
+    
+    const html_list = [];
+    let nextPage = true;
+    while (nextPage) {
+
+        if (format != `TV`) {
+            url = `https://animetosho.org/search?q=${title}&aids=${anidb_id}&page=${page}`
+        } else {
+            url = `https://animetosho.org/search?q=${episode}&aids=${anidb_id}&page=${page}`;
+        }
+        
+        const response = await fetchWithRetry(url);
+        const html = await response.text();
+        if (html.includes('<div>No items found!</div>')) {
+            nextPage = false;
+        } else {
+            html_list.push(html);
+            page += 1;
+        }
+    }
+
+    const entries = [];
+
+    for (const html of html_list) {
+        const $ = load(html);
+
+        $('div[class^="home_list_entry"]').each((index, element) => {
+            const entry = {  
+                title: $(element).find('.link').text().trim(),
+                page_url: $(element).find('.link a').attr('href'),
+                magnet_link: $(element).find('a[href^="magnet:"]').attr('href') || null,
+                nzb_link: $(element).find('a[href$=".nzb.gz"]').attr('href') || null
+            };
+            
+            entries.push(entry);
+        });
+    }
+
+    return entries
+
 }
 
 function replaceSpacesWithPlus(str) {
@@ -822,6 +888,7 @@ export {
     fetchWithRetry,
     delay
 }
+
 // console.log(results); 
 // const title = 'fullmetal alchemist';
 // const url = `https://nyaa.si/?f=0&c=1_2`;
