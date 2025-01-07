@@ -1,8 +1,9 @@
 import * as cheerio from "cheerio";
 import fetch from "node-fetch";
 
-await animescheduleDubCheck('Dr. Slump');
+console.log(await animescheduleDubCheck('Eyeshield 21'));
 
+console.log(await checkMALDubs(15));
 
 async function checkMALDubs(malID) {
     try {
@@ -13,18 +14,17 @@ async function checkMALDubs(malID) {
         // Check if the ID exists in either array
         const isDubbed = data.dubbed.includes(malID);
         const isIncomplete = data.incomplete.includes(malID);
+
+        if (isDubbed || isIncomplete) {
+            return true;
+        } else {
+            return false;
+        }
         
-        return {
-            isDubbed,
-            isIncomplete
-        };
         
     } catch (error) {
         console.error('Error fetching MAL dubs data:', error);
-        return {
-            isDubbed: false,
-            isIncomplete: false
-        };
+        return false;
     }
 }
 
@@ -46,7 +46,7 @@ async function animescheduleDubCheck(title) {
 
         const dubCheck = checkDubbed(html);
     
-        console.log(dubCheck);
+        // console.log(dubCheck);
         return dubCheck;
 
     } catch {
@@ -98,3 +98,7 @@ function formatString(str) {
       .replace(/^-+|-+$/g, '');
 }
 
+export {
+    animescheduleDubCheck,
+    checkMALDubs
+}
