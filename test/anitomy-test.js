@@ -2,6 +2,29 @@ delete globalThis.fetch;
 
 import anitomy from 'anitomyscript';
 
+async function modified_anitomy(...args) {
+  const res = await anitomy(...args);
+
+  const parseObjs = Array.isArray(res) ? res : [res]
+
+  for (const obj of parseObjs) {
+      obj.anime_title ??= ''
+      const seasonMatch = obj.anime_title.match(/S(\d{2})E(\d{2})/)
+      if (seasonMatch) {
+        obj.anime_season = seasonMatch[1]
+        obj.episode_number = seasonMatch[2]
+        obj.anime_title = obj.anime_title.replace(/S(\d{2})E(\d{2})/, '')
+      }
+      const yearMatch = obj.anime_title.match(/ (19[5-9]\d|20\d{2})/)
+      if (yearMatch && Number(yearMatch[1]) <= (new Date().getUTCFullYear() + 1)) {
+        obj.anime_year = yearMatch[1]
+        obj.anime_title = obj.anime_title.replace(/ (19[5-9]\d|20\d{2})/, '')
+      }
+      if (Number(obj.anime_season) > 1) obj.anime_title += ' S' + obj.anime_season
+  }
+  
+  return parseObjs
+}
 
 /**
  * Checks if the given title contains "Dual Audio" or "English Dub".
@@ -54,19 +77,16 @@ function removeSpacesAroundHyphens(str) {
 }
 
 
-let title = `[Erai-raws] Kami no Tou: Ouji no Kikan - 18v2 [1080p][Multiple Subtitle] [ENG][POR-BR][SPA-LA][SPA][ARA][FRE][GER][ITA][RUS]`;
-title = removeSpacesAroundHyphens(title)
+let title = "[HatSubs] One Piece: 9-102 (BD 1080p 10-bit Opus)";
+// title = removeSpacesAroundHyphens(title)
 console.log(title);
-const results = await anitomy(title);
+const results = await modified_anitomy(title);
 
+console.log(results); 
 
-const season_num = 1;
-
-console.log(season_num == results.anime_season);
-
+const bool = (results[0].episode_number === undefined);
 //const output = convertToIntegers(results.episode_number);
-
-console.log(results)
+console.log(bool);
 
 
 

@@ -15,7 +15,7 @@ async function parse_title(title) {
 
 
 async function modified_anitomy(...args) {
-    const res = await anitomyscript(...args);
+    const res = await anitomy(...args);
 
     const parseObjs = Array.isArray(res) ? res : [res]
 
@@ -58,7 +58,7 @@ async function parse_title_reserve(title) {
     return results;
 }
 
-async function animetosho_torrent_exctracter(anidb_id, title, episode, format) {
+async function animetosho_torrent_exctracter(anidb_id, title, episode, format, dub) {
     
     const query = replaceSpacesWithPlus(title);
     let url;
@@ -67,13 +67,15 @@ async function animetosho_torrent_exctracter(anidb_id, title, episode, format) {
     const html_list = [];
     let nextPage = true;
     while (nextPage) {
+        console.log(`Fetching page: ${page}`);
 
         if (format != `TV`) {
-            url = `https://animetosho.org/search?q=${title}&aids=${anidb_id}&page=${page}`
+            url = `https://animetosho.org/search?q=${query}&aids=${anidb_id}&page=${page}`
         } else {
             url = `https://animetosho.org/search?q=${episode}&aids=${anidb_id}&page=${page}`;
         }
         
+        console.log(`url: ${url}`);
         const response = await fetchWithRetry(url);
         const html = await response.text();
         if (html.includes('<div>No items found!</div>')) {
@@ -82,6 +84,7 @@ async function animetosho_torrent_exctracter(anidb_id, title, episode, format) {
             html_list.push(html);
             page += 1;
         }
+
     }
 
     const entries = [];
@@ -94,16 +97,74 @@ async function animetosho_torrent_exctracter(anidb_id, title, episode, format) {
                 title: $(element).find('.link').text().trim(),
                 page_url: $(element).find('.link a').attr('href'),
                 magnet_link: $(element).find('a[href^="magnet:"]').attr('href') || null,
-                nzb_link: $(element).find('a[href$=".nzb.gz"]').attr('href') || null
+                nzb_link: $(element).find('a[href$=".nzb.gz"]').attr('href') || null,
+                torrent_cachable: false,
+                cache_range: null, 
             };
             
             entries.push(entry);
         });
     }
 
-    return entries
+    const filteredEntries = await animeToshoEpisodeFilter(entries, format, episode, dub);
 
+    const nzbEntries = filteredEntries.filter(entry => entry.nzb_link !== null);
+    const torrentEntries = filteredEntries.filter(entry => entry !== null);  
+
+    console.log(`Torrent Entries: ${JSON.stringify(torrentEntries, null, 2)}\n`);
+
+    // console.log(`NZB entries: ${JSON.stringify(nzbEntries, null, 2)}`); 
+
+    return {torrentEntries, nzbEntries}
 }
+
+async function animeToshoEpisodeFilter(entries, format, episode, dub) {
+    // console.log(`filtering entries`);
+    const filteredEntries = [];
+
+    for (const entry of entries) {
+        // console.log(`\n\nEntry Title: ${entry.title}`);
+        // console.log(`Entry Magnet Link: ${entry.magnet_link}`);
+
+        if (dub == 'dub' && !hasDualAudioOrEnglishDub(entry.title)) {
+            continue;
+        }
+
+        if (format === 'MOVIE') {
+            filteredEntries.push(entry)
+        } else {
+            const entryArray = await modified_anitomy(entry.title);
+            const entryInfo = entryArray[0];
+            // console.log(`entryInfo Episode Num: `, entryInfo.episode_number);
+
+            if (entryInfo.episode_number === undefined) {
+                // console.log(`episode number is undefined`);
+                filteredEntries.push(entry);
+            } else {
+                const episode_int = convertToIntegers(entryInfo.episode_number);
+                
+                const range = getRange(episode_int);
+                // console.log(`Range: ${range}`);
+
+                if (range.includes(episode)) {
+                    // console.log(`episode ${episode} in range`);
+                    // console.log(`Entry Magnet Link: `, entry.magnet_link);
+
+                    if (entry.magnet_link) {
+                        entry.torrent_cachable = true;
+                        entry.cache_range = range;
+                    }
+
+                    filteredEntries.push(entry);
+                }
+
+            }
+        }
+    }
+
+    return filteredEntries
+}
+
 
 function replaceSpacesWithPlus(str) {
     return str.replace(/\s+/g, '+');
@@ -884,6 +945,7 @@ export {
     nyaa_html_finder,
     gogo_anime_finder,
     nyaa_reserve_extract,
+    animetosho_torrent_exctracter,
     parse_title_reserve,
     fetchWithRetry,
     delay
@@ -915,3 +977,7 @@ export {
 //let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)"; 
 
 //console.log(await parse_title_reserve(`[SubsPlease] Dandadan - 11 (1080p) [8748535F].mkv `));
+
+const results = await animetosho_torrent_exctracter(69, 'One Piece', 100, 'TV', 'sub');
+
+
