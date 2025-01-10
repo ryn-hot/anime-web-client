@@ -98,6 +98,8 @@ async function animetosho_torrent_exctracter(anidb_id, title, episode, format, d
                 page_url: $(element).find('.link a').attr('href'),
                 magnet_link: $(element).find('a[href^="magnet:"]').attr('href') || null,
                 nzb_link: $(element).find('a[href$=".nzb.gz"]').attr('href') || null,
+                seeders: parseInt($(element).find('span[title*="Seeders"]').text().match(/\d+/) || 0),
+                leechers: parseInt($(element).find('span[title*="Leechers"]').text().match(/\d+/) || 0),
                 torrent_cachable: false,
                 cache_range: null, 
             };
@@ -111,11 +113,42 @@ async function animetosho_torrent_exctracter(anidb_id, title, episode, format, d
     const nzbEntries = filteredEntries.filter(entry => entry.nzb_link !== null);
     const torrentEntries = filteredEntries.filter(entry => entry !== null);  
 
+
     console.log(`Torrent Entries: ${JSON.stringify(torrentEntries, null, 2)}\n`);
 
-    // console.log(`NZB entries: ${JSON.stringify(nzbEntries, null, 2)}`); 
+    // console.log(`NZB entries: ${JSON.stringify(nzbEntries, null, 2)}`);  
 
     return {torrentEntries, nzbEntries}
+}
+
+async function processAnimeToshoTorrents(torrentEntries) {
+    
+    for (const torrent of torrentEntries) {
+
+        const response = fetchWithRetry(torrent.page_url);
+        const html = await response.text();
+
+        let nyaa_link = null;
+        let tokyotosho_link = null;
+
+        const $ = load(html);
+        const nyaaElement = $('a:contains("Nyaa")');
+
+        if (nyaaElement.length > 0) {
+            nyaa_link = nyaaElement.attr('href');
+        } else {
+            // If no Nyaa link, check for TokyoTosho
+            const tokyoElement = $('a:contains("TokyoTosho")');
+            if (tokyoElement.length > 0) {
+                tokyotosho_link = tokyoElement.attr('href');
+            }
+        }
+
+        if (!(nyaa_link && tokyotosho_link)) {
+            
+        }
+
+    }
 }
 
 async function animeToshoEpisodeFilter(entries, format, episode, dub) {
