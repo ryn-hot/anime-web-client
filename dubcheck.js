@@ -1,9 +1,9 @@
 import * as cheerio from "cheerio";
 import fetch from "node-fetch";
 
-console.log(await animescheduleDubCheck('Eyeshield 21'));
+// console.log(await animescheduleDubCheck('Eyeshield 21'));
 
-console.log(await checkMALDubs(15));
+// console.log(await checkMALDubs(15));
 
 async function checkMALDubs(malID) {
     try {
@@ -35,10 +35,10 @@ async function checkMALDubs(malID) {
 
 async function animescheduleDubCheck(title) {
     const query_title = formatString(title);
-    console.log(`Query: `, query_title);
+    // console.log(`Query: `, query_title);
 
     const url = `https://animeschedule.net/anime/${query_title}`;
-    console.log(`Url: ${url}`);
+    // console.log(`Url: ${url}`);
     try {
         const response = await fetch(url);
         const html = await response.text(); 

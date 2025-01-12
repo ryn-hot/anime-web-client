@@ -58,7 +58,7 @@ async function parse_title_reserve(title) {
     return results;
 }
 
-async function animetosho_torrent_exctracter(anidb_id, title, episode, format, dub) {
+async function animetosho_torrent_exctracter(anidb_id, title, episode, format, dub, anilistID) {
     
     const query = replaceSpacesWithPlus(title);
     let url;
@@ -108,47 +108,144 @@ async function animetosho_torrent_exctracter(anidb_id, title, episode, format, d
         });
     }
 
+    // console.log(entries);
+
     const filteredEntries = await animeToshoEpisodeFilter(entries, format, episode, dub);
 
     const nzbEntries = filteredEntries.filter(entry => entry.nzb_link !== null);
     const torrentEntries = filteredEntries.filter(entry => entry !== null);  
+    let validTorrentEntries;
 
+    if (format !== 'MOVIE') {
+        validTorrentEntries = await processAnimeToshoTorrents(torrentEntries, episode);
+    } else {
+        validTorrentEntries = torrentEntries;
+    }
+   
+    const allEntries = validTorrentEntries
+        .sort((a, b) => b.seeders - a.seeders)
+        .slice(0, Math.min(3, validTorrentEntries.length));
 
-    console.log(`Torrent Entries: ${JSON.stringify(torrentEntries, null, 2)}\n`);
+    for (const torrent of allEntries) {
+        if (torrent.torrent_cachable) {
+            cacheTorrentRange(anilistID, torrent.cache_range[0], torrent.cache_range[torrent.cache_range.length - 1], dub, torrent.magnet_link, torrent.seeders);
+        }
+    }
+    // console.log(`Valid Torrent Entries: ${JSON.stringify(allEntries, null, 2)}\n`);
 
     // console.log(`NZB entries: ${JSON.stringify(nzbEntries, null, 2)}`);  
 
-    return {torrentEntries, nzbEntries}
+    return {allEntries, nzbEntries}
 }
 
-async function processAnimeToshoTorrents(torrentEntries) {
-    
-    for (const torrent of torrentEntries) {
+async function processAnimeToshoTorrents(torrentEntries, episode) {
+    const valid_trs = [];
 
-        const response = fetchWithRetry(torrent.page_url);
+    for (const torrent of torrentEntries) {
+        // console.log(`\nChecking Torrent: `, torrent.title);
+        // console.log('fetching url: ', torrent.page_url);
+
+        const response = await fetchWithRetry(torrent.page_url);
         const html = await response.text();
 
         let nyaa_link = null;
-        let tokyotosho_link = null;
 
         const $ = load(html);
         const nyaaElement = $('a:contains("Nyaa")');
 
-        if (nyaaElement.length > 0) {
-            nyaa_link = nyaaElement.attr('href');
-        } else {
-            // If no Nyaa link, check for TokyoTosho
-            const tokyoElement = $('a:contains("TokyoTosho")');
-            if (tokyoElement.length > 0) {
-                tokyotosho_link = tokyoElement.attr('href');
+        const hasFiles = $('th:contains("Files")').length > 0;
+        if (hasFiles) {
+            // Find all divs with classes containing 'view_list_entry'
+            // console.log(`Files Found on Page`);
+            const titles = [];
+            $('div[class*="view_list_entry"]').each((index, element) => {
+                // For each div, find the link div, get the anchor tag, and extract its text
+                const title = $(element).find('.link a').text().trim();
+                titles.push(title);
+            });
+
+            if (titles.length >= 1) {
+                // console.log(`Checking Files`);
+
+                const mkvFiles = titles.filter(title => title.includes('.mkv'));
+                let fileFound = false;
+                const cache_set = new Set();
+
+                for (const mkvFile of mkvFiles) {
+                    
+                    const episode_info = await modified_anitomy(mkvFile);
+                    const episode_number =  parseInt(episode_info[0].episode_number);
+                    cache_set.add(episode_number);
+
+                    if (episode === episode_number) {
+                        // onsole.log(`Found Episode`);
+                        valid_trs.push(torrent);
+                        fileFound = true;
+                    }
+                }
+
+                if (fileFound) {
+                    const sortedRange = [...cache_set].sort((a, b) => a - b);
+                    torrent.cache_range = sortedRange;
+                    torrent.torrent_cachable = true; 
+                }
             }
-        }
+        } else if (nyaaElement.length > 0) {
+            // console.log(`Nyaa Link Found and Called`);
+            const files = [];
 
-        if (!(nyaa_link && tokyotosho_link)) {
-            
-        }
+            nyaa_link = nyaaElement.attr('href');
 
-    }
+            const nyaa_response = await fetchWithRetry(nyaa_link);
+            const nyaa_html =  await nyaa_response.text();
+
+            if (nyaa_html === '') {
+                // console.log('Nyaa Fetching HTML Error Status: ', nyaa_response.status);
+                // console.log('Error Url: ', nyaa_response.url);
+            }
+
+            const nyaa_parser = load(nyaa_html);
+
+            nyaa_parser('li:has(i.fa.fa-file)').each((index, element) => {
+                // Get the text content of the li, excluding the icon and file size
+                const fullText = $(element).text().trim();
+                // Remove the file size portion (which is in the span)
+                const file = fullText.replace(/\s*\(\d+\.?\d*\s*MiB\)$/, '').trim();
+                // console.log('Found File: ', file);
+                files.push(file);
+            });
+
+            const mkvFiles = files.filter(file => file.includes('.mkv'));
+
+            let fileFound = false;
+            const cache_set = new Set();
+
+            for (const mkvFile of mkvFiles) {
+                const episode_info = await modified_anitomy(mkvFile);
+                // console.log('Nyaa Episode Being Processed: ', parseInt(episode_info[0].episode_number));
+                cache_set.add(episode_info);
+                const episode_number =  parseInt(episode_info[0].episode_number);
+                if (episode === episode_number) {
+                    // console.log(`Found Episode`);
+                    valid_trs.push(torrent);
+                    fileFound = true;
+                }
+
+            }
+
+            if (fileFound) {
+                const sortedRange = [...cache_set].sort((a, b) => a - b);
+                torrent.cache_range = sortedRange;
+                torrent.torrent_cachable = true; 
+            }
+
+        } else {
+            // console.log('No Files or Nyaa link found');
+        }
+    } 
+
+    //console.log('Valid TRS: ', valid_trs);
+    return valid_trs;
 }
 
 async function animeToshoEpisodeFilter(entries, format, episode, dub) {
@@ -163,36 +260,8 @@ async function animeToshoEpisodeFilter(entries, format, episode, dub) {
             continue;
         }
 
-        if (format === 'MOVIE') {
-            filteredEntries.push(entry)
-        } else {
-            const entryArray = await modified_anitomy(entry.title);
-            const entryInfo = entryArray[0];
-            // console.log(`entryInfo Episode Num: `, entryInfo.episode_number);
+        filteredEntries.push(entry);
 
-            if (entryInfo.episode_number === undefined) {
-                // console.log(`episode number is undefined`);
-                filteredEntries.push(entry);
-            } else {
-                const episode_int = convertToIntegers(entryInfo.episode_number);
-                
-                const range = getRange(episode_int);
-                // console.log(`Range: ${range}`);
-
-                if (range.includes(episode)) {
-                    // console.log(`episode ${episode} in range`);
-                    // console.log(`Entry Magnet Link: `, entry.magnet_link);
-
-                    if (entry.magnet_link) {
-                        entry.torrent_cachable = true;
-                        entry.cache_range = range;
-                    }
-
-                    filteredEntries.push(entry);
-                }
-
-            }
-        }
     }
 
     return filteredEntries
@@ -348,6 +417,8 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
     const nyaa_query_url_first = `${url}&q=${query}&s=seeders&o=desc&p=1`;
     // console.log(nyaa_query_url_first);
     const response_first = await fetchWithRetry(nyaa_query_url_first);
+
+
     // console.log(`First page status: ${response_first.status}, url: `, nyaa_query_url_first);
     const html_first = await response_first.text();
 
@@ -509,13 +580,21 @@ async function fetchWithRetry(url, retries = 3, delayDuration = 1000) {
         // console.log(`Fetch Success Status: ${response.status}, url`, url);
         return response; // Return the successful response
         } catch (error) {
-        if (i < retries) {
-            // console.log(`Fetch failed (attempt ${i + 1}), retrying in ${delayDuration}ms...`);
-            // console.log(error);
-            await delay(delayDuration);
-        } else {
-            throw error; // Throw the error if retries are exhausted
-        }
+            if (i < retries) {
+                // console.log(`Fetch failed (attempt ${i + 1}), retrying in ${delayDuration}ms...`);
+                // console.log(error);
+                await delay(delayDuration);
+            } else {
+                return {
+                    text: async () => '',    // Empty string for HTML
+                    json: async () => ({}),  // Empty object for JSON
+                    ok: true,
+                    status: error.status || 500,
+                    statusText: error.message,
+                    url: url,
+                    error: error
+                };; // Throw the error if retries are exhausted
+            }
         }
     }
 }
@@ -1007,10 +1086,10 @@ export {
 
 
 // console.log(output)
-//let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)"; 
+// let results  = await parse_title(title); let title = "[tlacatlc6] Natsume Yuujinchou Shi Vol. 1v2 & Vol. 2 (BD 1280x720 x264 AAC)"; 
 
-//console.log(await parse_title_reserve(`[SubsPlease] Dandadan - 11 (1080p) [8748535F].mkv `));
+// console.log(await parse_title_reserve(`[SubsPlease] Dandadan - 11 (1080p) [8748535F].mkv `));
 
-const results = await animetosho_torrent_exctracter(69, 'One Piece', 100, 'TV', 'sub');
+// const results = await animetosho_torrent_exctracter(69, 'One Piece', 100, 'TV', 'sub');
 
 
