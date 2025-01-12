@@ -77,12 +77,14 @@ function removeSpacesAroundHyphens(str) {
 }
 
 
-let title = "[HatSubs] One Piece: 9-102 (BD 1080p 10-bit Opus)";
+let title = "[DB] Eyeshield 21 [10bit DVD480p][HEVC-x265]";
 // title = removeSpacesAroundHyphens(title)
 console.log(title);
 const results = await modified_anitomy(title);
 
-console.log(results); 
+console.log(results[0]); 
+
+console.log(parseInt(results[0].episode_number)); 
 
 const bool = (results[0].episode_number === undefined);
 //const output = convertToIntegers(results.episode_number);

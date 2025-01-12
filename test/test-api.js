@@ -167,11 +167,11 @@ async function alIdFetch(alID = 17) {
 }
 
 async function test_anidb() {
-  const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + 17);
+  const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + 1);
   const json = await mappingsResponse.json();
   const ep = json?.episodeCount || -1;
   const anidbId = json?.mappings?.anidb_id || -1;
-  console.log(json);
+  // console.log(json);
   console.log(anidbId);
 
 }
@@ -199,9 +199,7 @@ function formatString(str) {
 
 async function main() {
   // Test cases
-  console.log(formatString("Dr. Slump"));  // "dr-slump"
-  console.log(formatString("Re:Creation")); // "re-creation"
-  console.log(formatString("Hello!!!World")); // "hello-world"
+  await test_anidb()
 }
 
 

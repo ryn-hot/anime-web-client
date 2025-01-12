@@ -1,7 +1,7 @@
 //https://api.ani.zip/mappings?anilist_id=' + media.id storing future api call
 
-import { seadex_finder, gogo_anime_finder, parse_title_reserve } from "./anime-finder-funcs.js";
-import { sea_dex_query_creator, nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } from "./query-creator.js";
+import { seadex_finder, gogo_anime_finder, animetosho_torrent_exctracter, parse_title_reserve } from "./anime-finder-funcs.js";
+import { nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } from "./query-creator.js";
 import { nyaa_function_dispatch } from "./query-dispatcher.js";
 import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata } from "./cache.js";
 import { getGlobalClient } from "./webtorrent-client.js";
@@ -64,6 +64,12 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
             trs_results.push(...nyaa_fallback_results);
         }
     
+        if (trs_results.length === 0) {
+            console.log('nyaa results empty fetching animeTosho results');
+            const {animeToshoTorrents, nzbEntries} = await animetosho_torrent_exctracter(anidbId, english_title, episode_number, format);
+            console.log(`animeToshoResults number of entries found: `, animeToshoTorrents.length);
+            trs_results.push(animeToshoTorrents); 
+        }
         
         const gogo_query = gogoanime_query_creator(romanji_title, episode_number, audio);
         const gogo_link = await gogo_anime_finder(...gogo_query);
@@ -78,35 +84,39 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
                 videoUrl: gogo_link
             });
         }
-    
-        const trs_results_deduped = dedupeMagnetLinks(trs_results);
         
-        // console.log(`trs_results deduped: `, trs_results);
-        const trs_results_sorted = sortTorrentList(trs_results_deduped);
-        // console.log(`trs_results sorted: `, trs_results_sorted);
-        // console.log(trs_results_deduped);
+        if (trs_results.length === 0) {
+            console.log('No torrents found for this episode');
+        } else {
+            const trs_results_deduped = dedupeMagnetLinks(trs_results);
+        
+            // console.log(`trs_results deduped: `, trs_results);
+            const trs_results_sorted = sortTorrentList(trs_results_deduped);
+            // console.log(`trs_results sorted: `, trs_results_sorted);
+            // console.log(trs_results_deduped);
+        
+            // const trs_final = []; 
     
-        // const trs_final = []; 
-
-        for (let i = 0; i < Math.min(trs_results_sorted.length, 3); i++) {
-            const raw_torrent = trs_results_sorted[i];
-            // console.log(`raw_torrent magnetLink:`, raw_torrent.magnetLink);
-           // Ensure we get a single magnet link string
-           let magnetLink = Array.isArray(raw_torrent.magnetLink)
-                ? raw_torrent.magnetLink[0] 
-                : raw_torrent.magnetLink;
-            
-            magnetLink = magnetLink.replace(/&amp;/g, '&');
+            for (let i = 0; i < Math.min(trs_results_sorted.length, 3); i++) {
+                const raw_torrent = trs_results_sorted[i];
+                // console.log(`raw_torrent magnetLink:`, raw_torrent.magnetLink);
+               // Ensure we get a single magnet link string
+               let magnetLink = Array.isArray(raw_torrent.magnetLink)
+                    ? raw_torrent.magnetLink[0] 
+                    : raw_torrent.magnetLink;
+                
+                magnetLink = magnetLink.replace(/&amp;/g, '&');
+        
+                const seeders = raw_torrent.seeders;
+                // const audio_type = raw_torrent.audio_type; 
+                
     
-            const seeders = raw_torrent.seeders;
-            const audio_type = raw_torrent.audio_type; 
-            
-
-            /*console.log(`processed magnetLink:`,magnetLink);
-            console.log(`\naudio_type:`, audio_type);
-            console.log(`\nseeders:`, seeders); */
-            await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio_type, alID, anidbId, db, format);
-        } 
+                /*console.log(`processed magnetLink:`,magnetLink);
+                console.log(`\naudio_type:`, audio_type);
+                console.log(`\nseeders:`, seeders); */
+                await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db, format);
+            } 
+        }
     } 
 }
 
@@ -162,6 +172,7 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
         }
     }
 }
+
 //cache file meta data. 
 async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_type, alID, anidbId, db, format) {
     return new Promise((resolve, reject) => {

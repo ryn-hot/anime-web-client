@@ -104,7 +104,7 @@ class AnimeDatabase {
                     english_title,
                     romanji_title,
                     episode_number,
-                    format,
+                    format
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
             `);
     
@@ -394,6 +394,7 @@ async function passive_index_queuer(db) {
                 // We queue a 'season-level' task
                
                 const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + anilistId);
+                console.log('https://api.ani.zip/mappings?anilist_id=' + anilistId);
                 const mappingsjson = await mappingsResponse.json();
 
                 if (anilistEpisodes === -1) {
@@ -401,7 +402,7 @@ async function passive_index_queuer(db) {
                 }
 
                 const anidbId = mappingsjson?.mapppings?.anidb_id || -1;
-
+                console.log('anidbId: ', anidbId);
 
                 enqueue({
                     type: 'anime',
