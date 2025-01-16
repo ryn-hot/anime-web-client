@@ -1,6 +1,6 @@
 //https://api.ani.zip/mappings?anilist_id=' + media.id storing future api call
 
-import { seadex_finder, gogo_anime_finder, animetosho_torrent_exctracter, parse_title_reserve } from "./anime-finder-funcs.js";
+import { seadex_finder, gogo_anime_finder, animetosho_torrent_exctracter, parse_title_reserve, find_best_match } from "./anime-finder-funcs.js";
 import { nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } from "./query-creator.js";
 import { nyaa_function_dispatch } from "./query-dispatcher.js";
 import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata } from "./cache.js";
@@ -8,9 +8,9 @@ import { getGlobalClient } from "./webtorrent-client.js";
 
 // await main();
 // let db = null; 
-// await crawler_dispatch(db, 'Re:ZERO -Starting Life in Another World- Season 2', 'Re:ZERO kara Hajimeru Isekai Seikatsu 2nd Season', 'dub', 108632, 14792, 3);
+await crawler_dispatch(null, 'Beet the Vandel Buster', 'Bouken Ou Beet', 'sub', 8, 2391, 1, 'TV');
 
-async function crawler_dispatch(db, english_title, romanji_title, audio, alID, anidbId, episode_number, format, proxy = null) {
+async function crawler_dispatch(db = null, english_title, romanji_title, audio, alID, anidbId, episode_number, format, proxy = null) {
     /* const trs_results = [];
     const english_title = 'Your Name.';
     const romanji_title = 'Kimi no Na Wa';
@@ -34,11 +34,11 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         if (fileData) {
             console.log(`cache hit for torrent metadata`)
             //console.log(`fileData: ` + `\n`, fileData);
-            await writeTorrentMetadataFromCache(fileData, magnetLink, episode_number, seeders, audio, alID, anidbId, db);
+            await writeTorrentMetadataFromCache(fileData, magnetLink, episode_number, seeders, audio, alID, anidbId, db, english_title, romanji_title);
 
         } else {
 
-            await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db, format);
+            await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db, format, english_title, romanji_title);
         }
         
 
@@ -66,9 +66,12 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
     
         if (trs_results.length === 0) {
             console.log('nyaa results empty fetching animeTosho results');
-            const {animeToshoTorrents, nzbEntries} = await animetosho_torrent_exctracter(anidbId, english_title, episode_number, format);
+            const {
+                animeToshoTorrents = [],
+                nzbEntries = []
+            } = await animetosho_torrent_exctracter(anidbId, english_title, episode_number, format);
             console.log(`animeToshoResults number of entries found: `, animeToshoTorrents.length);
-            trs_results.push(animeToshoTorrents); 
+            trs_results.push(...animeToshoTorrents); 
         }
         
         const gogo_query = gogoanime_query_creator(romanji_title, episode_number, audio);
@@ -114,13 +117,13 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
                 /*console.log(`processed magnetLink:`,magnetLink);
                 console.log(`\naudio_type:`, audio_type);
                 console.log(`\nseeders:`, seeders); */
-                await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db, format);
+                await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db, format, english_title, romanji_title);
             } 
         }
     } 
 }
 
-async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number, seeders, audio_type, alID, anidbId, db) {
+async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number, seeders, audio_type, alID, anidbId, db, eng_title, rom_title) {
     const fileList = fileData.fileList;
     
     let fileInfo = null;
@@ -129,25 +132,37 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
         let desiredFileFound = false;
         let desiredFileIndex = null;
         let desiredFileName = null;
+        const potential_files = [];
 
         for (let i = 0; i < fileList.length; i++) {
             const file = fileList[i];
             // console.log(`Checking file: ${file.name}`);
 
-            if (file.name.toLowerCase().endsWith('.mkv')) {
+            if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
                 const file_title_data = await parse_title_reserve(file.name);
                 if (file_title_data.episode_number == episode_number) {
                     // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
                     desiredFileFound = true;
                     desiredFileIndex = i;
                     desiredFileName = file.name;
-
-                    break;
+                    potential_files.push({animeTitle: file_title_data.episode_number, fileIndex: i, fileName: file.name });
                 }
             }
         }
 
+        let bestMatch;
+        if (potential_files.length > 1) {
+            bestMatch = find_best_match(potential_files, eng_title, rom_title);
+        } else if (potential_files.length > 0) {
+            bestMatch = potential_files[0];
+        } else {
+            desiredFileFound = false
+        }
+
         if (desiredFileFound) {
+            desiredFileIndex = bestMatch.fileIndex;
+            desiredFileName = bestMatch.fileName;
+
             fileInfo = {
                 magnetLink: magnetURI,
                 fileIndex: desiredFileIndex,
@@ -174,7 +189,7 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
 }
 
 //cache file meta data. 
-async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_type, alID, anidbId, db, format) {
+async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_type, alID, anidbId, db, format, eng_title, rom_title) {
     return new Promise((resolve, reject) => {
         const client = getGlobalClient();
         // console.log('Torrent added. Waiting for metadata...');
@@ -211,30 +226,42 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
             let desiredFileFound = false;
             let desiredFileIndex = null;
             let desiredFileName = null;
+            const potential_files = [];
 
             for (let i = 0; i < torrent.files.length; i++) {
                 const file = torrent.files[i];
                 // console.log(`Checking file: ${file.name}`);
 
-                if (file.name.toLowerCase().endsWith('.mkv')) {
+                if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
                 const file_title_data = await parse_title_reserve(file.name);
-                if (file_title_data.episode_number == episode_number) {
-                    // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
-                    desiredFileFound = true;
-                    desiredFileIndex = i;
-                    desiredFileName = file.name;
-
-                    break;
-                }
+                    if (file_title_data.episode_number == episode_number) {
+                        // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
+                        desiredFileFound = true;
+                        // console.log(`Potential File Candidate: ${file_title_data.anime_title}`);
+                        potential_files.push({animeTitle: file_title_data.anime_title, fileIndex: i, fileName: file.name })
+                    }
                 }
             }
 
+            let bestMatch;
+            if (potential_files.length > 1) {
+                bestMatch = find_best_match(potential_files, eng_title, rom_title);
+            } else if (potential_files.length > 0) {
+                bestMatch = potential_files[0];
+            } else {
+                desiredFileFound = false
+            }
+
+
             if (desiredFileFound) {
+
+               
+                desiredFileIndex = bestMatch.fileIndex;
+                desiredFileName = bestMatch.fileName;
 
                 const fileList = torrent.files.map((file, idx) => ({
                     name: file.name,
                     index: idx
-                    // you could parse episode_number here if you want
                 }));
 
                 storeTorrentMetadata(magnetURI, fileList);

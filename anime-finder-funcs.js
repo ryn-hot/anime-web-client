@@ -6,14 +6,56 @@ import levenshtein from 'fast-levenshtein';
 import { JSDOM } from 'jsdom';
 import { load } from 'cheerio';
 import { globalTorrentCache, cacheTorrentRange } from './cache.js';
+import Fuse from 'fuse.js';
 
 
+// await nyaa_html_finder('https://nyaa.si/?f=0&c=1_2&', 'Beet+the+Vandel+Buster', 'Beet the Vandel Buster', 1, 1, 'sub',  8);
+function nyaa_file_extractor(html) {
+    const nyaa_parser = load(html);
+    const files = [];
+
+    nyaa_parser('li:has(i.fa.fa-file)').each((index, element) => {
+        // Get the text content of the li, excluding the icon and file size
+        const fullText = nyaa_parser(element).text().trim();
+        // Remove the file size portion (which is in the span)
+        const file = fullText.replace(/\s*\(\d+\.?\d*\s*MiB\)$/, '').trim();
+        // console.log('Found File: ', file);
+        files.push(file);
+    });
+
+    return files;
+}
 async function parse_title(title) {
     let results = await anitomy(title);
     return results;
 }
 
+function find_best_match(potential_files, eng_title, rom_title) {
+    let min_lev;
+    let bestMatch;
+    console
+    for (const file of potential_files) {
+        // console.log(`Title of Potential Match: `, file.animeTitle);
+        // console.log(`Torrent of potiential `)
 
+        const lev_distance_eng = levenshtein.get(normalizeTitle(file.animeTitle), normalizeTitle(eng_title));
+        const lev_distance_rom = levenshtein.get(normalizeTitle(file.animeTitle), normalizeTitle(rom_title));
+
+        
+        const lev_local_min = Math.min(lev_distance_eng, lev_distance_rom);
+        // console.log(`levenshtien max: `, lev_local_min);
+
+        if (!min_lev) {
+            min_lev = lev_local_min;
+        } else if (lev_local_min < min_lev) {
+            min_lev = lev_local_min;    
+            bestMatch = file; 
+        }
+        
+    }
+    // console.log('Best Torrent: ', bestMatch);
+    return bestMatch;
+}
 async function modified_anitomy(...args) {
     const res = await anitomy(...args);
 
@@ -208,7 +250,7 @@ async function processAnimeToshoTorrents(torrentEntries, episode) {
 
             nyaa_parser('li:has(i.fa.fa-file)').each((index, element) => {
                 // Get the text content of the li, excluding the icon and file size
-                const fullText = $(element).text().trim();
+                const fullText = nyaa_parser(element).text().trim();
                 // Remove the file size portion (which is in the span)
                 const file = fullText.replace(/\s*\(\d+\.?\d*\s*MiB\)$/, '').trim();
                 // console.log('Found File: ', file);
@@ -431,6 +473,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
     const last_page_num = extractPageNumberNyaa(html_first);
 
     // Create an array of fetch promises for the remaining pages
+
     let fetchPromises = [];
     for (let i = 2; i <= last_page_num; i++) {
         const nyaa_query_url = `https://nyaa.si/?f=0&c=1_2&q=${query}&s=seeders&o=desc&p=${i}`;
@@ -505,12 +548,12 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
             if (alID !== undefined) {
                 cacheTorrentRange(alID, range[0], range[range.length - 1], dub, magnetLink, parseInt(torrent.seeders, 10));
 
-                //console.log(`Inserted into cache: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], magnetLink=${magnetLink}`);
+                // console.log(`Inserted into cache: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], magnetLink=${magnetLink}`);
             }
             
 
         } else {
-            if (season_number == torrent_info.anime_season && torrent_info.episode_number == undefined) {
+            if ((season_number == torrent_info.anime_season || torrent_info.anime_season === undefined) && torrent_info.episode_number == undefined) {
                 // console.log(`Torrent Added to Reserve Cache`)
                 reserve_cache.push(torrent)
             }
@@ -534,31 +577,63 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
     return { torrentList, reserve_cache };
 }
 
-async function nyaa_reserve_extract(reserve_torrents, episode) {
+async function nyaa_reserve_extract(reserve_torrents, eng_title, rom_title, episode, format, anilistID) {
+    console.log('\nnyaa reserved extract called');
+    // console.log('English Title: ', eng_title);
+    // console.log('Romanji Title: ', rom_title);
     const trsContainingEpisode = [];
 
     for (const trs of reserve_torrents) {
-        // console.log(`\n\n\nTorrent Currently being processed:`, trs);
+        console.log(`Torrent Currently being processed:`, trs);
 
-        const nyaa_response = await fetch(trs.url); 
+        const nyaa_response = await fetchWithRetry(trs.url); 
         // console.log(`Fetching Torrent Url: `, trs.url);
         const html = await nyaa_response.text();
         // console.log(html);
-        const mkvFiles = extractMkvFiles(html);
+        const files = nyaa_file_extractor(html);
+
+
+        const usable_files = files.filter(file => file.includes('.mkv') || file.includes('.avi') || file.includes('.mp4'));
 
         if (!(episode === undefined)) {
-
-            for (const mkvFile of mkvFiles) {
-                // console.log(`mkvfile: `, mkvFile);
-                const episode_info = await parse_title_reserve(mkvFile);
+            const potential_files = [];
+            const cache_set = new Set(); 
+            let fileFound = false;
+            for (const file of usable_files) {
+                // console.log(`file: `, file);
+                const episode_info = await parse_title_reserve(file);
+                const episode_number = episode_info.episode_number;
+                cache_set.add(episode_number);
                 // console.log(`episode_info: \n`, episode_info);
-                if (episode_info.episode_number == episode) {
-                    trsContainingEpisode.push(trs);
+                if (episode_info.episode_number == episode_number) {
+                    potential_files.push({animeTitle: episode_info.anime_title, torrent: trs});
+                    fileFound = true;
+                    // console.log('Episode Found, Torrent added: ', file);
+                    // console.log('Episode Found, Torrent added: ', episode_info.anime_title);
                 }
             }
 
+
+            const bestMatch = find_best_match(potential_files, eng_title, rom_title);
+
+            if (fileFound) {
+                const sortedRange = [...cache_set].sort((a, b) => a - b);
+                if (sortedRange.length > 1) {
+                    let magnetLink = bestMatch.torrent.magnetLink;
+
+                    if (Array.isArray(magnetLink)) {
+                        magnetLink = magnetLink[0]; 
+                    }
+                    // console.log(`Adding torrent to cache from nyaa reserve: alID: ${anilistID} startEp: ${sortedRange[0]}, endEp: ${sortedRange[sortedRange.length - 1]}, audioType: ${format}, Maglink: ${bestMatch.torrent.magnetLink}, Seeders: ${bestMatch.torrent.seeders}`);
+                    cacheTorrentRange(anilistID, sortedRange[0], sortedRange[sortedRange.length - 1], format, bestMatch.torrent.magnetLink, bestMatch.torrent.seeders);
+                }
+                
+            }
+
+            trsContainingEpisode.push(bestMatch.torrent);
+            
         }
-        // console.log('\n\n\n');
+        console.log('\n');
     }
 
     return trsContainingEpisode;
@@ -629,6 +704,8 @@ async function alIdFetchEpisodes(alID) {
 }
 
 function normalizeTitle(title) {
+    // console.log(`noramlize text title: `, title);
+
     return title
         .toLowerCase()
         .replace(/[:\-–—_]/g, ' ')       // Replace punctuation with a space
@@ -1059,6 +1136,7 @@ export {
     nyaa_reserve_extract,
     animetosho_torrent_exctracter,
     parse_title_reserve,
+    find_best_match,
     fetchWithRetry,
     delay
 }
