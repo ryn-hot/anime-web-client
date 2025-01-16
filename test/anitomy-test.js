@@ -77,7 +77,7 @@ function removeSpacesAroundHyphens(str) {
 }
 
 
-let title = "[DB] Eyeshield 21 [10bit DVD480p][HEVC-x265]";
+let title = "[Saizen]_Hungry_Heart_Wild_Striker_01-52_[Complete_DVD]";
 // title = removeSpacesAroundHyphens(title)
 console.log(title);
 const results = await modified_anitomy(title);

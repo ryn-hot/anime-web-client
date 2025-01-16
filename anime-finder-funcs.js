@@ -6,8 +6,10 @@ import levenshtein from 'fast-levenshtein';
 import { JSDOM } from 'jsdom';
 import { load } from 'cheerio';
 import { globalTorrentCache, cacheTorrentRange } from './cache.js';
-import Fuse from 'fuse.js';
 
+
+// const dist = levenshtein.get(normalizeTitle('Hungry Heart Wild Striker'), normalizeTitle('Hungry Heart: Wild Striker'));
+// console.log(dist);
 
 // await nyaa_html_finder('https://nyaa.si/?f=0&c=1_2&', 'Beet+the+Vandel+Buster', 'Beet the Vandel Buster', 1, 1, 'sub',  8);
 function nyaa_file_extractor(html) {
@@ -33,7 +35,7 @@ async function parse_title(title) {
 function find_best_match(potential_files, eng_title, rom_title) {
     let min_lev;
     let bestMatch;
-    console
+
     for (const file of potential_files) {
         // console.log(`Title of Potential Match: `, file.animeTitle);
         // console.log(`Torrent of potiential `)
@@ -47,6 +49,7 @@ function find_best_match(potential_files, eng_title, rom_title) {
 
         if (!min_lev) {
             min_lev = lev_local_min;
+            bestMatch = file;
         } else if (lev_local_min < min_lev) {
             min_lev = lev_local_min;    
             bestMatch = file; 
@@ -56,6 +59,8 @@ function find_best_match(potential_files, eng_title, rom_title) {
     // console.log('Best Torrent: ', bestMatch);
     return bestMatch;
 }
+
+
 async function modified_anitomy(...args) {
     const res = await anitomy(...args);
 
@@ -513,7 +518,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
             continue;
         }
 
-        const lev_distance  = levenshtein.get(normalizeTitle(set_title.toLowerCase()), normalizeTitle(torrent_info.anime_title.toLowerCase()));
+        const lev_distance  = levenshtein.get(normalizeTitle(set_title), normalizeTitle(torrent_info.anime_title));
 
         if (lev_distance > 1) {
             // console.log("Title Mismatch");
@@ -578,20 +583,20 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
 }
 
 async function nyaa_reserve_extract(reserve_torrents, eng_title, rom_title, episode, format, anilistID) {
-    console.log('\nnyaa reserved extract called');
+    console.log('nyaa reserved extract called');
     // console.log('English Title: ', eng_title);
     // console.log('Romanji Title: ', rom_title);
     const trsContainingEpisode = [];
 
     for (const trs of reserve_torrents) {
-        console.log(`Torrent Currently being processed:`, trs);
-
+        // console.log(`Torrent Currently being processed:`, trs);
+        // console.log('Episode Being Searched For: ', episode);
         const nyaa_response = await fetchWithRetry(trs.url); 
         // console.log(`Fetching Torrent Url: `, trs.url);
         const html = await nyaa_response.text();
         // console.log(html);
         const files = nyaa_file_extractor(html);
-
+        
 
         const usable_files = files.filter(file => file.includes('.mkv') || file.includes('.avi') || file.includes('.mp4'));
 
@@ -604,19 +609,21 @@ async function nyaa_reserve_extract(reserve_torrents, eng_title, rom_title, epis
                 const episode_info = await parse_title_reserve(file);
                 const episode_number = episode_info.episode_number;
                 cache_set.add(episode_number);
-                // console.log(`episode_info: \n`, episode_info);
-                if (episode_info.episode_number == episode_number) {
+
+                // console.log(`episode_number: \n`, episode_number);
+                if (episode_number == episode) {
+                    
                     potential_files.push({animeTitle: episode_info.anime_title, torrent: trs});
                     fileFound = true;
-                    // console.log('Episode Found, Torrent added: ', file);
                     // console.log('Episode Found, Torrent added: ', episode_info.anime_title);
+                    // console.log('Episdoe Number of File: ', episode_number);
                 }
             }
 
 
             const bestMatch = find_best_match(potential_files, eng_title, rom_title);
 
-            if (fileFound) {
+            if (fileFound && bestMatch) {
                 const sortedRange = [...cache_set].sort((a, b) => a - b);
                 if (sortedRange.length > 1) {
                     let magnetLink = bestMatch.torrent.magnetLink;
@@ -628,12 +635,9 @@ async function nyaa_reserve_extract(reserve_torrents, eng_title, rom_title, epis
                     cacheTorrentRange(anilistID, sortedRange[0], sortedRange[sortedRange.length - 1], format, bestMatch.torrent.magnetLink, bestMatch.torrent.seeders);
                 }
                 
+                trsContainingEpisode.push(bestMatch.torrent);
             }
-
-            trsContainingEpisode.push(bestMatch.torrent);
-            
         }
-        console.log('\n');
     }
 
     return trsContainingEpisode;
