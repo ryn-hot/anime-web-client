@@ -267,6 +267,27 @@ class AnimeDatabase {
             throw error;
         }
     }
+
+    hasEpisodeSource(anilistId, episodeNumber, audioType) {
+        // Ensure the raw DB connection is ready
+        this.connect();
+    
+        // Prepare or reuse a statement
+        // (In a real system, you might store this in a property to avoid re-preparing each time.)
+        const stmt = this.db.prepare(`
+          SELECT 1
+          FROM sources
+          WHERE anilist_id = ?
+            AND episode_number = ?
+            AND audio_type = ?
+          LIMIT 1
+        `);
+    
+        // Execute synchronously
+        const row = stmt.get(anilistId, episodeNumber, audioType);
+    
+        return row; // true if a row is found, false if none
+    }
 }
 
 // const tasksQueue = [];
@@ -323,7 +344,7 @@ async function passive_index_queuer(db) {
 
     let page = 1;
     let hasNextPage = true;
-
+    const mode = 'build';
 
     while (hasNextPage) {
         const pageData = await fetchAnimeData(query, page);
@@ -412,7 +433,8 @@ async function passive_index_queuer(db) {
                     englishTitle,
                     romanjiTitle,
                     episodeNumber: anilistEpisodes,
-                    isDubbed
+                    isDubbed,
+                    mode
                 });
 
                 console.log(`Queueing missing anime ID ${anilistId} for insertion.`);
@@ -438,7 +460,8 @@ async function passive_index_queuer(db) {
                             romanjiTitle,
                             episodeNumber: epNum,
                             audio: 'sub',
-                            format: format
+                            format: format,
+                            mode
                         });
 
                         if (isDubbed) {
@@ -451,7 +474,8 @@ async function passive_index_queuer(db) {
                                 romanjiTitle,
                                 episodeNumber: epNum,
                                 audio: 'dub',
-                                format: format
+                                format: format,
+                                mode
                             });
                         }
                        
@@ -567,7 +591,8 @@ async function processAnimeTask(task, db) {
                 romanjiTitle: task.romanjiTitle,
                 episodeNumber: i,
                 audio: 'sub',
-                format: task.format
+                format: task.format,
+                mode: task.mode
             });
 
             if (task.isDubbed) {
@@ -580,7 +605,8 @@ async function processAnimeTask(task, db) {
                     romanjiTitle: task.romanjiTitle,
                     episodeNumber: i,
                     audio: 'dub',
-                    format: task.format
+                    format: task.format,
+                    mode: task.mode
                 });
             } 
         }
@@ -605,6 +631,7 @@ async function processEpisodeTask(task, db, concurrency) {
             task.anidbId,
             task.episodeNumber,
             task.format,
+            task.mode,
             proxy,
         );
         
@@ -612,7 +639,7 @@ async function processEpisodeTask(task, db, concurrency) {
         // Then pass this proxy to your crawler logic 
     } else {
         console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }, Format ${task.format}`);
-
+       
         await crawler_dispatch(
             db,
             task.englishTitle,
@@ -622,7 +649,10 @@ async function processEpisodeTask(task, db, concurrency) {
             task.anidbId,
             task.episodeNumber,
             task.format,
+            task.mode
         ); 
+        
+
     }
   
     // In indefinite mode, if the crawler finds no sign of epNumber,
