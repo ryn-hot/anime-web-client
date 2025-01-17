@@ -8,9 +8,9 @@ import { getGlobalClient } from "./webtorrent-client.js";
 
 // await main();
 // let db = null; 
-await crawler_dispatch(null, 'Eyeshield 21', 'Eyeshield 21', 'sub', 15, 2441, 1, 'TV');
+// await crawler_dispatch(null, 'Hungry Heart: Wild Striker', 'Hungry Heart: Wild Striker', 'sub', 17, 612, 1, 'TV');
 
-async function crawler_dispatch(db, english_title, romanji_title, audio, alID, anidbId, episode_number, format, proxy = null) {
+async function crawler_dispatch(db, english_title, romanji_title, audio, alID, anidbId, episode_number, format, mode, proxy = null) {
     /* const trs_results = [];
     const english_title = 'Your Name.';
     const romanji_title = 'Kimi no Na Wa';
@@ -19,6 +19,14 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
     const episode_number = null; null for movies */
     // console.log(`crawler format: `, format);
     // console.log('Crawler Dispatch Watch');
+    if (mode === 'build' && episode_number > 1) {
+        // Database look back goes here. 
+        const hasEpisode1 = db.hasEpisodeSource(alID, 1, audio); 
+        if (!hasEpisode1) {
+          console.log(`No torrent for Episode 1 with audio ${audio}. Skipping...`);
+          return; // Avoid further crawling
+        }
+    }
 
     const cached = findMagnetForEpisode(alID, episode_number, audio);
 
@@ -60,17 +68,22 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
 
         const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, audio, alID);
         const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
+        // console.log('Nyaa Results'); 
         // console.log(nyaa_results);
+        // console.log('\n');
         trs_results.push(...nyaa_results);
     
         if (nyaa_results.length < 3) {
             const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, audio, alID);
             const nyaa_fallback_results = await nyaa_function_dispatch(nyaa_fallback_q, false, true);
+            // console.log('Nyaa Fall Back Results'); 
+            // console.log(nyaa_fallback_results);
+            // console.log('\n');
             trs_results.push(...nyaa_fallback_results);
         }
         
-        console.log('Nyaa Results Returned');
-        console.log('Trs Results: ', trs_results.length);
+        // console.log('Nyaa Results Returned');
+        
 
         if (trs_results.length === 0) {
             console.log('nyaa results empty fetching animeTosho results');
@@ -99,13 +112,14 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         if (trs_results.length === 0) {
             console.log('No torrents found for this episode');
         } else {
-            console.log('Torrent Results > 1');
+            // console.log('Torrent Results > 1');
             const trs_results_deduped = dedupeMagnetLinks(trs_results);
         
             // console.log(`trs_results deduped: `, trs_results);
             const trs_results_sorted = sortTorrentList(trs_results_deduped);
             // console.log(`trs_results sorted: `, trs_results_sorted);
-            // console.log(trs_results_deduped);
+            // console.log('Trs Results: ', trs_results_deduped.length);
+            // sconsole.log(trs_results_deduped);
         
             // const trs_final = []; 
     
@@ -114,11 +128,9 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
                 // console.log(`raw_torrent magnetLink:`, raw_torrent.magnetLink);
                 
             
-                console.log(`Potential Torrent 1:`);
-                console.log(raw_torrent);
+                // console.log(`Potential Torrent:`);
+                // console.log(raw_torrent);
 
-                console.log(`Potential Torrent 2:`);
-                console.log(trs_results_sorted[1]);
 
                 let magnetLink = Array.isArray(raw_torrent.magnetLink)
                     ? raw_torrent.magnetLink[0] 

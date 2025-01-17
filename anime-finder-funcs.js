@@ -439,6 +439,10 @@ async function seadex_finder(alID, audio, episode, format, english_title, romanj
 
                 if (startRange < endRange) {
                     cacheTorrentRange(alID, startRange, endRange, audio, magnetLink, num_seeders);
+
+                    if (data.dualAudio === true && audio === 'sub') {
+                        cacheTorrentRange(alID, startRange, endRange, 'dub', magnetLink, num_seeders);
+                    }
                 }
                 
             }
@@ -504,7 +508,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
         title = removeSpacesAroundHyphens(title);
         let torrent_info = await parse_title(title);
         
-        //Additional season checking logic 
+        // Additional season checking logic 
         const season_num_extract = extractSeasonFromTitle(torrent_info.anime_title);
 
         if (season_num_extract != null) {
