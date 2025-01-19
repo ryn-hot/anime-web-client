@@ -77,7 +77,7 @@ function removeSpacesAroundHyphens(str) {
 }
 
 
-let title = "[Saizen]_Hungry_Heart_Wild_Striker_01-52_[Complete_DVD]";
+let title = "[sam] Hunter x Hunter (2011) Season 1 (S01) (E027-E038) (BD 1080p HEVC x265 10-bit FLAC) [Dual-Audio]";
 // title = removeSpacesAroundHyphens(title)
 console.log(title);
 const results = await modified_anitomy(title);
