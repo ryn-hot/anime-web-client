@@ -27,6 +27,7 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
           return; // Avoid further crawling
         }
     }
+    const yearsFound = extractYears(english_title); 
 
     const cached = findMagnetForEpisode(alID, episode_number, audio);
 
@@ -66,21 +67,25 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         // console.log('sea_dex returned');
 
 
-        const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, audio, alID);
-        const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
-        // console.log('Nyaa Results'); 
-        // console.log(nyaa_results);
-        // console.log('\n');
-        trs_results.push(...nyaa_results);
-    
-        if (nyaa_results.length < 3) {
-            const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, audio, alID);
-            const nyaa_fallback_results = await nyaa_function_dispatch(nyaa_fallback_q, false, true);
-            // console.log('Nyaa Fall Back Results'); 
-            // console.log(nyaa_fallback_results);
+        if (yearsFound.length === 0) {
+            const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, audio, alID);
+            const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
+            // console.log('Nyaa Results'); 
+            // console.log(nyaa_results);
             // console.log('\n');
-            trs_results.push(...nyaa_fallback_results);
+            trs_results.push(...nyaa_results);
+
+            if (nyaa_results.length < 3) {
+                const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, audio, alID);
+                const nyaa_fallback_results = await nyaa_function_dispatch(nyaa_fallback_q, false, true);
+                // console.log('Nyaa Fall Back Results'); 
+                // console.log(nyaa_fallback_results);
+                // console.log('\n');
+                trs_results.push(...nyaa_fallback_results);
+            }
         }
+    
+        
         
         // console.log('Nyaa Results Returned');
         
@@ -147,6 +152,11 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
                 console.log(`\nseeders:`, seeders); */
                 await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db, format, english_title, romanji_title);
             } 
+
+            const torrentInsertionSuccessful = db.hasEpisodeSource(alID, episode_number, audio); 
+            if (torrentInsertionSuccessful) {
+                // add the unhealthy torrents. 
+            }
         }
     } 
 }
@@ -400,6 +410,13 @@ function dedupeMagnetLinks(entries) {
     });
 }
 
+function extractYears(text) {
+    // match() returns an array of all matched substrings or null if none found
+    const regex = /\b(19[0-9]{2}|20[0-9]{2})\b/g;
+    const matches = text.match(regex);
+    return matches || [];
+}
+
 async function torrentHealthCheck(torrent) {
     await new Promise((resolveHealth, rejectHealth) => {
         const healthCheckTimeout = setTimeout(() => {
@@ -420,6 +437,8 @@ async function torrentHealthCheck(torrent) {
     });
 
 }
+
+
 function sortTorrentList(torrents) {
     return [...torrents].sort((a, b) => {
         return b.seeders - a.seeders;

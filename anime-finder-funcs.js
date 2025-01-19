@@ -10,6 +10,7 @@ import { globalTorrentCache, cacheTorrentRange } from './cache.js';
 
 // const dist = levenshtein.get(normalizeTitle('Hungry Heart Wild Striker'), normalizeTitle('Hungry Heart: Wild Striker'));
 // console.log(dist);
+// console.log(await animetosho_torrent_exctracter(612, 'Hungry Heart: Wild Striker', 1, 'TV', 'sub', 17));
 
 // await nyaa_html_finder('https://nyaa.si/?f=0&c=1_2&', 'Beet+the+Vandel+Buster', 'Beet the Vandel Buster', 1, 1, 'sub',  8);
 function nyaa_file_extractor(html) {
@@ -119,11 +120,12 @@ async function animetosho_torrent_exctracter(anidb_id, title, episode, format, d
         if (format != `TV`) {
             url = `https://animetosho.org/search?q=${query}&aids=${anidb_id}&page=${page}`
         } else {
-            url = `https://animetosho.org/search?q=${episode}&aids=${anidb_id}&page=${page}`;
+            url = `https://animetosho.org/search?q=${query}&aids=${anidb_id}&page=${page}`;
         }
         
         console.log(`url: ${url}`);
         const response = await fetchWithRetry(url);
+        console.log('URL Response Status: ', response.status);
         const html = await response.text();
         if (html.includes('<div>No items found!</div>')) {
             nextPage = false;
@@ -150,14 +152,23 @@ async function animetosho_torrent_exctracter(anidb_id, title, episode, format, d
                 torrent_cachable: false,
                 cache_range: null, 
             };
+            // console.log('Entries: ');
             
             entries.push(entry);
         });
     }
 
+    // console.log('Entries: ');
     // console.log(entries);
+    // console.log('\n');
+
 
     const filteredEntries = await animeToshoEpisodeFilter(entries, format, episode, dub);
+
+    // console.log('filteredEntries: ');
+    // console.log(filteredEntries);
+    // console.log('\n');
+
 
     const nzbEntries = filteredEntries.filter(entry => entry.nzb_link !== null);
     const torrentEntries = filteredEntries.filter(entry => entry !== null);  
@@ -214,7 +225,7 @@ async function processAnimeToshoTorrents(torrentEntries, episode) {
             if (titles.length >= 1) {
                 // console.log(`Checking Files`);
 
-                const mkvFiles = titles.filter(title => title.includes('.mkv'));
+                const mkvFiles = titles.filter(file => file.includes('.mkv') || file.includes('.avi') || file.includes('.mp4'));
                 let fileFound = false;
                 const cache_set = new Set();
 
@@ -262,7 +273,7 @@ async function processAnimeToshoTorrents(torrentEntries, episode) {
                 files.push(file);
             });
 
-            const mkvFiles = files.filter(file => file.includes('.mkv'));
+            const mkvFiles = files.filter(file => file.includes('.mkv') || file.includes('.avi') || file.includes('.mp4'));
 
             let fileFound = false;
             const cache_set = new Set();
