@@ -154,9 +154,6 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
             } 
 
             const torrentInsertionSuccessful = db.hasEpisodeSource(alID, episode_number, audio); 
-            if (torrentInsertionSuccessful) {
-                // add the unhealthy torrents. 
-            }
         }
     } 
 }
