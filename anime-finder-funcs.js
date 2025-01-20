@@ -7,6 +7,7 @@ import { JSDOM } from 'jsdom';
 import { load } from 'cheerio';
 import { globalTorrentCache, cacheTorrentRange } from './cache.js';
 
+// console.log(await parse_title_reserve('[JySzE] Naruto - 220 [v3].mkv'));
 
 // const dist = levenshtein.get(normalizeTitle('Hungry Heart Wild Striker'), normalizeTitle('Hungry Heart: Wild Striker'));
 // console.log(dist);
@@ -34,9 +35,10 @@ async function parse_title(title) {
 }
 
 function find_best_match(potential_files, eng_title, rom_title) {
-    let min_lev;
+    let min_lev = undefined;
     let bestMatch;
 
+   
     for (const file of potential_files) {
         // console.log(`Title of Potential Match: `, file.animeTitle);
         // console.log(`Torrent of potiential `)
@@ -46,12 +48,16 @@ function find_best_match(potential_files, eng_title, rom_title) {
 
         
         const lev_local_min = Math.min(lev_distance_eng, lev_distance_rom);
-        // console.log(`levenshtien max: `, lev_local_min);
-
-        if (!min_lev) {
+        // console.log(`levenshtien min: `, lev_local_min);
+        
+        if (min_lev === undefined) {
+            console.log('bestMatch Updated to', file)
+            console.log('!min_lev branch')
             min_lev = lev_local_min;
             bestMatch = file;
         } else if (lev_local_min < min_lev) {
+            console.log('bestMatch Updated to', file)
+            console.log(`lev_local_min: ${lev_local_min}, min_lev: ${min_lev}`);
             min_lev = lev_local_min;    
             bestMatch = file; 
         }
