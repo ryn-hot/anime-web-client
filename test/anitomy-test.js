@@ -77,7 +77,7 @@ function removeSpacesAroundHyphens(str) {
 }
 
 
-let title = "[sam] Hunter x Hunter (2011) Season 1 (S01) (E027-E038) (BD 1080p HEVC x265 10-bit FLAC) [Dual-Audio]";
+let title = "[JySzE] Naruto - 220 [v3].mkv (1.4 GiB)";
 // title = removeSpacesAroundHyphens(title)
 console.log(title);
 const results = await modified_anitomy(title);

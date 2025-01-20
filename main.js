@@ -153,7 +153,6 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
                 await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db, format, english_title, romanji_title);
             } 
 
-            const torrentInsertionSuccessful = db.hasEpisodeSource(alID, episode_number, audio); 
         }
     } 
 }
@@ -174,9 +173,11 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
             // console.log(`Checking file: ${file.name}`);
 
             if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
-                const file_title_data = await parse_title_reserve(file.name);
-                if (file_title_data.episode_number == episode_number) {
+                const file_name = removeSpacesAroundHyphens(file.name);
+                const file_title_data = await parse_title_reserve(file_name);
+                if (parseInt(file_title_data.episode_number) === episode_number) {
                     // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
+
                     desiredFileFound = true;
                     desiredFileIndex = i;
                     desiredFileName = file.name;
@@ -267,7 +268,8 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                 // console.log(`Checking file: ${file.name}`);
 
                 if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
-                const file_title_data = await parse_title_reserve(file.name);
+                    const file_name = removeSpacesAroundHyphens(file.name);
+                    const file_title_data = await parse_title_reserve(file_name);
                     if (file_title_data.episode_number == episode_number) {
                         // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
                         desiredFileFound = true;

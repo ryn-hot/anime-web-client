@@ -286,7 +286,7 @@ class AnimeDatabase {
         // Execute synchronously
         const row = stmt.get(anilistId, episodeNumber, audioType);
     
-        return row; // true if a row is found, false if none
+        return row; 
     }
 }
 
@@ -357,6 +357,7 @@ async function passive_index_queuer(db) {
         const pageIds = pageData.media.map(anime => anime.id);
         console.log(`Processing page ${page} with ${pageIds.length} anime...`);
 
+        // FIX the Naruto JyZ Naruto Parsing. 
         // 2) For DB calls, find out which anime are new vs. existing
         const existingPageIds = db.checkMultipleAnimeExists(pageIds); 
         // This returns a Map of anilist_id -> row (or empty if not found)
@@ -375,7 +376,9 @@ async function passive_index_queuer(db) {
             let romanjiTitle = anime.title?.romaji || '';
             const episodesResponse = anime.episodes || anime.nextAiringEpisode.episode || 0;   // AniList-supplied total
             const animestatus = anime.status;
-            
+            // console.log('anime.episodes: ', anime.episodes);
+            // console.log('anime airing episode: ', anime.nextAiringEpisode?.episode);
+            // console.log('episodesResponse', episodesResponse);
 
             if (englishTitle === '' && romanjiTitle !== '') {
                 englishTitle = romanjiTitle;
@@ -390,26 +393,30 @@ async function passive_index_queuer(db) {
             let anilistEpisodes; 
             
             if (animestatus == 'RELEASING') {
-
+                console.log('releasing branch')
                 if (episodesResponse == 0) {
                     //unlimited tag -1 means to use indefinite iteration to find the boundaries of episodes. 
                     anilistEpisodes = -1;
-                } else if (anime.episodes > anime.nextAiringEpisode.episode) {
+                } else if (anime.episodes > anime.nextAiringEpisode.episode && anime.nextAiringEpisode.episode) {
                     anilistEpisodes = anime.nextAiringEpisode.episode - 1;
-                } else {
+                    console.log('Assigned airing next episode'); 
+                } else  if (anime.episodes) {
                     anilistEpisodes = anime.episodes;
+                } else {
+                    anilistEpisodes = -1;
                 }
 
             } else {
-                if (episodesResponse == 0) {
-                    //unlimited tag
-                    anilistEpisodes = -1;
+
+                if (anime.episodes) {
+                    anilistEpisodes = anime.episodes;
                 } else {
-                    anilistEpisodes = anime.episodes
+                    anilistEpisodes = -1; 
                 }
+                
             }
 
-
+            
             // 4.1 If the anime does NOT exist in the local DB
             if (!existingPageIds.has(anilistId)) {
                 // We queue a 'season-level' task
@@ -418,11 +425,13 @@ async function passive_index_queuer(db) {
                 const mappingsjson = await mappingsResponse.json();
 
                 if (anilistEpisodes === -1) {
+                    console.log('Setting Episode Count via mappingsjson');
                     anilistEpisodes = mappingsjson?.episodeCount || -1;
                 }
 
                 const anidbId = mappingsjson?.mappings?.anidb_id || -1;
                 console.log('anidbId: ', anidbId);
+                console.log('anilistEpisodes', anilistEpisodes);
 
                 enqueue({
                     type: 'anime',
@@ -488,7 +497,7 @@ async function passive_index_queuer(db) {
         // Move to next page
         hasNextPage = false // pageData.pageInfo.hasNextPage;
         page++;
-
+    
         // Throttle requests
         await new Promise(resolve => setTimeout(resolve, 1000));
     }
@@ -639,7 +648,7 @@ async function processEpisodeTask(task, db, concurrency) {
         // Then pass this proxy to your crawler logic 
     } else {
         console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }, Format ${task.format}`);
-       
+
         await crawler_dispatch(
             db,
             task.englishTitle,
@@ -651,8 +660,7 @@ async function processEpisodeTask(task, db, concurrency) {
             task.format,
             task.mode
         ); 
-        
-
+      
     }
   
     // In indefinite mode, if the crawler finds no sign of epNumber,
@@ -661,7 +669,7 @@ async function processEpisodeTask(task, db, concurrency) {
 
 
 // perPage = 50
-async function fetchAnimeData(query, page = 1, perPage = 10) {
+async function fetchAnimeData(query, page = 1, perPage = 50) {
     const variables = { page, perPage };
 
     try {
