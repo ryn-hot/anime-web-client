@@ -1,6 +1,6 @@
 //https://api.ani.zip/mappings?anilist_id=' + media.id storing future api call
 
-import { seadex_finder, gogo_anime_finder, animetosho_torrent_exctracter, parse_title_reserve, find_best_match } from "./anime-finder-funcs.js";
+import { seadex_finder, gogo_anime_finder, animetosho_torrent_exctracter, parse_title_reserve, find_best_match, removeSpacesAroundHyphens } from "./anime-finder-funcs.js";
 import { nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } from "./query-creator.js";
 import { nyaa_function_dispatch } from "./query-dispatcher.js";
 import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata } from "./cache.js";

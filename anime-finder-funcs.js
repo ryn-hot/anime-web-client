@@ -1161,6 +1161,7 @@ export {
     nyaa_reserve_extract,
     animetosho_torrent_exctracter,
     parse_title_reserve,
+    removeSpacesAroundHyphens,
     find_best_match,
     fetchWithRetry,
     delay
