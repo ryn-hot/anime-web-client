@@ -6,6 +6,12 @@ import levenshtein from 'fast-levenshtein';
 import { JSDOM } from 'jsdom';
 import { load } from 'cheerio';
 import { globalTorrentCache, cacheTorrentRange } from './cache.js';
+import { miruToshoEpisode } from "./miru-sources/tosho-test.js";
+import { miruToshoMovie } from "./miru-sources/tosho-test.js";
+import { miruToshoBatchAnime } from './miru-sources/tosho-test.js';
+import { cleanLeadingZeroes } from './main.js';
+
+
 
 // console.log(await parse_title_reserve('[JySzE] Naruto - 220 [v3].mkv'));
 
@@ -51,13 +57,13 @@ function find_best_match(potential_files, eng_title, rom_title) {
         // console.log(`levenshtien min: `, lev_local_min);
         
         if (min_lev === undefined) {
-            console.log('bestMatch Updated to', file)
-            console.log('!min_lev branch')
+            // console.log('bestMatch Updated to', file)
+            // console.log('!min_lev branch')
             min_lev = lev_local_min;
             bestMatch = file;
         } else if (lev_local_min < min_lev) {
-            console.log('bestMatch Updated to', file)
-            console.log(`lev_local_min: ${lev_local_min}, min_lev: ${min_lev}`);
+            // console.log('bestMatch Updated to', file)
+            // console.log(`lev_local_min: ${lev_local_min}, min_lev: ${min_lev}`);
             min_lev = lev_local_min;    
             bestMatch = file; 
         }
@@ -112,9 +118,66 @@ async function parse_title_reserve(title) {
     return results;
 }
 
-async function animetosho_torrent_exctracter(anidb_id, title, episode, format, dub, anilistID) {
+async function animeToshoEpisodeFilter(anidbEid, audio) {
+    let results = [];
+    if (audio === 'dub') {
+        results = await miruToshoEpisode(anidbEid, '', []);
+        results = results.filter(entry => hasDualAudioOrEnglishDub(entry.title));
+    } else {
+        results = await miruToshoEpisode(anidbEid, '', ['dub', 'dubbed']);
+    }
+
+    results = results.sort((a, b) => b.seeders - a.seeders);
+
+    return results;
     
-    const query = replaceSpacesWithPlus(title);
+}   
+
+async function animeToshoBatchFilter(anidb_id, episodeCount, episodeTarget, audio) {
+    let results;
+    if (audio === 'dub') {
+        results = await miruToshoBatchAnime(anidb_id, episodeCount, '', []);
+        results = results.filter(entry => hasDualAudioOrEnglishDub(entry.title));
+    } else {
+        results = await miruToshoBatchAnime(anidb_id, episodeCount, '', []);
+    }
+
+    results = results.filter(entry => entry.seeders > 0);
+    const resultsFinal = [];
+    for (const entry of results) {
+        let title = entry.title;
+        title = removeSpacesAroundHyphens(title);
+        title = cleanLeadingZeroes(title);
+        const entry_data = await modified_anitomy(title);
+        
+        const episode_int = convertToIntegers(entry_data.episode_number);
+        const range = getRange(episode_int);
+
+        if (range.includes(episodeTarget)) {
+            resultsFinal.push(entry);
+            if (range.length > 0) {
+                cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnet_link, entry.seeders);
+            }
+
+        } else if (range && range.length > 0) {
+            cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnet_link, entry.seeders);
+        }
+        
+    }
+
+    return resultsFinal
+}
+
+async function animetoshoTorrentScraperDeprecated(anidb_id, title, episode, format, dub, anilistID, flag) {
+    
+    console.log(`AnimeTosho Fetch Mode: ${flag}`);
+    let query;
+    if (flag === 'shallow') {
+        query = replaceSpacesWithPlus(title + ` ${episode}`);
+    } else {
+        query = replaceSpacesWithPlus(title);
+    }
+
     let url;
     let page = 1;
     
@@ -129,9 +192,9 @@ async function animetosho_torrent_exctracter(anidb_id, title, episode, format, d
             url = `https://animetosho.org/search?q=${query}&aids=${anidb_id}&page=${page}`;
         }
         
-        console.log(`url: ${url}`);
+        // console.log(`url: ${url}`);
         const response = await fetchWithRetry(url);
-        console.log('URL Response Status: ', response.status);
+        // console.log('URL Response Status: ', response.status);
         const html = await response.text();
         if (html.includes('<div>No items found!</div>')) {
             nextPage = false;
@@ -169,7 +232,7 @@ async function animetosho_torrent_exctracter(anidb_id, title, episode, format, d
     // console.log('\n');
 
 
-    const filteredEntries = await animeToshoEpisodeFilter(entries, format, episode, dub);
+    const filteredEntries = await animeToshoEpisodeFilter(entries, episode, dub);
 
     // console.log('filteredEntries: ');
     // console.log(filteredEntries);
@@ -312,7 +375,7 @@ async function processAnimeToshoTorrents(torrentEntries, episode) {
     return valid_trs;
 }
 
-async function animeToshoEpisodeFilter(entries, format, episode, dub) {
+async function animeToshoEpisodeFilter(entries, episode, dub) {
     // console.log(`filtering entries`);
     const filteredEntries = [];
 
@@ -324,6 +387,26 @@ async function animeToshoEpisodeFilter(entries, format, episode, dub) {
             continue;
         }
 
+        let title = replaceTildeWithHyphen(entry.title);
+        title = removeSpacesAroundHyphens(title);
+
+
+        const entry_data = await modified_anitomy(title);
+        const episode_int = convertToIntegers(entry_data.episode_number);
+
+        if (entry_data.episode_number === undefined) {
+            filteredEntries.push(entry);
+        } else if (episode_int.length >= 1) {
+            const range = getRange(episode_int);
+            
+            if (!range.includes(episode)) {
+                // console.log(`Episode Not in Range: ${range}, Episode Number: ${episode_number}`);
+                continue;
+            }
+        } 
+
+       
+       
         filteredEntries.push(entry);
 
     }
@@ -385,7 +468,7 @@ async function seadex_finder(alID, audio, episode, format, english_title, romanj
 
             const mkvFiles  = data.files
                 .map(file => file.name)
-                .filter(name => name.toLowerCase().endsWith('.mkv'));
+                .filter(name => name.toLowerCase().endsWith('.mkv') || file.includes('.avi') || file.includes('.mp4'));
             
             
             console.log(`mkvFiles Length: `, mkvFiles.length);
@@ -395,8 +478,8 @@ async function seadex_finder(alID, audio, episode, format, english_title, romanj
     
             if (format == 'TV' || format == 'ONA') {
     
-                for (const mkvFile of mkvFiles) {
-                    // console.log(mkvFile);
+                for (let mkvFile of mkvFiles) {
+                    mkvFile = cleanLeadingZeroes(mkvFile);
                     const episode_info = await parse_title(mkvFile);
                     if (episode_info.episode_number == episode) {
                         containsEpisode = true;
@@ -523,6 +606,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
         // console.log(`\nTitle Eval: ${torrent.title}`);
         let title = replaceTildeWithHyphen(torrent.title);
         title = removeSpacesAroundHyphens(title);
+        title = cleanLeadingZeroes(title);
         let torrent_info = await parse_title(title);
         
         // Additional season checking logic 
@@ -625,8 +709,9 @@ async function nyaa_reserve_extract(reserve_torrents, eng_title, rom_title, epis
             const potential_files = [];
             const cache_set = new Set(); 
             let fileFound = false;
-            for (const file of usable_files) {
+            for (let file of usable_files) {
                 // console.log(`file: `, file);
+                file = cleanLeadingZeroes(file);
                 const episode_info = await parse_title_reserve(file);
                 const episode_number = episode_info.episode_number;
                 cache_set.add(episode_number);

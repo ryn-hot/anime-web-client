@@ -76,7 +76,17 @@ function removeSpacesAroundHyphens(str) {
     return str.replace(/(\b[+-]?\d+(?:\.\d+)?\b)\s*([-–—])\s*(\b[+-]?\d+(?:\.\d+)?\b)/g, '$1$2$3');
 }
 
+function cleanLeadingZeroes(str) {
+  return str.replace(/(?<=\s|^)0+(?=\d+)/g, '');
+}
 
+// Example usage:
+console.log(cleanLeadingZeroes("String 01-999")); // "String 1"
+console.log(cleanLeadingZeroes("String 10001")); // "String 10001"
+console.log(cleanLeadingZeroes("Test 00230 Data 0055")); // "Test 230 Data 55"
+console.log(cleanLeadingZeroes("0012 Test 0013")); // "12 Test 13"
+
+/*
 let title = "[JySzE] Naruto - 220 [v3].mkv (1.4 GiB)";
 // title = removeSpacesAroundHyphens(title)
 console.log(title);
@@ -88,7 +98,7 @@ console.log(parseInt(results[0].episode_number));
 
 const bool = (results[0].episode_number === undefined);
 //const output = convertToIntegers(results.episode_number);
-console.log(bool);
+console.log(bool); */
 
 
 
