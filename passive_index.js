@@ -288,6 +288,28 @@ class AnimeDatabase {
     
         return row; 
     }
+
+    hasTypeEpisodeSource(anilistId, episodeNumber, audioType, category) {
+        // Ensure the raw DB connection is ready
+        this.connect();
+    
+        // Prepare or reuse a statement
+        // (In a real system, you might store this in a property to avoid re-preparing each time.)
+        const stmt = this.db.prepare(`
+          SELECT 1
+          FROM sources
+          WHERE anilist_id = ?
+            AND episode_number = ?
+            AND audio_type = ?
+            AND category = ?
+          LIMIT 1
+        `);
+    
+        // Execute synchronously
+        const row = stmt.get(anilistId, episodeNumber, audioType, category);
+    
+        return row; 
+    }
 }
 
 // const tasksQueue = [];
@@ -649,6 +671,7 @@ async function processEpisodeTask(task, db, concurrency) {
     } else {
         console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }, Format ${task.format}`);
 
+        
         await crawler_dispatch(
             db,
             task.englishTitle,
@@ -659,8 +682,7 @@ async function processEpisodeTask(task, db, concurrency) {
             task.episodeNumber,
             task.format,
             task.mode
-        ); 
-      
+        );  
     }
   
     // In indefinite mode, if the crawler finds no sign of epNumber,

@@ -6,6 +6,7 @@ import { nyaa_function_dispatch } from "./query-dispatcher.js";
 import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata } from "./cache.js";
 import { getGlobalClient } from "./webtorrent-client.js";
 
+
 // await main();
 // let db = null; 
 // await crawler_dispatch(null, 'Hungry Heart: Wild Striker', 'Hungry Heart: Wild Striker', 'sub', 17, 612, 1, 'TV');
@@ -92,18 +93,21 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
 
         if (trs_results.length === 0) {
             console.log('nyaa results empty fetching animeTosho results');
-            const {
-                animeToshoTorrents = [],
-                nzbEntries = []
-            } = await animetosho_torrent_exctracter(anidbId, english_title, episode_number, format);
-            console.log(`animeToshoResults number of entries found: `, animeToshoTorrents.length);
+
+            const {animeToshoTorrents = [], nzbEntries = [] } = await animetosho_torrent_exctracter(anidbId, english_title, episode_number, format, audio, alID, 'shallow');
+            if (animeToshoTorrents.length === 0) {
+                const { animeToshoTorrentsDeep = [], nzbEntriesDeep = [] } = await animetosho_torrent_exctracter(anidbId, english_title, episode_number, audio, format, alID, 'deep');
+                trs_results.push(...animeToshoTorrentsDeep);
+            }
+            
             trs_results.push(...animeToshoTorrents); 
+            console.log(`animeToshoResults number of entries found: ${trs_results.length} `);
         }
         
         const gogo_query = gogoanime_query_creator(romanji_title, episode_number, audio);
         const gogo_link = await gogo_anime_finder(...gogo_query);
         
-        /* if (gogo_link) {
+        if (gogo_link) {
             db.storeEpisodeAndSource({
                 anilistId: alID, 
                 anidbId: anidbId, 
@@ -112,7 +116,7 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
                 category: 'http', 
                 videoUrl: gogo_link
             });
-        } */
+        }
         
         if (trs_results.length === 0) {
             console.log('No torrents found for this episode');
@@ -268,7 +272,8 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                 // console.log(`Checking file: ${file.name}`);
 
                 if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
-                    const file_name = removeSpacesAroundHyphens(file.name);
+                    let file_name = removeSpacesAroundHyphens(file.name);
+                    file_name = cleanLeadingZeroes(file_name);
                     const file_title_data = await parse_title_reserve(file_name);
                     if (file_title_data.episode_number == episode_number) {
                         // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
@@ -444,6 +449,12 @@ function sortTorrentList(torrents) {
     });
 }
 
+
+function cleanLeadingZeroes(str) {
+    return str.replace(/(?<=\s|^)0+(?=\d+)/g, '');
+}
+
 export {
-    crawler_dispatch
+    crawler_dispatch,
+    cleanLeadingZeroes,
 }
