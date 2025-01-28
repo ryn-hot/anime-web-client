@@ -3,7 +3,6 @@ delete globalThis.fetch;
 import anitomy from 'anitomyscript';
 import fetch from 'node-fetch';
 import levenshtein from 'fast-levenshtein';
-import { JSDOM } from 'jsdom';
 import { load } from 'cheerio';
 import { globalTorrentCache, cacheTorrentRange } from './cache.js';
 import { miruToshoEpisode } from "./miru-sources/tosho-test.js";
@@ -119,6 +118,8 @@ async function parse_title_reserve(title) {
 }
 
 async function animeToshoEpisodeFilter(anidbEid, audio) {
+    console.log('anime tosho episode filter executing');
+
     let results = [];
     if (audio === 'dub') {
         results = await miruToshoEpisode(anidbEid, '', []);
@@ -134,6 +135,8 @@ async function animeToshoEpisodeFilter(anidbEid, audio) {
 }   
 
 async function animeToshoBatchFilter(anidb_id, episodeCount, episodeTarget, audio) {
+    console.log('anime tohso batch filter executing');
+
     let results;
     if (audio === 'dub') {
         results = await miruToshoBatchAnime(anidb_id, episodeCount, '', []);
@@ -144,23 +147,36 @@ async function animeToshoBatchFilter(anidb_id, episodeCount, episodeTarget, audi
 
     results = results.filter(entry => entry.seeders > 0);
     const resultsFinal = [];
-    for (const entry of results) {
+    for (let entry of results) {
         let title = entry.title;
         title = removeSpacesAroundHyphens(title);
         title = cleanLeadingZeroes(title);
         const entry_data = await modified_anitomy(title);
         
         const episode_int = convertToIntegers(entry_data.episode_number);
-        const range = getRange(episode_int);
+        const range = getRange(episode_int) || [];
 
         if (range.includes(episodeTarget)) {
             resultsFinal.push(entry);
             if (range.length > 0) {
-                cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnet_link, entry.seeders);
+                entry.magnetLink = Array.isArray(entry.magnetLink) 
+                    ? entry.magnetLink[0].replace(/&amp;/g, '&')
+                    : entry.magnetLink.replace(/&amp;/g, '&');
+
+                console.log(`Caching From animeToshoBatchFilter: anilistId=${anilistID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${audio},  title: ${entry.title}`);
+
+                cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnetLink, parseInt(entry.seeders));
             }
 
         } else if (range && range.length > 0) {
-            cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnet_link, entry.seeders);
+            entry.magnetLink = Array.isArray(entry.magnetLink) 
+                    ? entry.magnetLink[0].replace(/&amp;/g, '&')
+                    : entry.magnetLink.replace(/&amp;/g, '&');
+            console.log(`Caching From animeToshoBatchFilter: anilistId=${anilistID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${audio}, title: ${entry.title}`);
+
+            cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnetLink, parseInt(entry.seeders));
+        } else {
+            resultsFinal.push(entry);
         }
         
     }
@@ -232,7 +248,7 @@ async function animetoshoTorrentScraperDeprecated(anidb_id, title, episode, form
     // console.log('\n');
 
 
-    const filteredEntries = await animeToshoEpisodeFilter(entries, episode, dub);
+    const filteredEntries = await animeToshoFilterDeprecated(entries, episode, dub);
 
     // console.log('filteredEntries: ');
     // console.log(filteredEntries);
@@ -255,7 +271,12 @@ async function animetoshoTorrentScraperDeprecated(anidb_id, title, episode, form
 
     for (const torrent of allEntries) {
         if (torrent.torrent_cachable) {
-            cacheTorrentRange(anilistID, torrent.cache_range[0], torrent.cache_range[torrent.cache_range.length - 1], dub, torrent.magnet_link, torrent.seeders);
+            console.log(`Caching From animetoshoTorrentScraperDeprecated: anilistId=${anilistID}, episodes [${torrent.cache_range[0]}..${torrent.cache_range[torrent.cache_range.length - 1]}], audio: ${dub}, magnetlink: ${torrent.magnet_link}`);
+            let magnetLink = Array.isArray(torrent.magnet_link) 
+                        ? torrent.magnet_link[0].replace(/&amp;/g, '&')
+                        : torrent.magnet_link.replace(/&amp;/g, '&');
+
+            cacheTorrentRange(anilistID, torrent.cache_range[0], torrent.cache_range[torrent.cache_range.length - 1], dub, magnetLink, parseInt(torrent.seeders));
         }
     }
     // console.log(`Valid Torrent Entries: ${JSON.stringify(allEntries, null, 2)}\n`);
@@ -375,7 +396,7 @@ async function processAnimeToshoTorrents(torrentEntries, episode) {
     return valid_trs;
 }
 
-async function animeToshoEpisodeFilter(entries, episode, dub) {
+async function animeToshoFilterDeprecated(entries, episode, dub) {
     // console.log(`filtering entries`);
     const filteredEntries = [];
 
@@ -468,7 +489,7 @@ async function seadex_finder(alID, audio, episode, format, english_title, romanj
 
             const mkvFiles  = data.files
                 .map(file => file.name)
-                .filter(name => name.toLowerCase().endsWith('.mkv') || file.includes('.avi') || file.includes('.mp4'));
+                .filter(name => name.toLowerCase().endsWith('.mkv') || name.includes('.avi') || name.includes('.mp4'));
             
             
             console.log(`mkvFiles Length: `, mkvFiles.length);
@@ -498,7 +519,11 @@ async function seadex_finder(alID, audio, episode, format, english_title, romanj
             // console.log(num_seeders);
             const infoHash = extractInfoHash(html)
             // console.log(infoHash);
-            const magnetLink = extractMagnetLink(html);
+            let magnetLink = extractMagnetLink(html);
+
+            magnetLink = Array.isArray(magnetLink) 
+                    ? magnetLink[0].replace(/&amp;/g, '&')
+                    : magnetLink.replace(/&amp;/g, '&');
             // console.log(magnetLink);
             const items = data;
             const entry = {
@@ -538,10 +563,12 @@ async function seadex_finder(alID, audio, episode, format, english_title, romanj
                 console.log(`Inserted into cache from seadex: anilistId=${alID}, episodes [${startRange}..${endRange}], audio: ${audio}`);
 
                 if (startRange < endRange) {
-                    cacheTorrentRange(alID, startRange, endRange, audio, magnetLink, num_seeders);
+                    
+                    
+                    cacheTorrentRange(alID, startRange, endRange, audio, magnetLink, parseInt(num_seeders));
 
                     if (data.dualAudio === true && audio === 'sub') {
-                        cacheTorrentRange(alID, startRange, endRange, 'dub', magnetLink, num_seeders);
+                        cacheTorrentRange(alID, startRange, endRange, 'dub', magnetLink, parseInt(num_seeders));
                     }
                 }
                 
@@ -650,13 +677,13 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
             }
 
             // Insert episode slice into cache here.
-            let magnetLink = torrent.magnetLink;
-            if (Array.isArray(magnetLink)) {
-              magnetLink = magnetLink[0]; 
-            }
+            torrent.magnetLink = Array.isArray(torrent.magnetLink) 
+                    ? torrent.magnetLink[0].replace(/&amp;/g, '&')
+                    : torrent.magnetLink.replace(/&amp;/g, '&');
 
             if (alID !== undefined) {
-                cacheTorrentRange(alID, range[0], range[range.length - 1], dub, magnetLink, parseInt(torrent.seeders, 10));
+                console.log(`Caching From nyaa_html_finder: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${dub}, title: ${title}`);
+                cacheTorrentRange(alID, range[0], range[range.length - 1], dub, torrent.magnetLink, parseInt(torrent.seeders, 10));
 
                 // console.log(`Inserted into cache: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], magnetLink=${magnetLink}`);
             }
@@ -727,18 +754,20 @@ async function nyaa_reserve_extract(reserve_torrents, eng_title, rom_title, epis
             }
 
 
-            const bestMatch = find_best_match(potential_files, eng_title, rom_title);
+            let bestMatch = find_best_match(potential_files, eng_title, rom_title);
 
             if (fileFound && bestMatch) {
                 const sortedRange = [...cache_set].sort((a, b) => a - b);
                 if (sortedRange.length > 1) {
-                    let magnetLink = bestMatch.torrent.magnetLink;
 
-                    if (Array.isArray(magnetLink)) {
-                        magnetLink = magnetLink[0]; 
-                    }
+                    bestMatch.torrent.magnetLink = Array.isArray(bestMatch.torrent.magnetLink) 
+                        ? bestMatch.torrent.magnetLink[0].replace(/&amp;/g, '&')
+                        : bestMatch.torrent.magnetLink.replace(/&amp;/g, '&');
+
+                    console.log('Caching From nyaa_reserve_extract');
+
                     // console.log(`Adding torrent to cache from nyaa reserve: alID: ${anilistID} startEp: ${sortedRange[0]}, endEp: ${sortedRange[sortedRange.length - 1]}, audioType: ${format}, Maglink: ${bestMatch.torrent.magnetLink}, Seeders: ${bestMatch.torrent.seeders}`);
-                    cacheTorrentRange(anilistID, sortedRange[0], sortedRange[sortedRange.length - 1], format, bestMatch.torrent.magnetLink, bestMatch.torrent.seeders);
+                    cacheTorrentRange(anilistID, sortedRange[0], sortedRange[sortedRange.length - 1], format, bestMatch.torrent.magnetLink, parseInt(bestMatch.torrent.seeders));
                 }
                 
                 trsContainingEpisode.push(bestMatch.torrent);
@@ -1037,7 +1066,7 @@ function replaceTildeWithHyphen(title) {
 
 function getRange(numbers) {
     if (!Array.isArray(numbers) || numbers.length === 0) {
-      throw new Error("Input must be a non-empty array of numbers");
+        return [];
     }
   
     const min = Math.min(...numbers);
@@ -1045,7 +1074,7 @@ function getRange(numbers) {
   
     const range = [];
     for (let i = min; i <= max; i++) {
-      range.push(i);
+        range.push(i);
     }
   
     return range;
@@ -1244,7 +1273,9 @@ export {
     nyaa_html_finder,
     gogo_anime_finder,
     nyaa_reserve_extract,
-    animetosho_torrent_exctracter,
+    animeToshoEpisodeFilter,
+    animeToshoBatchFilter,
+    animetoshoTorrentScraperDeprecated,
     parse_title_reserve,
     removeSpacesAroundHyphens,
     find_best_match,
