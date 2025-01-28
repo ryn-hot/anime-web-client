@@ -1,4 +1,5 @@
 import AbstractSource from './abstract.js'
+import fetch from 'node-fetch';
 
 const QUALITIES = ['1080', '720', '540', '480']
 
@@ -74,7 +75,7 @@ export default new class Tosho extends AbstractSource {
     return entries.map(entry => {
       return {
         title: entry.title || entry.torrent_name,
-        magnet_link: entry.magnet_uri,
+        magnetLink: entry.magnet_uri,
         nzb: entry.nzb_url,
         seeders: (entry.seeders || 0) >= 30000 ? 0 : entry.seeders || 0,
         leechers: (entry.leechers || 0) >= 30000 ? 0 : entry.leechers || 0,

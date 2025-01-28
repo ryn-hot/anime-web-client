@@ -166,14 +166,21 @@ async function alIdFetch(alID = 17) {
 
 }
 
-async function test_anidb() {
-  const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + 1);
+async function test_anidb(epnum = 1121) {
+  const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + 21);
   const json = await mappingsResponse.json();
   const ep = json?.episodeCount || -1;
   const anidbId = json?.mappings?.anidb_id || -1;
-  // console.log(json);
-  console.log(anidbId);
+  const episodes = json?.episodes || -1;
+  console.log(episodes);
+  const epKey = epnum.toString();
+  if (episodes[epKey]) {
+    console.log(episodes[epKey].anidbEid);
+  }
 
+  //console.log(json);
+  // target = 286363
+  console.log(anidbId);
 }
 
 async function subTest() {

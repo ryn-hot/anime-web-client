@@ -1,15 +1,37 @@
 //https://api.ani.zip/mappings?anilist_id=' + media.id storing future api call
 
-import { seadex_finder, gogo_anime_finder, animetosho_torrent_exctracter, parse_title_reserve, find_best_match, removeSpacesAroundHyphens } from "./anime-finder-funcs.js";
+import { seadex_finder, gogo_anime_finder, parse_title_reserve, find_best_match, animeToshoEpisodeFilter, animeToshoBatchFilter, fetchWithRetry } from "./anime-finder-funcs.js";
 import { nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } from "./query-creator.js";
 import { nyaa_function_dispatch } from "./query-dispatcher.js";
-import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata } from "./cache.js";
-import { getGlobalClient } from "./webtorrent-client.js";
+import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata, findAllTorrentsForEpisode, cacheTorrentRange, isMagnetInCache } from "./cache.js";
+import { getGlobalClient, getGlobalClientTest } from "./webtorrent-client.js";
 
 
 // await main();
 // let db = null; 
 // await crawler_dispatch(null, 'Hungry Heart: Wild Striker', 'Hungry Heart: Wild Striker', 'sub', 17, 612, 1, 'TV');
+function bestCachedTorrent(candidates) {
+    if (candidates) {
+        for (const candidate of candidates) {
+            const magnetLink = Array.isArray(candidate.magnetLink) 
+                ? candidate.magnetLink[0].replace(/&amp;/g, '&')
+                : candidate.magnetLink.replace(/&amp;/g, '&');
+    
+            const fileData = getTorrentMetadata(magnetLink);
+
+            console.log('Cache Candidate:');
+            console.log(candidate);
+            // console.log('fileData');
+            // console.log(fileData);
+
+
+            if (fileData) {
+                return { torrent: candidate, fileData: fileData }
+            }
+        } 
+    }
+    return {torrent: false, fileData: false};
+}
 
 async function crawler_dispatch(db, english_title, romanji_title, audio, alID, anidbId, episode_number, format, mode, proxy = null) {
     /* const trs_results = [];
@@ -20,28 +42,39 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
     const episode_number = null; null for movies */
     // console.log(`crawler format: `, format);
     // console.log('Crawler Dispatch Watch');
+
+   
+    
+
     if (mode === 'build' && episode_number > 1) {
-        // Database look back goes here. 
-        const hasEpisode1 = db.hasEpisodeSource(alID, 1, audio); 
+        // Database look back goes here. returns true for any source being present need to change to just torrents!
+        const hasEpisode1 = db.hasTypeEpisodeSource(alID, 1, audio, 'torrent');
+        console.log('Has Episode 1 Check: ', hasEpisode1)
         if (!hasEpisode1) {
           console.log(`No torrent for Episode 1 with audio ${audio}. Skipping...`);
           return; // Avoid further crawling
         }
     }
+
     const yearsFound = extractYears(english_title); 
 
-    const cached = findMagnetForEpisode(alID, episode_number, audio);
+    // const cached = findMagnetForEpisode(alID, episode_number, audio);
+    const cached = findAllTorrentsForEpisode(alID, episode_number, audio);
+    const cacheResults = bestCachedTorrent(cached);
+    const bestTorrent = cacheResults.torrent;
+    const fileData = cacheResults.fileData;
 
-    if (cached) {
+    console.log(`bestTorrentCached: ${bestTorrent}, fileData: ${fileData}`);
+
+    if (fileData) {
         // console.log('Crawler Dispatch Cache Branch');
         console.log(`cache hit: ${ english_title } episode: ${ episode_number } audio: ${audio} magnetLink ${cached.magnetLink} `);
 
-        const magnetLink = Array.isArray(cached.magnetLink) 
-            ? cached.magnetLink[0].replace(/&amp;/g, '&')
-            : cached.magnetLink.replace(/&amp;/g, '&');
+        const magnetLink = Array.isArray(bestTorrent.magnetLink) 
+            ? bestTorrent.magnetLink[0].replace(/&amp;/g, '&')
+            : bestTorrent.magnetLink.replace(/&amp;/g, '&');
     
-        const seeders = cached.seeders; 
-        const fileData = getTorrentMetadata(magnetLink);
+        const seeders = bestTorrent.seeders; 
 
         if (fileData) {
             console.log(`cache hit for torrent metadata`)
@@ -49,13 +82,27 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
             await writeTorrentMetadataFromCache(fileData, magnetLink, episode_number, seeders, audio, alID, anidbId, db, english_title, romanji_title);
 
         } else {
-
-            await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db, format, english_title, romanji_title);
+            console.log('No file data for torrent')
         }
-        
-
 
     } else {
+        let anidbEid;
+        let epCount;
+        if (format !== 'MOVIE') {
+            const mappingsResponse = await fetchWithRetry('https://api.ani.zip/mappings?anilist_id=' + alID);
+            const json = await mappingsResponse.json();
+            const episodes = json?.episodes || -1;
+            epCount = json?.episodeCount || null; 
+            const epKey = episode_number.toString();
+    
+            if (episodes[epKey]) {
+                anidbEid = episodes[epKey].anidbEid;
+            }
+    
+            console.log('Episode ID: ', anidbEid);
+            console.log('Total Episode Count ', epCount);
+        }
+
         // console.log('Crawler Dispatch Fetch Branch');
         let season_number = 1; // hardcoded for better fetching accuracy
     
@@ -65,10 +112,24 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         const sea_dex_query_results = await seadex_finder(alID, audio, episode_number, format, english_title, romanji_title);
         trs_results.push(...sea_dex_query_results)
         
+        if (format !== 'MOVIE' && anidbEid) {
+            const toshoEpisodeResults = await animeToshoEpisodeFilter(anidbEid, audio); 
+            console.log('toshoEpisodeResults Length: ', toshoEpisodeResults.length);
+            trs_results.push(...toshoEpisodeResults);
+
+            if (epCount) {
+                const toshoBatchResults = await animeToshoBatchFilter(anidbId, epCount, episode_number, audio);
+                console.log('toshoBatchResults Length: ', toshoBatchResults.length);
+                trs_results.push(...toshoBatchResults);
+            }
+        }
+        
         // console.log('sea_dex returned');
 
 
         if (yearsFound.length === 0) {
+            console.log('Nyaa Finders Called');
+
             const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, audio, alID);
             const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
             // console.log('Nyaa Results'); 
@@ -91,7 +152,7 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         // console.log('Nyaa Results Returned');
         
 
-        if (trs_results.length === 0) {
+        /* if (trs_results.length === 0) {
             console.log('nyaa results empty fetching animeTosho results');
 
             const {animeToshoTorrents = [], nzbEntries = [] } = await animetosho_torrent_exctracter(anidbId, english_title, episode_number, format, audio, alID, 'shallow');
@@ -102,7 +163,7 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
             
             trs_results.push(...animeToshoTorrents); 
             console.log(`animeToshoResults number of entries found: ${trs_results.length} `);
-        }
+        } */
         
         const gogo_query = gogoanime_query_creator(romanji_title, episode_number, audio);
         const gogo_link = await gogo_anime_finder(...gogo_query);
@@ -154,6 +215,11 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
                 /*console.log(`processed magnetLink:`,magnetLink);
                 console.log(`\naudio_type:`, audio_type);
                 console.log(`\nseeders:`, seeders); */
+                /* console.log('\nProcessing Torrent: ', raw_torrent.title);
+                if (raw_torrent.title === undefined) {
+                    console.log(raw_torrent);
+                } */
+
                 await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db, format, english_title, romanji_title);
             } 
 
@@ -177,7 +243,8 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
             // console.log(`Checking file: ${file.name}`);
 
             if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
-                const file_name = removeSpacesAroundHyphens(file.name);
+                let file_name = addSpacesAroundHyphens(file.name);
+                file_name = cleanLeadingZeroes(file_name)
                 const file_title_data = await parse_title_reserve(file_name);
                 if (parseInt(file_title_data.episode_number) === episode_number) {
                     // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
@@ -231,7 +298,7 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
 //cache file meta data. 
 async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_type, alID, anidbId, db, format, eng_title, rom_title) {
     return new Promise((resolve, reject) => {
-        const client = getGlobalClient();
+        const client = getGlobalClientTest();
         // console.log('Torrent added. Waiting for metadata...');
 
         const metadataTimeout = setTimeout(() => {
@@ -262,73 +329,94 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
             if (format !== 'MOVIE') {
 
 
-            let desiredFileFound = false;
-            let desiredFileIndex = null;
-            let desiredFileName = null;
-            const potential_files = [];
+                let desiredFileFound = false;
+                let desiredFileIndex = null;
+                let desiredFileName = null;
+                const potential_files = [];
+                const episode_set = new Set();
 
-            for (let i = 0; i < torrent.files.length; i++) {
-                const file = torrent.files[i];
-                // console.log(`Checking file: ${file.name}`);
+                for (let i = 0; i < torrent.files.length; i++) {
+                    const file = torrent.files[i];
+                    // console.log(`Checking file: ${file.name}`);
 
-                if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
-                    let file_name = removeSpacesAroundHyphens(file.name);
-                    file_name = cleanLeadingZeroes(file_name);
-                    const file_title_data = await parse_title_reserve(file_name);
-                    if (file_title_data.episode_number == episode_number) {
-                        // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
-                        desiredFileFound = true;
-                        // console.log(`Potential File Candidate: ${file_title_data.anime_title}`);
-                        potential_files.push({animeTitle: file_title_data.anime_title, fileIndex: i, fileName: file.name })
+                    if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
+                        let file_name = addSpacesAroundHyphens(file.name);
+                        file_name = cleanLeadingZeroes(file_name);
+                        // console.log('file name: ', file_name);
+                        const file_title_data = await parse_title_reserve(file_name);
+
+                        if (file_title_data.episode_number !== undefined) {
+                            episode_set.add(parseInt(file_title_data.episode_number));
+                        }
+
+                        if (parseInt(file_title_data.episode_number) == episode_number) {
+                            // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
+                            desiredFileFound = true;
+                            // console.log(`Potential File Candidate: ${file_title_data.anime_title}`);
+                            potential_files.push({animeTitle: file_title_data.anime_title, fileIndex: i, fileName: file.name })
+                        }
                     }
                 }
-            }
 
-            let bestMatch;
-            if (potential_files.length > 1) {
-                bestMatch = find_best_match(potential_files, eng_title, rom_title);
-            } else if (potential_files.length > 0) {
-                bestMatch = potential_files[0];
-            } else {
-                desiredFileFound = false
-            }
+                let bestMatch;
+                if (potential_files.length > 1) {
+                    bestMatch = find_best_match(potential_files, eng_title, rom_title);
+                } else if (potential_files.length > 0) {
+                    bestMatch = potential_files[0];
+                } else {
+                    desiredFileFound = false
+                }
 
 
-            if (desiredFileFound) {
+                if (desiredFileFound) {
 
-               
-                desiredFileIndex = bestMatch.fileIndex;
-                desiredFileName = bestMatch.fileName;
+                
+                    desiredFileIndex = bestMatch.fileIndex;
+                    desiredFileName = bestMatch.fileName;
 
-                const fileList = torrent.files.map((file, idx) => ({
-                    name: file.name,
-                    index: idx
-                }));
+                    const fileList = torrent.files.map((file, idx) => ({
+                        name: file.name,
+                        index: idx
+                    }));
 
-                storeTorrentMetadata(magnetURI, fileList);
+                    if(!isMagnetInCache(magnetURI, alID)) {
+                        const sortedRange = [...episode_set].sort((a, b) => a - b);
+                        if (sortedRange.length > 1) {
+                            console.log(`Caching From FetchTorrentMetadata: anilistId=${alID}, episodes [${sortedRange[0]}..${sortedRange[sortedRange.length - 1]}], audio: ${audio_type}, title: ${torrent.name}`);
+                            console.log()
+                            cacheTorrentRange(alID, sortedRange[0], sortedRange[sortedRange.length - 1], audio_type, magnetURI, seeders);
+                        }
+                    } else {
+                        console.log('Is Magnet In Cache: ', isMagnetInCache(magnetURI, alID));
+                    }
 
-                fileInfo = {
-                magnetLink: magnetURI,
-                fileIndex: desiredFileIndex,
-                fileName: desiredFileName
-                };
+                 
+                    storeTorrentMetadata(magnetURI, fileList);
+                    
+                    
+                    fileInfo = {
+                    magnetLink: magnetURI,
+                    fileIndex: desiredFileIndex,
+                    fileName: desiredFileName
+                    };
 
-                db.storeEpisodeAndSource({
-                anilistId: alID,
-                anidbId: anidbId,
-                episodeNumber: episode_number,
-                audioType: audio_type,
-                category: 'torrent',
-                magnetLink: fileInfo.magnetLink,
-                fileIndex: fileInfo.fileIndex,
-                fileName: fileInfo.fileName,
-                seeders: seeders,
-                }); 
+                    db.storeEpisodeAndSource({
+                    anilistId: alID,
+                    anidbId: anidbId,
+                    episodeNumber: episode_number,
+                    audioType: audio_type,
+                    category: 'torrent',
+                    magnetLink: fileInfo.magnetLink,
+                    fileIndex: fileInfo.fileIndex,
+                    fileName: fileInfo.fileName,
+                    seeders: seeders,
+                    }); 
 
-                console.log('Storing episode file info:' + `\n`, fileInfo);
-            } else {
-                console.log(`No MKV file matching episode ${episode_number} was found in this torrent.\n`);
-            }
+                    console.log('Storing episode file info:' + `\n`, fileInfo);
+                } else {
+                    console.log(`No file matching episode ${episode_number} was found in this torrent.\n`);
+                   
+                }
             } else {
                 console.log('Checking for movie file...');
                 const mkvFiles = torrent.files.filter(file => file.name.toLowerCase().endsWith('.mkv'));
@@ -451,7 +539,11 @@ function sortTorrentList(torrents) {
 
 
 function cleanLeadingZeroes(str) {
-    return str.replace(/(?<=\s|^)0+(?=\d+)/g, '');
+    return str.replace(/(?<=\s|^|-)0+(?=\d+)/g, '');
+}
+
+function addSpacesAroundHyphens(str) {
+    return str.replace(/(\b[+-]?\d+(?:\.\d+)?\b)([-–—])(\b[+-]?\d+(?:\.\d+)?\b)/g, '$1 $2 $3');
 }
 
 export {

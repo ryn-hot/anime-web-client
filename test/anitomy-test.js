@@ -77,18 +77,39 @@ function removeSpacesAroundHyphens(str) {
 }
 
 function cleanLeadingZeroes(str) {
-  return str.replace(/(?<=\s|^)0+(?=\d+)/g, '');
+  return str.replace(/(?<=\s|^|-)0+(?=\d+)/g, '');
 }
 
-// Example usage:
-console.log(cleanLeadingZeroes("String 01-999")); // "String 1"
+function addSpacesAroundHyphens(str) {
+  return str.replace(/(\b[+-]?\d+(?:\.\d+)?\b)([-–—])(\b[+-]?\d+(?:\.\d+)?\b)/g, '$1 $2 $3');
+}
+
+
+let title = "Initial D - 4x01 - Project D   [DarkDream].mkv";
+title = cleanLeadingZeroes(title)
+console.log(title);
+const results = await modified_anitomy(title);
+
+console.log(results[0]); 
+
+console.log(parseInt(results[0].episode_number)); 
+
+/* console.log(cleanLeadingZeroes("String 01 - 099")); // "String 1"
 console.log(cleanLeadingZeroes("String 10001")); // "String 10001"
 console.log(cleanLeadingZeroes("Test 00230 Data 0055")); // "Test 230 Data 55"
-console.log(cleanLeadingZeroes("0012 Test 0013")); // "12 Test 13"
+console.log(cleanLeadingZeroes("0012 Test 0013")); // "12 Test 13" 
 
-/*
-let title = "[JySzE] Naruto - 220 [v3].mkv (1.4 GiB)";
-// title = removeSpacesAroundHyphens(title)
+// Example usage:
+
+console.log(addSpacesAroundHyphens("range 1-2")); // "range 1 - 2"
+console.log(addSpacesAroundHyphens("range 1 - 2")); // "range 1 - 2"
+
+
+
+
+
+let title = "Initial D - 4x01 - Project D   [DarkDream].mkv";
+title = cleanLeadingZeroes(title)
 console.log(title);
 const results = await modified_anitomy(title);
 
@@ -98,12 +119,12 @@ console.log(parseInt(results[0].episode_number));
 
 const bool = (results[0].episode_number === undefined);
 //const output = convertToIntegers(results.episode_number);
-console.log(bool); */
+console.log(bool); 
 
 
 
 //	[Judas] Bleach 338-366 [BD 1080p][HEVC x265 10bit][Dual-Audio][Multi-Subs] (Batch) One Piece Episode 1086-1096 [English Dub][1080p][CR]
 // console.log(results.episode_number);
 // console.log(typeof results.episode_number);
-
+*/
 

@@ -282,7 +282,9 @@ class AnimeDatabase {
             AND audio_type = ?
           LIMIT 1
         `);
-    
+            
+ 
+
         // Execute synchronously
         const row = stmt.get(anilistId, episodeNumber, audioType);
     
@@ -682,7 +684,10 @@ async function processEpisodeTask(task, db, concurrency) {
             task.episodeNumber,
             task.format,
             task.mode
-        );  
+        ); 
+    
+
+ 
     }
   
     // In indefinite mode, if the crawler finds no sign of epNumber,

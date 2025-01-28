@@ -10,7 +10,8 @@ export async function miruToshoEpisode(anidbEid, res, exclusions) {
             resolution: res, // Optional: "2160" | "1080" | "720" | "540" | "480" | ""
             exclusions: exclusions // Optional: keywords to exclude
         });
-        console.log("Single episode results:", singleEpisodeResult);
+        // console.log("Single episode results:", singleEpisodeResult);
+        return singleEpisodeResult
     } catch (error) {
         console.error("Single episode error:", error);
     }
@@ -24,7 +25,8 @@ export async function miruToshoMovie(anidb_id, res, exclusions) {
             resolution: res, // Optional
             exclusions: exclusions //["dub", "dubbed"] // Optional
         });
-        console.log("Movie results:", movieResult);
+        // console.log("Movie results:", movieResult);
+        return movieResult;
     } catch (error) {
         console.error("Movie error:", error);
     } 
@@ -35,12 +37,13 @@ export async function miruToshoMovie(anidb_id, res, exclusions) {
 export async function miruToshoBatchAnime(anidbAid, episodeCount, res, exclusions) {
     try {
         const batchResult = await ToshoSource.batch({
-            anidbAid: 69,   // AniDB anime ID
-            episodeCount: 1124,   // Total number of episodes
-            resolution: "", // Optional
-            exclusions: [""] // Optional
+            anidbAid: anidbAid,   // AniDB anime ID
+            episodeCount: episodeCount,   // Total number of episodes
+            resolution: res, // Optional
+            exclusions: exclusions // Optional
         });
-        console.log("Batch results:", batchResult);
+        return batchResult;
+        // console.log("Batch results:", batchResult);
     } catch (error) {
         console.error("Batch error:", error);
     }
@@ -50,8 +53,9 @@ export async function miruToshoBatchAnime(anidbAid, episodeCount, res, exclusion
 export async function miruToshoAllAnime(anidbAid) {
     try {
         const allResult = await ToshoSource.all({anidbAid});
-        console.log("All results:", allResult);
-        console.log("Results Length", allResult.length);
+        return allResult;
+        // console.log("All results:", allResult);
+        // console.log("Results Length", allResult.length);
     } catch (error) {
         console.error("All error:", error);
     }
