@@ -1,5 +1,5 @@
 import WebTorrent from "webtorrent";
-import wrtc from 'wrtc';
+// import wrtc from "wrtc";
 
 
 let globalClient = null;
@@ -7,7 +7,7 @@ let globalClient = null;
 export function getGlobalClient() {
     if (!globalClient) {
       // Create client once
-      globalClient = new WebTorrent({ wrtc });
+      globalClient = new WebTorrent();
       console.log('Global WebTorrent client created');
     }
     return globalClient;
@@ -40,31 +40,28 @@ export function getGlobalClientTest() {
   if (!globalClient) {
     globalClient = new WebTorrent({ 
       wrtc,
+      
+      webSeeds: false,
+      dht: false,  // Disable DHT to reduce cleanup complexity
       tracker: {
           announce: TRACKERS,
           getAnnounceOpts: () => ({
-              numwant: 50 // Request more peers initially for faster metadata
+              numwant: 50 
           })
-      },
-      dht: {
-          bootstrap: [
-              'router.bittorrent.com:6881',
-              'dht.transmissionbt.com:6881',
-              'router.utorrent.com:6881'
-          ]
       }
     });
 
-    globalClient.on('error', err => {
-      if (err && err.code === 'ERR_DATA_CHANNEL') {
-        // Silently ignore or log it:
-        console.warn('Ignoring WebRTC data channel close error', err.message);
-      } else {
-        console.error('WebTorrent client error:', err);
-        // Possibly process.exit(1), or keep going
-      }
-    })
-  }
+    // Handle errors at client level
+    globalClient.on('error', function(err) {
+      console.warn('WebTorrent client error:', err.message);
+    });
 
-  return globalClient
+    // Handle cleanup on process exit
+    process.on('beforeExit', () => {
+      if (globalClient) {
+        globalClient.destroy();
+      }
+    });
+  }
+  return globalClient;
 }
