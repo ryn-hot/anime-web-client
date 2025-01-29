@@ -221,8 +221,9 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
             // sconsole.log(trs_results_deduped);
         
             // const trs_final = []; 
-    
-            for (let i = 0; i < Math.min(trs_results_sorted.length, 6); i++) {
+            await processTorrents(trs_results_sorted, episode_number, audio, alID, anidbId, db, format, english_title, romanji_title);
+
+            /* for (let i = 0; i < Math.min(trs_results_sorted.length, 6); i++) {
                 const raw_torrent = trs_results_sorted[i];
                 // console.log(`raw_torrent magnetLink:`, raw_torrent.magnetLink);
                 
@@ -247,14 +248,63 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
                 /* console.log('\nProcessing Torrent: ', raw_torrent.title);
                 if (raw_torrent.title === undefined) {
                     console.log(raw_torrent);
-                } */
+                } 
 
                 await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db, format, english_title, romanji_title);
-            } 
+            } */
 
         }
     } 
 }
+
+async function processTorrents(trs_results_sorted, episode_number, audio, alID, anidbId, db, format, english_title, romanji_title) {
+    // Take only the first 6 results
+    const torrentsToProcess = trs_results_sorted.slice(0, 6);
+    const client = getGlobalClient();
+
+    console.log('torrents left before execution: ', client.torrents.length);
+    // Map each torrent to a promise
+    const torrentPromises = torrentsToProcess.map(raw_torrent => {
+        // Process the magnet link
+        let magnetLink = Array.isArray(raw_torrent.magnetLink)
+            ? raw_torrent.magnetLink[0]
+            : raw_torrent.magnetLink;
+        
+        magnetLink = magnetLink.replace(/&amp;/g, '&');
+        const seeders = raw_torrent.seeders;
+
+        // Return the promise without awaiting it
+        return fetchTorrentMetadata(
+            magnetLink,
+            episode_number,
+            seeders,
+            audio,
+            alID,
+            anidbId,
+            db,
+            format,
+            english_title,
+            romanji_title
+        ).catch(error => {
+            // Handle individual torrent errors without failing the entire batch
+            console.error(`Error processing torrent: ${error.message}`);
+            return null;
+        });
+    });
+
+    try {
+        // Wait for all promises to settle
+        const results = await Promise.all(torrentPromises);
+        console.log('All results returned')
+        // Filter out null results and return successful ones
+        return results.filter(result => result !== null);
+    } catch (error) {
+        console.error('Error processing torrents batch:', error);
+        throw error;
+    } finally {
+        console.log('torrents left after execution: ', client.torrents.length);
+    }
+};
 
 async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number, seeders, audio_type, alID, anidbId, db, eng_title, rom_title) {
     const fileList = fileData.fileList;
@@ -338,7 +388,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
         const client = getGlobalClient();
         // console.log('Torrent added. Waiting for metadata...');
 
-        const destroyTorrentSafely = async (torrent) => {
+        /* const destroyTorrentSafely = async (torrent) => {
             try {
                 // Pause the torrent first
                 torrent.pause();
@@ -346,6 +396,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                 // Close WebRTC connections
                 if (torrent.wires && Array.isArray(torrent.wires)) {
                     torrent.wires.forEach(wire => {
+                        // console.log('wire destroyed')
                         if (wire.destroy) wire.destroy();
                     });
                 }
@@ -354,12 +405,18 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                 await new Promise(resolve => setTimeout(resolve, 1000));
         
                 // Finally destroy the torrent with all options
-                return new Promise((res) => {
+                return new Promise((res, rej) => {
                     torrent.destroy({ 
                         destroyStore: true,
                         force: true
-                    }, () => {
-                        res();
+                    }, (err) => {
+                        if (err) {
+                            console.warn('Error during torrent.destroy:', err);
+                            rej(err);
+                        } else {
+                            // console.log('torrent destroyed')
+                            res();
+                        }
                     });
                 });
             } catch (error) {
@@ -367,25 +424,29 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                 // Try one last time to destroy
                 try {
                     torrent.destroy({ force: true });
+                    return;
                 } catch (e) {
                     console.warn('Final destroy attempt failed:', e);
+                    throw e;
                 }
             }
-        };
+        }; */
 
         const torrent = client.add(magnetURI)
         
         const metadataTimeout = setTimeout(async () => {
             console.log(`Metadata event did not fire within 60 seconds for ${magnetURI}, destroying torrent...`);
-            await destroyTorrentSafely(torrent);
+            torrent.destroy()
+            // await destroyTorrentSafely(torrent);
+            console.log('Resolved fetchTorrentMetadata');
             resolve(null);
         }, 30000);
     
         
 
-        torrent.on('infoHash', () => {
+        /* torrent.on('infoHash', () => {
             console.log(`InfoHash event fired: ${torrent.infoHash}`)
-        })
+        }) */
 
         torrent.on('metadata', async () => {
             console.log('Metadata event fired!')
@@ -459,7 +520,6 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                             const sortedRange = [...episode_set].sort((a, b) => a - b);
                             if (sortedRange.length > 1) {
                                 console.log(`Caching From FetchTorrentMetadata: anilistId=${alID}, episodes [${sortedRange[0]}..${sortedRange[sortedRange.length - 1]}], audio: ${audio_type}, title: ${torrent.name}`);
-                                console.log()
                                 cacheTorrentRange(alID, sortedRange[0], sortedRange[sortedRange.length - 1], audio_type, magnetURI, seeders);
                             }
                         } else {
@@ -491,6 +551,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                         console.log('Storing episode file info:' + `\n`, fileInfo);
                     } else {
                         console.log(`No file matching episode ${episode_number} was found in this torrent.\n`);
+
                     
                     }
                 } else {
@@ -501,6 +562,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                         torrent.destroy(() => {
                             console.log('Torrent destroyed. No valid movie file found.' + `\n`);
                             // resolve the main promise here so caller can continue
+                            console.log('Resolved fetchTorrentMetadata');
                             resolve(null);
                         });
                         return;
@@ -531,19 +593,25 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                     console.log('Storing file info:' + `\n`, fileInfo);
                 }
 
-                
-                await destroyTorrentSafely(torrent)
+                console.log('Destorying Torrent')
+                // await destroyTorrentSafely(torrent)
+                torrent.destroy()
+                console.log('Torrent Destoryed')
+                console.log('Resolved fetchTorrentMetadata');
                 resolve(fileInfo);
             } catch (err) {
+                torrent.destroy()
+                // await destroyTorrentSafely(torrent);
                 console.error('Error in metadata handler:', err);
-                await destroyTorrentSafely(torrent);
+                console.log('Resolved fetchTorrentMetadata');
                 reject(err);
 
             }
         });
 
-        torrent.on('error', async (err) => {   
-            await destroyTorrentSafely(torrent);
+        torrent.on('error', async (err) => {  
+            torrent.destroy()
+            // await destroyTorrentSafely(torrent);
             console.error('Error in torrent on handler:', err);
             reject(err);
         });
