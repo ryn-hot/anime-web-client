@@ -54,6 +54,17 @@ export function getGlobalClientTest() {
           ]
       }
     });
+
+    globalClient.on('error', err => {
+      if (err && err.code === 'ERR_DATA_CHANNEL') {
+        // Silently ignore or log it:
+        console.warn('Ignoring WebRTC data channel close error', err.message);
+      } else {
+        console.error('WebTorrent client error:', err);
+        // Possibly process.exit(1), or keep going
+      }
+    })
   }
+
   return globalClient
 }
