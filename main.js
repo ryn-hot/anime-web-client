@@ -222,7 +222,7 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         
             // const trs_final = []; 
     
-            for (let i = 0; i < Math.min(trs_results_sorted.length, 3); i++) {
+            for (let i = 0; i < Math.min(trs_results_sorted.length, 6); i++) {
                 const raw_torrent = trs_results_sorted[i];
                 // console.log(`raw_torrent magnetLink:`, raw_torrent.magnetLink);
                 
@@ -335,297 +335,217 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
 //cache file meta data. 
 async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_type, alID, anidbId, db, format, eng_title, rom_title) {
     return new Promise((resolve, reject) => {
-        const client = getGlobalClientTest();
+        const client = getGlobalClient();
         // console.log('Torrent added. Waiting for metadata...');
 
-        const metadataTimeout = setTimeout(() => {
-            console.log(`Metadata event did not fire within 15 seconds for ${magnetURI}, destroying torrent...`);
-            torrent.removeAllListeners('infoHash');
-            torrent.removeAllListeners('metadata');
-            torrent.removeAllListeners('error');
+        const destroyTorrentSafely = async (torrent) => {
+            try {
+                // Pause the torrent first
+                torrent.pause();
+                
+                // Close WebRTC connections
+                if (torrent.wires && Array.isArray(torrent.wires)) {
+                    torrent.wires.forEach(wire => {
+                        if (wire.destroy) wire.destroy();
+                    });
+                }
         
-            if (torrent.wires) {
-                torrent.wires.forEach(wire => {
-                    if (wire.peer) {
-                      wire.peer.on('error', err => {
-                        if (err.code === 'ERR_DATA_CHANNEL' && err.message.includes('Close called')) {
-                          // It’s normal if we forcibly closed.
-                          console.debug('Ignoring data-channel close error.');
-                        } else {
-                          console.error('Peer error:', err);
-                        }
-                      });
-                    }
+                // Add a small delay to allow for cleanup
+                await new Promise(resolve => setTimeout(resolve, 1000));
+        
+                // Finally destroy the torrent with all options
+                return new Promise((res) => {
+                    torrent.destroy({ 
+                        destroyStore: true,
+                        force: true
+                    }, () => {
+                        res();
+                    });
                 });
-
-                torrent.wires.forEach(wire => {
-                    if (wire.pc) wire.pc.close();
-                });
+            } catch (error) {
+                console.warn('Error during torrent cleanup:', error);
+                // Try one last time to destroy
+                try {
+                    torrent.destroy({ force: true });
+                } catch (e) {
+                    console.warn('Final destroy attempt failed:', e);
+                }
             }
-
-            torrent.destroy(() => {
-              resolve(null); // or reject, depending on how you want to handle it
-            });
-          }, 30000);
+        };
 
         const torrent = client.add(magnetURI)
+        
+        const metadataTimeout = setTimeout(async () => {
+            console.log(`Metadata event did not fire within 60 seconds for ${magnetURI}, destroying torrent...`);
+            await destroyTorrentSafely(torrent);
+            resolve(null);
+        }, 30000);
+    
+        
 
         torrent.on('infoHash', () => {
-        console.log(`InfoHash event fired: ${torrent.infoHash}`)
+            console.log(`InfoHash event fired: ${torrent.infoHash}`)
         })
 
         torrent.on('metadata', async () => {
-        console.log('Metadata event fired!')
+            console.log('Metadata event fired!')
 
-        try {
-            clearTimeout(metadataTimeout);
-            
-            console.log(`Entry Format: `, format);
+            try {
+                clearTimeout(metadataTimeout);
+                
+                console.log(`Entry Format: `, format);
 
-            let fileInfo = null;
+                let fileInfo = null;
 
-            if (format !== 'MOVIE') {
+                if (format !== 'MOVIE') {
 
 
-                let desiredFileFound = false;
-                let desiredFileIndex = null;
-                let desiredFileName = null;
-                const potential_files = [];
-                const episode_set = new Set();
+                    let desiredFileFound = false;
+                    let desiredFileIndex = null;
+                    let desiredFileName = null;
+                    const potential_files = [];
+                    const episode_set = new Set();
 
-                for (let i = 0; i < torrent.files.length; i++) {
-                    const file = torrent.files[i];
-                    // console.log(`Checking file: ${file.name}`);
+                    for (let i = 0; i < torrent.files.length; i++) {
+                        const file = torrent.files[i];
+                        // console.log(`Checking file: ${file.name}`);
 
-                    if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
-                        let file_name = addSpacesAroundHyphens(file.name);
-                        file_name = cleanLeadingZeroes(file_name);
-                        // console.log('file name: ', file_name);
-                        let file_title_data = await parse_title_reserve(file_name);
+                        if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
+                            let file_name = addSpacesAroundHyphens(file.name);
+                            file_name = cleanLeadingZeroes(file_name);
+                            // console.log('file name: ', file_name);
+                            let file_title_data = await parse_title_reserve(file_name);
 
-                        if (file_title_data.episode_number !== undefined) {
-                            episode_set.add(parseInt(file_title_data.episode_number));
-                        } else {
-                            if (isPureNumber(file_title_data.file_name)) {
-                                file_title_data.episode_number = parseInt(file_title_data.file_name);
-                                episode_set.add(file_title_data.episode_number)
+                            if (file_title_data.episode_number !== undefined) {
+                                episode_set.add(parseInt(file_title_data.episode_number));
+                            } else {
+                                if (isPureNumber(file_title_data.file_name)) {
+                                    file_title_data.episode_number = parseInt(file_title_data.file_name);
+                                    episode_set.add(file_title_data.episode_number)
+                                }
+                            }
+
+                            if (parseInt(file_title_data.episode_number) == episode_number) {
+                                // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
+                                desiredFileFound = true;
+                                // console.log(`Potential File Candidate: ${file_title_data.anime_title}`);
+                                potential_files.push({animeTitle: file_title_data.anime_title, fileIndex: i, fileName: file.name })
                             }
                         }
-
-                        if (parseInt(file_title_data.episode_number) == episode_number) {
-                            // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
-                            desiredFileFound = true;
-                            // console.log(`Potential File Candidate: ${file_title_data.anime_title}`);
-                            potential_files.push({animeTitle: file_title_data.anime_title, fileIndex: i, fileName: file.name })
-                        }
                     }
-                }
 
-                let bestMatch;
-                if (potential_files.length > 1) {
-                    bestMatch = find_best_match(potential_files, eng_title, rom_title);
-                } else if (potential_files.length > 0) {
-                    bestMatch = potential_files[0];
-                } else {
-                    desiredFileFound = false
-                }
-
-
-                if (desiredFileFound) {
-
-                
-                    desiredFileIndex = bestMatch.fileIndex;
-                    desiredFileName = bestMatch.fileName;
-
-                    const fileList = torrent.files.map((file, idx) => ({
-                        name: file.name,
-                        index: idx
-                    }));
-
-                    if(!isMagnetInCache(magnetURI, alID, audio_type)) {
-                        const sortedRange = [...episode_set].sort((a, b) => a - b);
-                        if (sortedRange.length > 1) {
-                            console.log(`Caching From FetchTorrentMetadata: anilistId=${alID}, episodes [${sortedRange[0]}..${sortedRange[sortedRange.length - 1]}], audio: ${audio_type}, title: ${torrent.name}`);
-                            console.log()
-                            cacheTorrentRange(alID, sortedRange[0], sortedRange[sortedRange.length - 1], audio_type, magnetURI, seeders);
-                        }
+                    let bestMatch;
+                    if (potential_files.length > 1) {
+                        bestMatch = find_best_match(potential_files, eng_title, rom_title);
+                    } else if (potential_files.length > 0) {
+                        bestMatch = potential_files[0];
                     } else {
-                        console.log('Is Magnet In Cache: ', isMagnetInCache(magnetURI, alID));
+                        desiredFileFound = false
                     }
 
-                 
-                    storeTorrentMetadata(magnetURI, fileList);
+
+                    if (desiredFileFound) {
+
                     
+                        desiredFileIndex = bestMatch.fileIndex;
+                        desiredFileName = bestMatch.fileName;
+
+                        const fileList = torrent.files.map((file, idx) => ({
+                            name: file.name,
+                            index: idx
+                        }));
+
+                        if(!isMagnetInCache(magnetURI, alID, audio_type)) {
+                            const sortedRange = [...episode_set].sort((a, b) => a - b);
+                            if (sortedRange.length > 1) {
+                                console.log(`Caching From FetchTorrentMetadata: anilistId=${alID}, episodes [${sortedRange[0]}..${sortedRange[sortedRange.length - 1]}], audio: ${audio_type}, title: ${torrent.name}`);
+                                console.log()
+                                cacheTorrentRange(alID, sortedRange[0], sortedRange[sortedRange.length - 1], audio_type, magnetURI, seeders);
+                            }
+                        } else {
+                            console.log('Is Magnet In Cache: ', isMagnetInCache(magnetURI, alID));
+                        }
+
+                    
+                        storeTorrentMetadata(magnetURI, fileList);
+                        
+                        
+                        fileInfo = {
+                        magnetLink: magnetURI,
+                        fileIndex: desiredFileIndex,
+                        fileName: desiredFileName
+                        };
+
+                        db.storeEpisodeAndSource({
+                        anilistId: alID,
+                        anidbId: anidbId,
+                        episodeNumber: episode_number,
+                        audioType: audio_type,
+                        category: 'torrent',
+                        magnetLink: fileInfo.magnetLink,
+                        fileIndex: fileInfo.fileIndex,
+                        fileName: fileInfo.fileName,
+                        seeders: seeders,
+                        }); 
+
+                        console.log('Storing episode file info:' + `\n`, fileInfo);
+                    } else {
+                        console.log(`No file matching episode ${episode_number} was found in this torrent.\n`);
+                    
+                    }
+                } else {
+                    console.log('Checking for movie file...');
+                    const mkvFiles = torrent.files.filter(file => file.name.toLowerCase().endsWith('.mkv'));
+                    if (mkvFiles.length === 0) {
+                        console.log('No MKV files found. Could not identify a movie file.');
+                        torrent.destroy(() => {
+                            console.log('Torrent destroyed. No valid movie file found.' + `\n`);
+                            // resolve the main promise here so caller can continue
+                            resolve(null);
+                        });
+                        return;
+                    }
+
+                    mkvFiles.sort((a, b) => b.length - a.length);
+                    const mainMovieFile = mkvFiles[0];
+                    console.log(`Selected movie file: ${mainMovieFile.name} (size: ${mainMovieFile.length})`);
                     
                     fileInfo = {
                     magnetLink: magnetURI,
-                    fileIndex: desiredFileIndex,
-                    fileName: desiredFileName
+                    fileIndex: torrent.files.indexOf(mainMovieFile),
+                    fileName: mainMovieFile.name
                     };
-
+                    
                     db.storeEpisodeAndSource({
-                    anilistId: alID,
-                    anidbId: anidbId,
-                    episodeNumber: episode_number,
-                    audioType: audio_type,
-                    category: 'torrent',
-                    magnetLink: fileInfo.magnetLink,
-                    fileIndex: fileInfo.fileIndex,
-                    fileName: fileInfo.fileName,
-                    seeders: seeders,
+                        anilistId: alID,
+                        anidbId: anidbId,
+                        episodeNumber: episode_number,
+                        audioType: audio_type,
+                        category: 'torrent',
+                        magnetLink: fileInfo.magnetLink,
+                        fileIndex: fileInfo.fileIndex,
+                        fileName: fileInfo.fileName,
+                        seeders: seeders,
                     }); 
 
-                    console.log('Storing episode file info:' + `\n`, fileInfo);
-                } else {
-                    console.log(`No file matching episode ${episode_number} was found in this torrent.\n`);
-                   
-                }
-            } else {
-                console.log('Checking for movie file...');
-                const mkvFiles = torrent.files.filter(file => file.name.toLowerCase().endsWith('.mkv'));
-                if (mkvFiles.length === 0) {
-                    console.log('No MKV files found. Could not identify a movie file.');
-                    torrent.destroy(() => {
-                        console.log('Torrent destroyed. No valid movie file found.' + `\n`);
-                        // resolve the main promise here so caller can continue
-                        resolve(null);
-                    });
-                    return;
+                    console.log('Storing file info:' + `\n`, fileInfo);
                 }
 
-                mkvFiles.sort((a, b) => b.length - a.length);
-                const mainMovieFile = mkvFiles[0];
-                console.log(`Selected movie file: ${mainMovieFile.name} (size: ${mainMovieFile.length})`);
                 
-                fileInfo = {
-                magnetLink: magnetURI,
-                fileIndex: torrent.files.indexOf(mainMovieFile),
-                fileName: mainMovieFile.name
-                };
-                
-                db.storeEpisodeAndSource({
-                    anilistId: alID,
-                    anidbId: anidbId,
-                    episodeNumber: episode_number,
-                    audioType: audio_type,
-                    category: 'torrent',
-                    magnetLink: fileInfo.magnetLink,
-                    fileIndex: fileInfo.fileIndex,
-                    fileName: fileInfo.fileName,
-                    seeders: seeders,
-                }); 
+                await destroyTorrentSafely(torrent)
+                resolve(fileInfo);
+            } catch (err) {
+                console.error('Error in metadata handler:', err);
+                await destroyTorrentSafely(torrent);
+                reject(err);
 
-                console.log('Storing file info:' + `\n`, fileInfo);
             }
-
-            torrent.removeAllListeners('infoHash');
-            torrent.removeAllListeners('metadata');
-            torrent.removeAllListeners('error');
-
-            // Clean up WebRTC connections if they exist
-            if (torrent.wires) {
-                torrent.wires.forEach(wire => {
-                    if (wire.peer) {
-                      wire.peer.on('error', err => {
-                        if (err.code === 'ERR_DATA_CHANNEL' && err.message.includes('Close called')) {
-                          // It’s normal if we forcibly closed.
-                          console.debug('Ignoring data-channel close error.');
-                        } else {
-                          console.error('Peer error:', err);
-                        }
-                      });
-                    }
-                });
-
-                torrent.wires.forEach(wire => {
-                    if (wire.pc) wire.pc.close();
-                });
-            }
-
-            // Cleanup and resolve once done
-            torrent.destroy(() => {
-                // console.log('Client destroyed. Test complete.');
-                resolve(fileInfo); // Resolve the main promise
-            });
-
-        } catch (err) {
-
-            torrent.removeAllListeners('infoHash');
-            torrent.removeAllListeners('metadata');
-            torrent.removeAllListeners('error');
-
-            // Clean up WebRTC connections if they exist
-            if (torrent.wires) {
-                torrent.wires.forEach(wire => {
-                    if (wire.peer) {
-                      wire.peer.on('error', err => {
-                        if (err.code === 'ERR_DATA_CHANNEL' && err.message.includes('Close called')) {
-                          // It’s normal if we forcibly closed.
-                          console.debug('Ignoring data-channel close error.');
-                        } else {
-                          console.error('Peer error:', err);
-                        }
-                      });
-                    }
-                });
-
-                torrent.wires.forEach(wire => {
-                    if (wire.pc) wire.pc.close();
-                });
-            }
-
-            torrent.destroy(() => {
-            console.log('Client destroyed due to health check failure.');
-            reject(err); // Reject the main promise to indicate failure
-            });
-
-        }
         });
 
-        torrent.on('error', (err) => {
-
-            
-            // Clean up listeners
-            torrent.removeAllListeners('infoHash');
-            torrent.removeAllListeners('metadata');
-            torrent.removeAllListeners('error');
-
-            if (torrent.wires) {
-                torrent.wires.forEach(wire => {
-                    if (wire.peer) {
-                      wire.peer.on('error', err => {
-                        if (err.code === 'ERR_DATA_CHANNEL' && err.message.includes('Close called')) {
-                          // It’s normal if we forcibly closed.
-                          console.debug('Ignoring data-channel close error.');
-                        } else {
-                          console.error('Peer error:', err);
-                        }
-                      });
-                    }
-                });
-                
-                torrent.wires.forEach(wire => {
-                    if (wire.pc) wire.pc.close();
-                });
-            }
-
-            torrent.destroy(() => {
-                resolve(null); 
-            });
-            
-            //use this code for debugging if needed
-            /* if (err.name === 'AbortError' || err.type === 'aborted') {
-                console.debug('Tracker fetch was aborted due to torrent destroy; ignoring.');
-                torrent.destroy(() => {
-                    resolve(null); 
-                });
-                // not a fatal error, do nothing
-            } else {
-                torrent.destroy(() => {
-                    reject(err); 
-                });
-                console.error('Torrent error:', err);
-            } */
+        torrent.on('error', async (err) => {   
+            await destroyTorrentSafely(torrent);
+            console.error('Error in torrent on handler:', err);
+            reject(err);
         });
     });
 }

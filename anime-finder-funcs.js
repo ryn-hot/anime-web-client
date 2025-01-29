@@ -151,6 +151,8 @@ async function animeToshoBatchFilter(anidb_id, episodeCount, episodeTarget, audi
         let title = entry.title;
         title = removeSpacesAroundHyphens(title);
         title = cleanLeadingZeroes(title);
+        title = replaceTildeWithHyphen(title);
+        
         const entry_data = await modified_anitomy(title);
         
         const episode_int = convertToIntegers(entry_data.episode_number);
@@ -520,10 +522,11 @@ async function seadex_finder(alID, audio, episode, format, english_title, romanj
             const infoHash = extractInfoHash(html)
             // console.log(infoHash);
             let magnetLink = extractMagnetLink(html);
-
+            
             magnetLink = Array.isArray(magnetLink) 
                     ? magnetLink[0].replace(/&amp;/g, '&')
                     : magnetLink.replace(/&amp;/g, '&');
+
             // console.log(magnetLink);
             const items = data;
             const entry = {
