@@ -673,7 +673,19 @@ async function processEpisodeTask(task, db, concurrency) {
     } else {
         console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }, Format ${task.format}`);
 
-        if (task.anilistId === 21) {
+        await crawler_dispatch(
+            db,
+            task.englishTitle,
+            task.romanjiTitle,
+            task.audio,
+            task.anilistId,
+            task.anidbId,
+            task.episodeNumber,
+            task.format,
+            task.mode
+        ); 
+
+        /* if (task.anilistId === 21) {
             await crawler_dispatch(
                 db,
                 task.englishTitle,
@@ -685,7 +697,7 @@ async function processEpisodeTask(task, db, concurrency) {
                 task.format,
                 task.mode
             ); 
-        }
+        } */
        
     
 
