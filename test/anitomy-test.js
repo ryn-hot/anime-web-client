@@ -84,15 +84,19 @@ function addSpacesAroundHyphens(str) {
   return str.replace(/(\b[+-]?\d+(?:\.\d+)?\b)([-–—])(\b[+-]?\d+(?:\.\d+)?\b)/g, '$1 $2 $3');
 }
 
+function isPureNumber(str) {
+  // Remove leading/trailing whitespace, then check if the entire string is digits.
+  return /^\d+$/.test(str.trim());
+}
 
-let title = "Initial D - 4x01 - Project D   [DarkDream].mkv";
+let title = "at 1070.mkv";
 title = cleanLeadingZeroes(title)
 console.log(title);
 const results = await modified_anitomy(title);
 
 console.log(results[0]); 
 
-console.log(parseInt(results[0].episode_number)); 
+console.log(isPureNumber(results[0].file_name)); 
 
 /* console.log(cleanLeadingZeroes("String 01 - 099")); // "String 1"
 console.log(cleanLeadingZeroes("String 10001")); // "String 10001"

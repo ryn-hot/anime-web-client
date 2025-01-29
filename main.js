@@ -6,6 +6,35 @@ import { nyaa_function_dispatch } from "./query-dispatcher.js";
 import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata, findAllTorrentsForEpisode, cacheTorrentRange, isMagnetInCache } from "./cache.js";
 import { getGlobalClient, getGlobalClientTest } from "./webtorrent-client.js";
 
+process.on('unhandledRejection', (reason, promise) => {
+    // reason might be a RuntimeError with message: "abort(AbortError: The operation was aborted.)"
+    if (
+      reason instanceof Error &&
+      reason.message &&
+      reason.message.includes('AbortError: The operation was aborted.')
+    ) {
+      // We know we forcibly destroyed a torrent; ignore it
+      console.debug('Global ignore: node-fetch AbortError from forced torrent destroy');
+    } else {
+      console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+      // Possibly process.exit(1), etc.
+    }
+});
+  
+process.on('uncaughtException', (err) => {
+    // err might be a RuntimeError with message: "abort(AbortError: The operation was aborted.)"
+    if (
+      err instanceof Error &&
+      err.message &&
+      err.message.includes('AbortError: The operation was aborted.')
+    ) {
+      // We know we forcibly destroyed a torrent; ignore it
+      console.debug('Global ignore: node-fetch AbortError from forced torrent destroy');
+    } else {
+      console.error('Uncaught Exception:', err);
+      // Possibly process.exit(1), etc.
+    }
+});
 
 // await main();
 // let db = null; 
@@ -165,7 +194,7 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
             console.log(`animeToshoResults number of entries found: ${trs_results.length} `);
         } */
         
-        const gogo_query = gogoanime_query_creator(romanji_title, episode_number, audio);
+        /* const gogo_query = gogoanime_query_creator(romanji_title, episode_number, audio);
         const gogo_link = await gogo_anime_finder(...gogo_query);
         
         if (gogo_link) {
@@ -177,7 +206,7 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
                 category: 'http', 
                 videoUrl: gogo_link
             });
-        }
+        } */
         
         if (trs_results.length === 0) {
             console.log('No torrents found for this episode');
@@ -245,7 +274,15 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
             if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
                 let file_name = addSpacesAroundHyphens(file.name);
                 file_name = cleanLeadingZeroes(file_name)
-                const file_title_data = await parse_title_reserve(file_name);
+                let file_title_data = await parse_title_reserve(file_name);
+
+                if (file_title_data.episode_number === undefined) {
+                    if (isPureNumber(file_title_data.file_name)) {
+                        file_title_data.episode_number = parseInt(file_title_data.file_name);
+                    }
+                }
+
+
                 if (parseInt(file_title_data.episode_number) === episode_number) {
                     // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
 
@@ -303,6 +340,29 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
 
         const metadataTimeout = setTimeout(() => {
             console.log(`Metadata event did not fire within 15 seconds for ${magnetURI}, destroying torrent...`);
+            torrent.removeAllListeners('infoHash');
+            torrent.removeAllListeners('metadata');
+            torrent.removeAllListeners('error');
+        
+            if (torrent.wires) {
+                torrent.wires.forEach(wire => {
+                    if (wire.peer) {
+                      wire.peer.on('error', err => {
+                        if (err.code === 'ERR_DATA_CHANNEL' && err.message.includes('Close called')) {
+                          // It’s normal if we forcibly closed.
+                          console.debug('Ignoring data-channel close error.');
+                        } else {
+                          console.error('Peer error:', err);
+                        }
+                      });
+                    }
+                });
+
+                torrent.wires.forEach(wire => {
+                    if (wire.pc) wire.pc.close();
+                });
+            }
+
             torrent.destroy(() => {
               resolve(null); // or reject, depending on how you want to handle it
             });
@@ -321,8 +381,6 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
             clearTimeout(metadataTimeout);
             
             console.log(`Entry Format: `, format);
-            
-            clearTimeout(metadataTimeout);
 
             let fileInfo = null;
 
@@ -343,10 +401,15 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                         let file_name = addSpacesAroundHyphens(file.name);
                         file_name = cleanLeadingZeroes(file_name);
                         // console.log('file name: ', file_name);
-                        const file_title_data = await parse_title_reserve(file_name);
+                        let file_title_data = await parse_title_reserve(file_name);
 
                         if (file_title_data.episode_number !== undefined) {
                             episode_set.add(parseInt(file_title_data.episode_number));
+                        } else {
+                            if (isPureNumber(file_title_data.file_name)) {
+                                file_title_data.episode_number = parseInt(file_title_data.file_name);
+                                episode_set.add(file_title_data.episode_number)
+                            }
                         }
 
                         if (parseInt(file_title_data.episode_number) == episode_number) {
@@ -379,7 +442,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                         index: idx
                     }));
 
-                    if(!isMagnetInCache(magnetURI, alID)) {
+                    if(!isMagnetInCache(magnetURI, alID, audio_type)) {
                         const sortedRange = [...episode_set].sort((a, b) => a - b);
                         if (sortedRange.length > 1) {
                             console.log(`Caching From FetchTorrentMetadata: anilistId=${alID}, episodes [${sortedRange[0]}..${sortedRange[sortedRange.length - 1]}], audio: ${audio_type}, title: ${torrent.name}`);
@@ -455,26 +518,114 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                 console.log('Storing file info:' + `\n`, fileInfo);
             }
 
+            torrent.removeAllListeners('infoHash');
+            torrent.removeAllListeners('metadata');
+            torrent.removeAllListeners('error');
+
+            // Clean up WebRTC connections if they exist
+            if (torrent.wires) {
+                torrent.wires.forEach(wire => {
+                    if (wire.peer) {
+                      wire.peer.on('error', err => {
+                        if (err.code === 'ERR_DATA_CHANNEL' && err.message.includes('Close called')) {
+                          // It’s normal if we forcibly closed.
+                          console.debug('Ignoring data-channel close error.');
+                        } else {
+                          console.error('Peer error:', err);
+                        }
+                      });
+                    }
+                });
+
+                torrent.wires.forEach(wire => {
+                    if (wire.pc) wire.pc.close();
+                });
+            }
+
             // Cleanup and resolve once done
             torrent.destroy(() => {
-            // console.log('Client destroyed. Test complete.');
-            resolve(fileInfo); // Resolve the main promise
+                // console.log('Client destroyed. Test complete.');
+                resolve(fileInfo); // Resolve the main promise
             });
 
         } catch (err) {
-            console.error('Health check failed or torrent error:', err.message);
+
+            torrent.removeAllListeners('infoHash');
+            torrent.removeAllListeners('metadata');
+            torrent.removeAllListeners('error');
+
+            // Clean up WebRTC connections if they exist
+            if (torrent.wires) {
+                torrent.wires.forEach(wire => {
+                    if (wire.peer) {
+                      wire.peer.on('error', err => {
+                        if (err.code === 'ERR_DATA_CHANNEL' && err.message.includes('Close called')) {
+                          // It’s normal if we forcibly closed.
+                          console.debug('Ignoring data-channel close error.');
+                        } else {
+                          console.error('Peer error:', err);
+                        }
+                      });
+                    }
+                });
+
+                torrent.wires.forEach(wire => {
+                    if (wire.pc) wire.pc.close();
+                });
+            }
+
             torrent.destroy(() => {
             console.log('Client destroyed due to health check failure.');
             reject(err); // Reject the main promise to indicate failure
             });
+
         }
         });
 
         torrent.on('error', (err) => {
-        console.error('Torrent error:', err);
-        torrent.destroy(() => {
-            reject(err); 
-        });
+
+            
+            // Clean up listeners
+            torrent.removeAllListeners('infoHash');
+            torrent.removeAllListeners('metadata');
+            torrent.removeAllListeners('error');
+
+            if (torrent.wires) {
+                torrent.wires.forEach(wire => {
+                    if (wire.peer) {
+                      wire.peer.on('error', err => {
+                        if (err.code === 'ERR_DATA_CHANNEL' && err.message.includes('Close called')) {
+                          // It’s normal if we forcibly closed.
+                          console.debug('Ignoring data-channel close error.');
+                        } else {
+                          console.error('Peer error:', err);
+                        }
+                      });
+                    }
+                });
+                
+                torrent.wires.forEach(wire => {
+                    if (wire.pc) wire.pc.close();
+                });
+            }
+
+            torrent.destroy(() => {
+                resolve(null); 
+            });
+            
+            //use this code for debugging if needed
+            /* if (err.name === 'AbortError' || err.type === 'aborted') {
+                console.debug('Tracker fetch was aborted due to torrent destroy; ignoring.');
+                torrent.destroy(() => {
+                    resolve(null); 
+                });
+                // not a fatal error, do nothing
+            } else {
+                torrent.destroy(() => {
+                    reject(err); 
+                });
+                console.error('Torrent error:', err);
+            } */
         });
     });
 }
@@ -544,6 +695,12 @@ function cleanLeadingZeroes(str) {
 
 function addSpacesAroundHyphens(str) {
     return str.replace(/(\b[+-]?\d+(?:\.\d+)?\b)([-–—])(\b[+-]?\d+(?:\.\d+)?\b)/g, '$1 $2 $3');
+
+}
+
+function isPureNumber(str) {
+    // Remove leading/trailing whitespace, then check if the entire string is digits.
+    return /^\d+$/.test(str.trim());
 }
 
 export {
