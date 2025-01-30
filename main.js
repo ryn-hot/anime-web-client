@@ -6,6 +6,9 @@ import { nyaa_function_dispatch } from "./query-dispatcher.js";
 import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata, findAllTorrentsForEpisode, cacheTorrentRange, isMagnetInCache } from "./cache.js";
 import { getGlobalClient, getGlobalClientTest } from "./webtorrent-client.js";
 
+
+// todo cache update all torrents with file metadata should be added, also advanced handling for cached torrents with no fileData, if they fail their metadata retrieval remove them from the cache.
+
 process.on('unhandledRejection', (reason, promise) => {
     // reason might be a RuntimeError with message: "abort(AbortError: The operation was aborted.)"
     if (
