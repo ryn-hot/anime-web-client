@@ -386,51 +386,6 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
 async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_type, alID, anidbId, db, format, eng_title, rom_title) {
     return new Promise((resolve, reject) => {
         const client = getGlobalClient();
-        // console.log('Torrent added. Waiting for metadata...');
-
-        /* const destroyTorrentSafely = async (torrent) => {
-            try {
-                // Pause the torrent first
-                torrent.pause();
-                
-                // Close WebRTC connections
-                if (torrent.wires && Array.isArray(torrent.wires)) {
-                    torrent.wires.forEach(wire => {
-                        // console.log('wire destroyed')
-                        if (wire.destroy) wire.destroy();
-                    });
-                }
-        
-                // Add a small delay to allow for cleanup
-                await new Promise(resolve => setTimeout(resolve, 1000));
-        
-                // Finally destroy the torrent with all options
-                return new Promise((res, rej) => {
-                    torrent.destroy({ 
-                        destroyStore: true,
-                        force: true
-                    }, (err) => {
-                        if (err) {
-                            console.warn('Error during torrent.destroy:', err);
-                            rej(err);
-                        } else {
-                            // console.log('torrent destroyed')
-                            res();
-                        }
-                    });
-                });
-            } catch (error) {
-                console.warn('Error during torrent cleanup:', error);
-                // Try one last time to destroy
-                try {
-                    torrent.destroy({ force: true });
-                    return;
-                } catch (e) {
-                    console.warn('Final destroy attempt failed:', e);
-                    throw e;
-                }
-            }
-        }; */
 
         const torrent = client.add(magnetURI)
         
@@ -442,11 +397,6 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
             resolve(null);
         }, 30000);
     
-        
-
-        /* torrent.on('infoHash', () => {
-            console.log(`InfoHash event fired: ${torrent.infoHash}`)
-        }) */
 
         torrent.on('metadata', async () => {
             console.log('Metadata event fired!')
@@ -620,25 +570,48 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
   
 
 function dedupeMagnetLinks(entries) {
-    // Use Set to track unique magnet links
-    const seenMagnetLinks = new Set();
+    const seenHashes = new Set();
+    console.log(`Filtering Torrent`);
     
-    return entries.filter(entry => {
-        // Handle both array and string magnet links
-        const magnetLink = Array.isArray(entry.magnetLink)
-            ? entry.magnetLink[0] 
-            : entry.magnetLink;
-            
-        // Remove HTML entities from magnet links (like &amp;)
-        const cleanMagnetLink = magnetLink.replace(/&amp;/g, '&');
+    return entries.filter(entry => {    
         
-        // If we haven't seen this magnet link before, keep the entry
-        if (!seenMagnetLinks.has(cleanMagnetLink)) {
-            seenMagnetLinks.add(cleanMagnetLink);
-            return true;
+        // Extract the info hash using regex
+        const infoHash = extractInfoHash(entry.magnetLink);
+
+
+        if (!infoHash) {
+            console.log(`No infoHash Extracted Removing: ${infoHash}`)
+            return false
         }
+
+        // Check if the info hash has already been seen
+        if (!seenHashes.has(infoHash)) {
+            console.log(`Torrent is Unique Adding: ${infoHash}`)
+            seenHashes.add(infoHash);
+            return true; // Keep the entry
+        }
+        
+        // Duplicate found; filter it out
+        console.log(`Torrent is duplicate: ${infoHash}`)
         return false;
     });
+}
+
+function extractInfoHash(magnetLink) {
+    magnetLink = Array.isArray(magnetLink) 
+                    ? magnetLink[0].replace(/&amp;/g, '&').trim()
+                    : magnetLink.replace(/&amp;/g, '&').trim();
+
+    const hashMatch = magnetLink.match(/xt=urn:btih:([a-fA-F0-9]{40}|[A-Z0-9]{32})/);
+
+    if (!hashMatch) {
+        console.warn(`Could not extract info hash from magnet link: ${magnetLink}`);
+        return '';
+    }
+
+    const infoHash = hashMatch[1].toLowerCase()
+    return infoHash
+                
 }
 
 function extractYears(text) {
@@ -694,4 +667,5 @@ function isPureNumber(str) {
 export {
     crawler_dispatch,
     cleanLeadingZeroes,
+    extractInfoHash,
 }
