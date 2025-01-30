@@ -8,7 +8,7 @@ import { globalTorrentCache, cacheTorrentRange } from './cache.js';
 import { miruToshoEpisode } from "./miru-sources/tosho-test.js";
 import { miruToshoMovie } from "./miru-sources/tosho-test.js";
 import { miruToshoBatchAnime } from './miru-sources/tosho-test.js';
-import { cleanLeadingZeroes } from './main.js';
+import { cleanLeadingZeroes, extractInfoHash } from './main.js';
 
 
 
@@ -152,7 +152,7 @@ async function animeToshoBatchFilter(anidb_id, episodeCount, episodeTarget, audi
         title = removeSpacesAroundHyphens(title);
         title = cleanLeadingZeroes(title);
         title = replaceTildeWithHyphen(title);
-        
+
         const entry_data = await modified_anitomy(title);
         
         const episode_int = convertToIntegers(entry_data.episode_number);
@@ -165,18 +165,22 @@ async function animeToshoBatchFilter(anidb_id, episodeCount, episodeTarget, audi
                     ? entry.magnetLink[0].replace(/&amp;/g, '&')
                     : entry.magnetLink.replace(/&amp;/g, '&');
 
-                console.log(`Caching From animeToshoBatchFilter: anilistId=${anilistID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${audio},  title: ${entry.title}`);
 
-                cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnetLink, parseInt(entry.seeders));
+                const infoHash = extractInfoHash(magnetLink);
+                console.log(`Caching From animeToshoBatchFilter: anilistId=${anilistID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${audio},  title: ${entry.title}, infoHash: ${infoHash}`);
+                
+                cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnetLink, parseInt(entry.seeders), infoHash);
             }
 
         } else if (range && range.length > 0) {
             entry.magnetLink = Array.isArray(entry.magnetLink) 
                     ? entry.magnetLink[0].replace(/&amp;/g, '&')
                     : entry.magnetLink.replace(/&amp;/g, '&');
-            console.log(`Caching From animeToshoBatchFilter: anilistId=${anilistID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${audio}, title: ${entry.title}`);
 
-            cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnetLink, parseInt(entry.seeders));
+            const infoHash = extractInfoHash(magnetLink);
+            console.log(`Caching From animeToshoBatchFilter: anilistId=${anilistID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${audio}, title: ${entry.title}, infoHash: ${infoHash}`);
+
+            cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnetLink, parseInt(entry.seeders), infoHash);
         } else {
             resultsFinal.push(entry);
         }
@@ -273,12 +277,14 @@ async function animetoshoTorrentScraperDeprecated(anidb_id, title, episode, form
 
     for (const torrent of allEntries) {
         if (torrent.torrent_cachable) {
-            console.log(`Caching From animetoshoTorrentScraperDeprecated: anilistId=${anilistID}, episodes [${torrent.cache_range[0]}..${torrent.cache_range[torrent.cache_range.length - 1]}], audio: ${dub}, magnetlink: ${torrent.magnet_link}`);
             let magnetLink = Array.isArray(torrent.magnet_link) 
                         ? torrent.magnet_link[0].replace(/&amp;/g, '&')
                         : torrent.magnet_link.replace(/&amp;/g, '&');
 
-            cacheTorrentRange(anilistID, torrent.cache_range[0], torrent.cache_range[torrent.cache_range.length - 1], dub, magnetLink, parseInt(torrent.seeders));
+            const infoHash = extractInfoHash(magnetLink);
+            console.log(`Caching From animetoshoTorrentScraperDeprecated: anilistId=${anilistID}, episodes [${torrent.cache_range[0]}..${torrent.cache_range[torrent.cache_range.length - 1]}], audio: ${dub}, magnetlink: ${torrent.magnet_link}`);
+
+            cacheTorrentRange(anilistID, torrent.cache_range[0], torrent.cache_range[torrent.cache_range.length - 1], dub, magnetLink, parseInt(torrent.seeders), infoHash);
         }
     }
     // console.log(`Valid Torrent Entries: ${JSON.stringify(allEntries, null, 2)}\n`);
@@ -519,7 +525,6 @@ async function seadex_finder(alID, audio, episode, format, english_title, romanj
             
             const num_seeders = extractSeeders(html);
             // console.log(num_seeders);
-            const infoHash = extractInfoHash(html)
             // console.log(infoHash);
             let magnetLink = extractMagnetLink(html);
             
@@ -527,6 +532,8 @@ async function seadex_finder(alID, audio, episode, format, english_title, romanj
                     ? magnetLink[0].replace(/&amp;/g, '&')
                     : magnetLink.replace(/&amp;/g, '&');
 
+
+            const infoHash = extractInfoHash(magnetLink);
             // console.log(magnetLink);
             const items = data;
             const entry = {
@@ -563,15 +570,15 @@ async function seadex_finder(alID, audio, episode, format, english_title, romanj
                 console.log(`anilist episodes: `, anilist_episodes);
                 
         
-                console.log(`Inserted into cache from seadex: anilistId=${alID}, episodes [${startRange}..${endRange}], audio: ${audio}`);
 
                 if (startRange < endRange) {
-                    
-                    
-                    cacheTorrentRange(alID, startRange, endRange, audio, magnetLink, parseInt(num_seeders));
+
+                    console.log(`Inserted into cache from seadex: anilistId=${alID}, episodes [${startRange}..${endRange}], audio: ${audio}, infoHash: ${infoHash}`);
+
+                    cacheTorrentRange(alID, startRange, endRange, audio, magnetLink, parseInt(num_seeders), infoHash);
 
                     if (data.dualAudio === true && audio === 'sub') {
-                        cacheTorrentRange(alID, startRange, endRange, 'dub', magnetLink, parseInt(num_seeders));
+                        cacheTorrentRange(alID, startRange, endRange, 'dub', magnetLink, parseInt(num_seeders), infoHash);
                     }
                 }
                 
@@ -685,8 +692,11 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
                     : torrent.magnetLink.replace(/&amp;/g, '&');
 
             if (alID !== undefined) {
-                console.log(`Caching From nyaa_html_finder: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${dub}, title: ${title}`);
-                cacheTorrentRange(alID, range[0], range[range.length - 1], dub, torrent.magnetLink, parseInt(torrent.seeders, 10));
+                const infoHash = extractInfoHash(torrent.magnetLink);
+
+                console.log(`Caching From nyaa_html_finder: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${dub}, title: ${title}, infoHash: ${infoHash}`);
+
+                cacheTorrentRange(alID, range[0], range[range.length - 1], dub, torrent.magnetLink, parseInt(torrent.seeders, 10), infoHash);
 
                 // console.log(`Inserted into cache: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], magnetLink=${magnetLink}`);
             }
@@ -769,8 +779,10 @@ async function nyaa_reserve_extract(reserve_torrents, eng_title, rom_title, epis
 
                     console.log('Caching From nyaa_reserve_extract');
 
-                    // console.log(`Adding torrent to cache from nyaa reserve: alID: ${anilistID} startEp: ${sortedRange[0]}, endEp: ${sortedRange[sortedRange.length - 1]}, audioType: ${format}, Maglink: ${bestMatch.torrent.magnetLink}, Seeders: ${bestMatch.torrent.seeders}`);
-                    cacheTorrentRange(anilistID, sortedRange[0], sortedRange[sortedRange.length - 1], format, bestMatch.torrent.magnetLink, parseInt(bestMatch.torrent.seeders));
+                    const infoHash = extractInfoHash(bestMatch.torrent.magnetLink);
+                    console.log(`Adding torrent to cache from nyaa reserve: alID: ${anilistID} startEp: ${sortedRange[0]}, endEp: ${sortedRange[sortedRange.length - 1]}, audioType: ${format}, Seeders: ${bestMatch.torrent.seeders}, infoHash: ${infoHash}`);
+                    
+                    cacheTorrentRange(anilistID, sortedRange[0], sortedRange[sortedRange.length - 1], format, bestMatch.torrent.magnetLink, parseInt(bestMatch.torrent.seeders), infoHash);
                 }
                 
                 trsContainingEpisode.push(bestMatch.torrent);
@@ -1244,12 +1256,6 @@ function extractSeeders(html) {
     const regex = /Seeders:<\/div>\s*<div[^>]*><span[^>]*>(\d+)<\/span>/;
     const match = html.match(regex);
     return match ? parseInt(match[1], 10) : null;
-}
-
-function extractInfoHash(html) {
-    const regex = /Info hash:<\/div>\s*<div[^>]*><kbd>([a-fA-F0-9]+)<\/kbd>/;
-    const match = html.match(regex);
-    return match ? match[1] : null;
 }
 
 function extractMagnetLink(html) {

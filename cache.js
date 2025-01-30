@@ -4,7 +4,7 @@ import { LRUCache } from 'lru-cache';
 
 const globalTorrentCache = new LRUCache({ max: 100, ttl: 1000 * 60 * 60 }); 
 
-function cacheTorrentRange(anilistId, startEp, endEp, audioType, magnetLink, seeders = 0) {
+function cacheTorrentRange(anilistId, startEp, endEp, audioType, magnetLink, seeders = 0, infoHash) {
     // The cache key for this particular anime ID
     const cacheKey = `anime-slices:${anilistId}`;
   
