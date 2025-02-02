@@ -3,7 +3,7 @@
 import { seadex_finder, gogo_anime_finder, parse_title_reserve, find_best_match, animeToshoEpisodeFilter, animeToshoBatchFilter, fetchWithRetry } from "./anime-finder-funcs.js";
 import { nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } from "./query-creator.js";
 import { nyaa_function_dispatch } from "./query-dispatcher.js";
-import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata, findAllTorrentsForEpisode, cacheTorrentRange, isMagnetInCache } from "./cache.js";
+import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata, findAllTorrentsForEpisode, cacheTorrentRange, isInfoHashInCache, wipeInfoHashFromCache } from "./cache.js";
 import { getGlobalClient, getGlobalClientTest } from "./webtorrent-client.js";
 
 
@@ -45,17 +45,10 @@ process.on('uncaughtException', (err) => {
 function bestCachedTorrent(candidates) {
     if (candidates) {
         for (const candidate of candidates) {
-            const magnetLink = Array.isArray(candidate.magnetLink) 
-                ? candidate.magnetLink[0].replace(/&amp;/g, '&')
-                : candidate.magnetLink.replace(/&amp;/g, '&');
-    
-            const fileData = getTorrentMetadata(magnetLink);
+            const fileData = getTorrentMetadata(candidate.infoHash);
 
             console.log('Cache Candidate:');
             console.log(candidate);
-            // console.log('fileData');
-            // console.log(fileData);
-
 
             if (fileData) {
                 return { torrent: candidate, fileData: fileData }
@@ -92,30 +85,36 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
 
     // const cached = findMagnetForEpisode(alID, episode_number, audio);
     const cached = findAllTorrentsForEpisode(alID, episode_number, audio);
-    const cacheResults = bestCachedTorrent(cached);
+    /* const cacheResults = bestCachedTorrent(cached);
     const bestTorrent = cacheResults.torrent;
-    const fileData = cacheResults.fileData;
+    const fileData = cacheResults.fileData; */
 
-    console.log(`bestTorrentCached: ${bestTorrent}, fileData: ${fileData}`);
+    // console.log(`bestTorrentCached: ${bestTorrent}, fileData: ${fileData}`);
 
-    if (fileData) {
+    if (cached) {
         // console.log('Crawler Dispatch Cache Branch');
-        console.log(`cache hit: ${ english_title } episode: ${ episode_number } audio: ${audio} magnetLink ${cached.magnetLink} `);
+        for (const candidate of cached) {
+            console.log(`cache hit: ${ english_title } episode: ${ episode_number } audio: ${audio} magnetLink ${candidate.magnetLink} `);
 
-        const magnetLink = Array.isArray(bestTorrent.magnetLink) 
-            ? bestTorrent.magnetLink[0].replace(/&amp;/g, '&')
-            : bestTorrent.magnetLink.replace(/&amp;/g, '&');
+            const magnetLink = Array.isArray(candidate.magnetLink) 
+                ? candidate.magnetLink[0].replace(/&amp;/g, '&')
+                : candidate.magnetLink.replace(/&amp;/g, '&');
+        
+            const seeders = candidate.seeders; 
+            
+            const fileData = getTorrentMetadata(candidate.infoHash);
+
+            if (fileData) {
+                console.log(`cache hit for torrent metadata`)
+                //console.log(`fileData: ` + `\n`, fileData);
+                await writeTorrentMetadataFromCache(fileData, magnetLink, episode_number, seeders, audio, alID, anidbId, db, english_title, romanji_title);
     
-        const seeders = bestTorrent.seeders; 
-
-        if (fileData) {
-            console.log(`cache hit for torrent metadata`)
-            //console.log(`fileData: ` + `\n`, fileData);
-            await writeTorrentMetadataFromCache(fileData, magnetLink, episode_number, seeders, audio, alID, anidbId, db, english_title, romanji_title);
-
-        } else {
-            console.log('No file data for torrent')
+            } else {
+                console.log('No file data for torrent')
+                await fetchTorrentMetadata(candidate.magnetLink, episode_number, candidate.seeders, audio, alID, anidbId, db, format, english_title, romanji_title, candidate)
+            }
         }
+       
 
     } else {
         let anidbEid;
@@ -226,36 +225,6 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
             // const trs_final = []; 
             await processTorrents(trs_results_sorted, episode_number, audio, alID, anidbId, db, format, english_title, romanji_title);
 
-            /* for (let i = 0; i < Math.min(trs_results_sorted.length, 6); i++) {
-                const raw_torrent = trs_results_sorted[i];
-                // console.log(`raw_torrent magnetLink:`, raw_torrent.magnetLink);
-                
-            
-                // console.log(`Potential Torrent:`);
-                // console.log(raw_torrent);
-
-
-                let magnetLink = Array.isArray(raw_torrent.magnetLink)
-                    ? raw_torrent.magnetLink[0] 
-                    : raw_torrent.magnetLink;
-                
-                magnetLink = magnetLink.replace(/&amp;/g, '&');
-        
-                const seeders = raw_torrent.seeders;
-                // const audio_type = raw_torrent.audio_type; 
-                
-
-                /*console.log(`processed magnetLink:`,magnetLink);
-                console.log(`\naudio_type:`, audio_type);
-                console.log(`\nseeders:`, seeders); */
-                /* console.log('\nProcessing Torrent: ', raw_torrent.title);
-                if (raw_torrent.title === undefined) {
-                    console.log(raw_torrent);
-                } 
-
-                await fetchTorrentMetadata(magnetLink, episode_number, seeders, audio, alID, anidbId, db, format, english_title, romanji_title);
-            } */
-
         }
     } 
 }
@@ -274,6 +243,7 @@ async function processTorrents(trs_results_sorted, episode_number, audio, alID, 
             : raw_torrent.magnetLink;
         
         magnetLink = magnetLink.replace(/&amp;/g, '&');
+        // console.log(`magnetLink of torrent being dispatched: ${magnetLink}`);
         const seeders = raw_torrent.seeders;
 
         // Return the promise without awaiting it
@@ -287,10 +257,11 @@ async function processTorrents(trs_results_sorted, episode_number, audio, alID, 
             db,
             format,
             english_title,
-            romanji_title
+            romanji_title,
+            raw_torrent
         ).catch(error => {
             // Handle individual torrent errors without failing the entire batch
-            console.error(`Error processing torrent: ${error.message}`);
+            console.error(`Error processing torrent: ${error.message}, magnetLink: ${magnetLink}`);
             return null;
         });
     });
@@ -386,7 +357,7 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
 }
 
 //cache file meta data. 
-async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_type, alID, anidbId, db, format, eng_title, rom_title) {
+async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_type, alID, anidbId, db, format, eng_title, rom_title, raw_torrent) {
     return new Promise((resolve, reject) => {
         const client = getGlobalClient();
 
@@ -398,6 +369,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
             // await destroyTorrentSafely(torrent);
             console.log('Resolved fetchTorrentMetadata');
             resolve(null);
+            wipeInfoHashFromCache(alID, raw_torrent.infoHash);
         }, 30000);
     
 
@@ -469,18 +441,18 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                             index: idx
                         }));
 
-                        if(!isMagnetInCache(magnetURI, alID, audio_type)) {
+                        if(!isInfoHashInCache(torrent.infoHash, alID, audio_type)) {
                             const sortedRange = [...episode_set].sort((a, b) => a - b);
                             if (sortedRange.length > 1) {
                                 console.log(`Caching From FetchTorrentMetadata: anilistId=${alID}, episodes [${sortedRange[0]}..${sortedRange[sortedRange.length - 1]}], audio: ${audio_type}, title: ${torrent.name}`);
                                 cacheTorrentRange(alID, sortedRange[0], sortedRange[sortedRange.length - 1], audio_type, magnetURI, seeders);
                             }
                         } else {
-                            console.log('Is Magnet In Cache: ', isMagnetInCache(magnetURI, alID));
+                            console.log('Is InfoHash In Cache: ', isInfoHashInCache(torrent.infoHash, alID));
                         }
 
                     
-                        storeTorrentMetadata(magnetURI, fileList);
+                        storeTorrentMetadata(raw_torrent.infoHash, fileList);
                         
                         
                         fileInfo = {
@@ -612,7 +584,11 @@ function extractInfoHash(magnetLink) {
         return '';
     }
 
-    const infoHash = hashMatch[1].toLowerCase()
+    let infoHash = hashMatch[1].toLowerCase()
+
+    //convert infoHash to hexadecimal, if already hexadecimal no change occurs
+    infoHash = convertToHex(infoHash);
+
     return infoHash
                 
 }
@@ -666,6 +642,71 @@ function isPureNumber(str) {
     // Remove leading/trailing whitespace, then check if the entire string is digits.
     return /^\d+$/.test(str.trim());
 }
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+function convertToHex(str) {
+    // Trim any extraneous whitespace
+    str = str.trim();
+  
+    // Check if the string is already a valid hexadecimal string.
+    // For torrent info hashes in hex, we expect 40 hex digits.
+    if (str.length === 40 && /^[0-9a-fA-F]+$/.test(str)) {
+      return str.toLowerCase();
+    }
+    
+    // If the string is 32 characters and contains any characters outside the hex range,
+    // it is most likely a Base32 representation.
+    if (str.length === 32 && /[^0-9a-fA-F]/.test(str)) {
+      return base32ToHex(str).toLowerCase();
+    }
+    
+    // As a fallback, if the string only contains valid Base32 characters (A-Z and 2-7),
+    // assume it is Base32.
+    if (/^[A-Z2-7]+$/i.test(str)) {
+      return base32ToHex(str).toLowerCase();
+    }
+    
+    // If the input appears to be a hex string but with unexpected length,
+    // you might decide to return it unchanged or throw an error.
+    if (/^[0-9a-fA-F]+$/.test(str)) {
+      return str.toLowerCase();
+    }
+    
+    throw new Error("Input does not appear to be a valid hexadecimal or Base32 string.");
+}
+
+
+function base32ToHex(base32) {
+    // Normalize to uppercase and remove any padding characters.
+    base32 = base32.toUpperCase().replace(/=+$/, '');
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    let bits = "";
+    
+    // Convert each Base32 character to its 5-bit binary representation.
+    for (let i = 0; i < base32.length; i++) {
+      const val = alphabet.indexOf(base32[i]);
+      if (val === -1) {
+        throw new Error("Invalid base32 character: " + base32[i]);
+      }
+      bits += val.toString(2).padStart(5, '0');
+    }
+    
+    // Convert the binary string to hexadecimal (4 bits per hex digit).
+    let hex = "";
+    for (let i = 0; i < bits.length; i += 4) {
+      // If the last chunk is less than 4 bits, ignore it (shouldn't happen for a full torrent info hash)
+      const chunk = bits.substring(i, i + 4);
+      if (chunk.length < 4) break;
+      hex += parseInt(chunk, 2).toString(16);
+    }
+    
+    return hex;
+}
+
 
 export {
     crawler_dispatch,
