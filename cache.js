@@ -16,7 +16,7 @@ function cacheTorrentRange(anilistId, startEp, endEp, audioType, magnetLink, see
       slice.startEp === startEp &&
       slice.endEp === endEp &&
       slice.audioType === audioType && 
-      slice.magnetLink === magnetLink
+      slice.infoHash === infoHash
     );
   
     if (dupeIndex !== -1) {
@@ -32,7 +32,8 @@ function cacheTorrentRange(anilistId, startEp, endEp, audioType, magnetLink, see
             endEp,
             audioType,
             magnetLink,
-            seeders
+            seeders,
+            infoHash
         });
     }
   
@@ -82,31 +83,47 @@ function findAllTorrentsForEpisode(anilistId, episodeNumber, audioType) {
     return candidates;
 }
 
-function storeTorrentMetadata(magnetLink, fileList) {
-    const key = `torrent-metadata:${magnetLink}`;
+function storeTorrentMetadata(infoHash, fileList) {
+    const key = `torrent-infoHash:${infoHash}`;
     globalTorrentCache.set(key, {
         fileList
     });
 }
 
-function getTorrentMetadata(magnetLink) {
-    const key = `torrent-metadata:${magnetLink}`;
+function wipeInfoHashFromCache(anilistId, infoHash) {
+    // Remove the slice from the anime-slices cache
+    const slicesKey = `anime-slices:${anilistId}`;
+    const slices = globalTorrentCache.get(slicesKey);
+
+    if (slices) {
+        const filteredSlices = slices.filter(slice => slice.infoHash !== infoHash);
+        globalTorrentCache.set(slicesKey, filteredSlices);
+    }
+
+    // Remove any stored torrent metadata for this infoHash
+    const metadataKey = `torrent-infoHash:${infoHash}`;
+    globalTorrentCache.delete(metadataKey);
+}
+  
+function getTorrentMetadata(infoHash) {
+    const key = `torrent-infoHash:${infoHash}`;
     return globalTorrentCache.get(key) || null;
 }
 
-function isMagnetInCache(magnetLink, anilistId, audioType) {
+function isInfoHashInCache(infoHash, anilistId, audioType) {
     const slices = globalTorrentCache.get(`anime-slices:${anilistId}`);
     if (!slices) return false;
-    return slices.some(slice => slice.magnetLink === magnetLink && slice.audioType === audioType);
+    return slices.some(slice => slice.infoHash === infoHash && slice.audioType === audioType);
 }
 
 
 export {
-    isMagnetInCache,
+    isInfoHashInCache,
     cacheTorrentRange,
     findMagnetForEpisode,
     storeTorrentMetadata,
     getTorrentMetadata,
     findAllTorrentsForEpisode,
+    wipeInfoHashFromCache,
     globalTorrentCache
 }

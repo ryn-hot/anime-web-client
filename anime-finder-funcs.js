@@ -129,6 +129,10 @@ async function animeToshoEpisodeFilter(anidbEid, audio) {
     }
 
     results = results.sort((a, b) => b.seeders - a.seeders);
+    results = results.map(entry => ({
+        ...entry,
+        infoHash: extractInfoHash(entry.magnetLink)
+    }))
 
     return results;
     
@@ -159,17 +163,19 @@ async function animeToshoBatchFilter(anidb_id, episodeCount, episodeTarget, audi
         const range = getRange(episode_int) || [];
 
         if (range.includes(episodeTarget)) {
-            resultsFinal.push(entry);
+            
             if (range.length > 0) {
                 entry.magnetLink = Array.isArray(entry.magnetLink) 
                     ? entry.magnetLink[0].replace(/&amp;/g, '&')
                     : entry.magnetLink.replace(/&amp;/g, '&');
 
 
-                const infoHash = extractInfoHash(magnetLink);
+                const infoHash = extractInfoHash(entry.magnetLink);
                 console.log(`Caching From animeToshoBatchFilter: anilistId=${anilistID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${audio},  title: ${entry.title}, infoHash: ${infoHash}`);
                 
                 cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnetLink, parseInt(entry.seeders), infoHash);
+                entry.infoHash = infoHash;
+                resultsFinal.push(entry);
             }
 
         } else if (range && range.length > 0) {
@@ -177,11 +183,22 @@ async function animeToshoBatchFilter(anidb_id, episodeCount, episodeTarget, audi
                     ? entry.magnetLink[0].replace(/&amp;/g, '&')
                     : entry.magnetLink.replace(/&amp;/g, '&');
 
-            const infoHash = extractInfoHash(magnetLink);
+            const infoHash = extractInfoHash(entry.magnetLink);
             console.log(`Caching From animeToshoBatchFilter: anilistId=${anilistID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${audio}, title: ${entry.title}, infoHash: ${infoHash}`);
+            entry.infoHash = infoHash;
+            
+            resultsFinal.push(entry);
 
             cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnetLink, parseInt(entry.seeders), infoHash);
         } else {
+
+            entry.magnetLink = Array.isArray(entry.magnetLink) 
+                    ? entry.magnetLink[0].replace(/&amp;/g, '&')
+                    : entry.magnetLink.replace(/&amp;/g, '&');
+
+            const infoHash = extractInfoHash(entry.magnetLink);
+            entry.infoHash = infoHash;
+
             resultsFinal.push(entry);
         }
         
@@ -678,6 +695,16 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
 
         const episode_int = convertToIntegers(torrent_info.episode_number);
 
+        // Insert episode slice into cache here.
+        torrent.magnetLink = Array.isArray(torrent.magnetLink) 
+            ? torrent.magnetLink[0].replace(/&amp;/g, '&')
+            : torrent.magnetLink.replace(/&amp;/g, '&');
+
+
+        const infoHash = extractInfoHash(torrent.magnetLink);
+        torrent.infoHash = infoHash;
+
+
         if (episode_int.length >= 1) {
             const range = getRange(episode_int);
             
@@ -686,14 +713,7 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
                 continue;
             }
 
-            // Insert episode slice into cache here.
-            torrent.magnetLink = Array.isArray(torrent.magnetLink) 
-                    ? torrent.magnetLink[0].replace(/&amp;/g, '&')
-                    : torrent.magnetLink.replace(/&amp;/g, '&');
-
             if (alID !== undefined) {
-                const infoHash = extractInfoHash(torrent.magnetLink);
-
                 console.log(`Caching From nyaa_html_finder: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${dub}, title: ${title}, infoHash: ${infoHash}`);
 
                 cacheTorrentRange(alID, range[0], range[range.length - 1], dub, torrent.magnetLink, parseInt(torrent.seeders, 10), infoHash);
@@ -771,15 +791,18 @@ async function nyaa_reserve_extract(reserve_torrents, eng_title, rom_title, epis
 
             if (fileFound && bestMatch) {
                 const sortedRange = [...cache_set].sort((a, b) => a - b);
-                if (sortedRange.length > 1) {
 
-                    bestMatch.torrent.magnetLink = Array.isArray(bestMatch.torrent.magnetLink) 
-                        ? bestMatch.torrent.magnetLink[0].replace(/&amp;/g, '&')
-                        : bestMatch.torrent.magnetLink.replace(/&amp;/g, '&');
+                bestMatch.torrent.magnetLink = Array.isArray(bestMatch.torrent.magnetLink) 
+                    ? bestMatch.torrent.magnetLink[0].replace(/&amp;/g, '&')
+                    : bestMatch.torrent.magnetLink.replace(/&amp;/g, '&');
+                
+                const infoHash = extractInfoHash(bestMatch.torrent.magnetLink);
+                bestMatch.torrent.infoHash = infoHash;
+
+                if (sortedRange.length > 1) {
 
                     console.log('Caching From nyaa_reserve_extract');
 
-                    const infoHash = extractInfoHash(bestMatch.torrent.magnetLink);
                     console.log(`Adding torrent to cache from nyaa reserve: alID: ${anilistID} startEp: ${sortedRange[0]}, endEp: ${sortedRange[sortedRange.length - 1]}, audioType: ${format}, Seeders: ${bestMatch.torrent.seeders}, infoHash: ${infoHash}`);
                     
                     cacheTorrentRange(anilistID, sortedRange[0], sortedRange[sortedRange.length - 1], format, bestMatch.torrent.magnetLink, parseInt(bestMatch.torrent.seeders), infoHash);
@@ -1276,6 +1299,10 @@ function removeSpacesAroundHyphens(str) {
     return str.replace(/(\b[+-]?\d+(?:\.\d+)?\b)\s*([-–—])\s*(\b[+-]?\d+(?:\.\d+)?\b)/g, '$1$2$3');
 }
 
+
+  
+
+  
 
 export {
     seadex_finder,
