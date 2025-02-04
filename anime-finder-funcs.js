@@ -8,7 +8,7 @@ import { globalTorrentCache, cacheTorrentRange } from './cache.js';
 import { miruToshoEpisode } from "./miru-sources/tosho-test.js";
 import { miruToshoMovie } from "./miru-sources/tosho-test.js";
 import { miruToshoBatchAnime } from './miru-sources/tosho-test.js';
-import { cleanLeadingZeroes, extractInfoHash } from './main.js';
+import { cleanLeadingZeroes, extractInfoHash, addSpacesAroundHyphens } from './main.js';
 
 
 
@@ -358,7 +358,10 @@ async function processAnimeToshoTorrents(torrentEntries, episode) {
                 }
 
                 if (fileFound) {
-                    const sortedRange = [...cache_set].sort((a, b) => a - b);
+                    const sortedRange = [...cache_set]
+                        .filter(n => n !== undefined && !Number.isNaN(n))
+                        .sort((a, b) => a - b);
+                    
                     torrent.cache_range = sortedRange;
                     torrent.torrent_cachable = true; 
                 }
@@ -396,7 +399,7 @@ async function processAnimeToshoTorrents(torrentEntries, episode) {
             for (const mkvFile of mkvFiles) {
                 const episode_info = await modified_anitomy(mkvFile);
                 // console.log('Nyaa Episode Being Processed: ', parseInt(episode_info[0].episode_number));
-                cache_set.add(episode_info);
+                cache_set.add(episode_info[0].episode_number);
                 const episode_number =  parseInt(episode_info[0].episode_number);
                 if (episode === episode_number) {
                     // console.log(`Found Episode`);
@@ -407,7 +410,10 @@ async function processAnimeToshoTorrents(torrentEntries, episode) {
             }
 
             if (fileFound) {
-                const sortedRange = [...cache_set].sort((a, b) => a - b);
+                const sortedRange = [...cache_set]
+                    .filter(n => n !== undefined && !Number.isNaN(n))
+                    .sort((a, b) => a - b);
+                
                 torrent.cache_range = sortedRange;
                 torrent.torrent_cachable = true; 
             }
@@ -545,9 +551,18 @@ async function seadex_finder(alID, audio, episode, format, english_title, romanj
             // console.log(infoHash);
             let magnetLink = extractMagnetLink(html);
             
-            magnetLink = Array.isArray(magnetLink) 
-                    ? magnetLink[0].replace(/&amp;/g, '&')
-                    : magnetLink.replace(/&amp;/g, '&');
+            if (magnetLink) {
+
+                magnetLink = Array.isArray(magnetLink) 
+                ? magnetLink[0].replace(/&amp;/g, '&')
+                : magnetLink.replace(/&amp;/g, '&');
+
+            } else {
+                magnetLink = '';
+                console.log('No Magnet Link Extracted in Seadex');
+            }
+          
+
 
 
             const infoHash = extractInfoHash(magnetLink);
@@ -715,8 +730,10 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
 
             if (alID !== undefined) {
                 console.log(`Caching From nyaa_html_finder: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${dub}, title: ${title}, infoHash: ${infoHash}`);
-
-                cacheTorrentRange(alID, range[0], range[range.length - 1], dub, torrent.magnetLink, parseInt(torrent.seeders, 10), infoHash);
+                
+                if (range.length > 1) {
+                    cacheTorrentRange(alID, range[0], range[range.length - 1], dub, torrent.magnetLink, parseInt(torrent.seeders, 10), infoHash);
+                }
 
                 // console.log(`Inserted into cache: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], magnetLink=${magnetLink}`);
             }
@@ -771,9 +788,12 @@ async function nyaa_reserve_extract(reserve_torrents, eng_title, rom_title, epis
             let fileFound = false;
             for (let file of usable_files) {
                 // console.log(`file: `, file);
+
+                file = addSpacesAroundHyphens(file);
                 file = cleanLeadingZeroes(file);
+
                 const episode_info = await parse_title_reserve(file);
-                const episode_number = episode_info.episode_number;
+                const episode_number = parseInt(episode_info.episode_number);
                 cache_set.add(episode_number);
 
                 // console.log(`episode_number: \n`, episode_number);
@@ -790,7 +810,9 @@ async function nyaa_reserve_extract(reserve_torrents, eng_title, rom_title, epis
             let bestMatch = find_best_match(potential_files, eng_title, rom_title);
 
             if (fileFound && bestMatch) {
-                const sortedRange = [...cache_set].sort((a, b) => a - b);
+                const sortedRange = [...cache_set]
+                    .filter(n => n !== undefined && !Number.isNaN(n))
+                    .sort((a, b) => a - b);
 
                 bestMatch.torrent.magnetLink = Array.isArray(bestMatch.torrent.magnetLink) 
                     ? bestMatch.torrent.magnetLink[0].replace(/&amp;/g, '&')
@@ -800,7 +822,6 @@ async function nyaa_reserve_extract(reserve_torrents, eng_title, rom_title, epis
                 bestMatch.torrent.infoHash = infoHash;
 
                 if (sortedRange.length > 1) {
-
                     console.log('Caching From nyaa_reserve_extract');
 
                     console.log(`Adding torrent to cache from nyaa reserve: alID: ${anilistID} startEp: ${sortedRange[0]}, endEp: ${sortedRange[sortedRange.length - 1]}, audioType: ${format}, Seeders: ${bestMatch.torrent.seeders}, infoHash: ${infoHash}`);

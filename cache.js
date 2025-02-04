@@ -4,7 +4,26 @@ import { LRUCache } from 'lru-cache';
 
 const globalTorrentCache = new LRUCache({ max: 100, ttl: 1000 * 60 * 60 }); 
 
+const globalBuildBlackListCache = new LRUCache({ max: 100, ttl: 1000 * 60 * 60 })
+
+function addToBlackList(infoHash) {
+    const key = `infoHash:${infoHash}`;
+    globalBuildBlackListCache.set(key, infoHash);
+}
+
+function isInfoHashInBlackList(infoHash) {
+    const key = `infoHash:${infoHash}`;
+    return !!globalBuildBlackListCache.get(key);
+}
+
 function cacheTorrentRange(anilistId, startEp, endEp, audioType, magnetLink, seeders = 0, infoHash) {
+
+    const isBlacklisted = isInfoHashInBlackList(infoHash)
+
+    if (isBlacklisted) {
+        console.log('Torrent in blacklist not caching');
+        return 
+    }
     // The cache key for this particular anime ID
     const cacheKey = `anime-slices:${anilistId}`;
   
@@ -125,5 +144,8 @@ export {
     getTorrentMetadata,
     findAllTorrentsForEpisode,
     wipeInfoHashFromCache,
+    addToBlackList,
+    isInfoHashInBlackList,
+    globalBuildBlackListCache,
     globalTorrentCache
 }
