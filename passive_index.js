@@ -671,9 +671,9 @@ async function processEpisodeTask(task, db, concurrency) {
             // e.g. round-robin
         // Then pass this proxy to your crawler logic 
     } else {
-        console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }, Format ${task.format}`);
+        // console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }, Format ${task.format}`);
 
-        await crawler_dispatch(
+        /* await crawler_dispatch(
             db,
             task.englishTitle,
             task.romanjiTitle,
@@ -683,9 +683,11 @@ async function processEpisodeTask(task, db, concurrency) {
             task.episodeNumber,
             task.format,
             task.mode
-        ); 
+        ); */
 
-        /* if (task.anilistId === 21) {
+        if (task.anilistId === 22) {
+            console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }, Format ${task.format}`);
+
             await crawler_dispatch(
                 db,
                 task.englishTitle,
@@ -697,7 +699,7 @@ async function processEpisodeTask(task, db, concurrency) {
                 task.format,
                 task.mode
             ); 
-        } */
+        }
        
     
 

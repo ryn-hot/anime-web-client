@@ -174,6 +174,11 @@ async function animeToshoBatchFilter(anidb_id, episodeCount, episodeTarget, audi
                 console.log(`Caching From animeToshoBatchFilter: anilistId=${anilistID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${audio},  title: ${entry.title}, infoHash: ${infoHash}`);
                 
                 cacheTorrentRange(anilistID, range[0], range[range.length - 1], audio, entry.magnetLink, parseInt(entry.seeders), infoHash);
+
+                if (hasDualAudioOrEnglishDub(title) && audio !== 'dub') {
+                    cacheTorrentRange(anilistID, range[0], range[range.length - 1], 'dub', entry.magnetLink, parseInt(entry.seeders), infoHash);
+                }
+
                 entry.infoHash = infoHash;
                 resultsFinal.push(entry);
             }
@@ -731,8 +736,14 @@ async function nyaa_html_finder(url, query, set_title, season_number, episode_nu
             if (alID !== undefined) {
                 console.log(`Caching From nyaa_html_finder: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], audio: ${dub}, title: ${title}, infoHash: ${infoHash}`);
                 
-                if (range.length > 1) {
+                if (range.length > 2) {
                     cacheTorrentRange(alID, range[0], range[range.length - 1], dub, torrent.magnetLink, parseInt(torrent.seeders, 10), infoHash);
+
+                    if (hasDualAudioOrEnglishDub(title) && dub !== 'dub') {
+
+                        cacheTorrentRange(alID, range[0], range[range.length - 1], 'dub', torrent.magnetLink, parseInt(torrent.seeders, 10), infoHash);
+
+                    }
                 }
 
                 // console.log(`Inserted into cache: anilistId=${alID}, episodes [${range[0]}..${range[range.length - 1]}], magnetLink=${magnetLink}`);
@@ -821,13 +832,18 @@ async function nyaa_reserve_extract(reserve_torrents, eng_title, rom_title, epis
                 const infoHash = extractInfoHash(bestMatch.torrent.magnetLink);
                 bestMatch.torrent.infoHash = infoHash;
 
-                if (sortedRange.length > 1) {
+                if (sortedRange.length > 2) {
                     console.log('Caching From nyaa_reserve_extract');
 
                     console.log(`Adding torrent to cache from nyaa reserve: alID: ${anilistID} startEp: ${sortedRange[0]}, endEp: ${sortedRange[sortedRange.length - 1]}, audioType: ${format}, Seeders: ${bestMatch.torrent.seeders}, infoHash: ${infoHash}`);
                     
                     cacheTorrentRange(anilistID, sortedRange[0], sortedRange[sortedRange.length - 1], format, bestMatch.torrent.magnetLink, parseInt(bestMatch.torrent.seeders), infoHash);
+                    
+                    if (hasDualAudioOrEnglishDub(trs.title) && format !== 'dub') {
+                        cacheTorrentRange(anilistID, sortedRange[0], sortedRange[sortedRange.length - 1], 'dub', bestMatch.torrent.magnetLink, parseInt(bestMatch.torrent.seeders), infoHash);
+                    }
                 }
+
                 
                 trsContainingEpisode.push(bestMatch.torrent);
             }
@@ -1337,7 +1353,9 @@ export {
     removeSpacesAroundHyphens,
     find_best_match,
     fetchWithRetry,
-    delay
+    delay,
+    hasDualAudioOrEnglishDub,
+    modified_anitomy
 }
 
 // console.log(results); 

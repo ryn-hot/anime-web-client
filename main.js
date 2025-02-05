@@ -1,6 +1,6 @@
 //https://api.ani.zip/mappings?anilist_id=' + media.id storing future api call
 
-import { seadex_finder, gogo_anime_finder, parse_title_reserve, find_best_match, animeToshoEpisodeFilter, animeToshoBatchFilter, fetchWithRetry } from "./anime-finder-funcs.js";
+import { seadex_finder, parse_title_reserve, find_best_match, animeToshoEpisodeFilter, animeToshoBatchFilter, fetchWithRetry, hasDualAudioOrEnglishDub, modified_anitomy } from "./anime-finder-funcs.js";
 import { nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } from "./query-creator.js";
 import { nyaa_function_dispatch } from "./query-dispatcher.js";
 import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata, findAllTorrentsForEpisode, cacheTorrentRange, isInfoHashInCache, wipeInfoHashFromCache, addToBlackList, isInfoHashInBlackList } from "./cache.js";
@@ -39,6 +39,37 @@ process.on('uncaughtException', (err) => {
     }
 });
 
+await testSeasonFlattener();
+
+async function testSeasonFlattener() {
+    const raw_torrent = {
+        infoHash: '62a52fd3a549e478d866e9cb1a6fcc5f8766238f'
+    }
+
+    const magnetURI = 'magnet:?xt=urn:btih:MKSS7U5FJHSHRWDG5HFRU36ML6DWMI4P&tr=http%3A%2F%2Fnyaa.tracker.wf%3A7777%2Fannounce&tr=udp%3A%2F%2Fopen.stealth.si%3A80%2Fannounce&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Fexodus.desync.com%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce&dn=%5BShadoWalkeR%5D%20The%20Prince%20of%20Tennis%20%281-178%29%20%5B1080p%20HEVC%20x265%2010bit%5D%5BAAC%5D%5BSoft%20Eng%20Subs%5D';
+
+    const episode_number = 1;
+
+    const seeders = 14;
+
+    const audio_type = 'sub'
+
+    const alID = 22;
+
+    const anidbId = 56;
+
+    const db = null;
+
+    const format = 'TV';
+
+    const eng_title = 'The Prince of Tennis';
+
+    const rom_title = 'Tennis no Ouji-sama';
+
+    await fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_type, alID, anidbId, db, format, eng_title, rom_title, raw_torrent) 
+
+}
+
 
 async function crawler_dispatch(db, english_title, romanji_title, audio, alID, anidbId, episode_number, format, mode, proxy = null) {
 
@@ -50,6 +81,15 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
           console.log(`No torrent for Episode 1 with audio ${audio}. Skipping...`);
           return; // Avoid further crawling
         }
+
+        if (episode_number > 1) {
+            const hasPreviousEpisode = db.hasTypeEpisodeSource(alID, episode_number - 1, audio, 'torrent');
+            if (!hasPreviousEpisode) {
+                console.log(`No Previous Episode`);
+                return;
+            }
+        }
+        
     }
 
     const yearsFound = extractYears(english_title); 
@@ -296,6 +336,8 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
         let desiredFileIndex = null;
         let desiredFileName = null;
         const potential_files = [];
+        const season_tracker = [];
+
 
         for (let i = 0; i < fileList.length; i++) {
             const file = fileList[i];
@@ -312,6 +354,13 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
                     }
                 }
 
+                const episodeNum = parseInt(file_title_data.episode_number);
+                const seasonNum = parseInt(file_title_data.anime_season);
+
+                file_title_data.episode_number = await seasonFlattener(season_tracker, seasonNum, episodeNum);
+
+                season_tracker.push({seasonNum: seasonNum, episodeNum: episodeNum});
+                season_tracker.filter(n => !Number.isNaN(n.seasonNum) && !Number.isNaN(n.episodeNum));
 
                 if (parseInt(file_title_data.episode_number) === episode_number) {
                     // console.log(`Found the desired episode (Episode ${episode_number}): ${file.name}`);
@@ -372,6 +421,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
 
         const torrent = client.add(magnetURI)
         
+
         const metadataTimeout = setTimeout(async () => {
             console.log(`Metadata event did not fire within 60 seconds for ${magnetURI}, destroying torrent...`);
             torrent.destroy();
@@ -390,7 +440,10 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
 
             try {
                 clearTimeout(metadataTimeout);
-                
+
+                console.log(`torrent name: ${torrent.name}`);
+                console.log('Magnet Link: ', magnetURI);
+                console.log('InfoHash: ', raw_torrent.infoHash);
                 console.log(`Entry Format: `, format);
 
                 let fileInfo = null;
@@ -403,19 +456,39 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                     let desiredFileName = null;
                     const potential_files = [];
                     const episode_set = new Set();
-
+                    const season_tracker = [];
+                    const allFileNames = [];
+                    const reprocessEpisodes = []; 
+                    
                     for (let i = 0; i < torrent.files.length; i++) {
                         const file = torrent.files[i];
-                        // console.log(`Checking file: ${file.name}`);
+                        allFileNames.push(file.name);
 
                         if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
                             let file_name = addSpacesAroundHyphens(file.name);
                             file_name = cleanLeadingZeroes(file_name);
                             // console.log('file name: ', file_name);
                             let file_title_data = await parse_title_reserve(file_name);
+                            // console.log('file title data:');
+                            // console.log(file_title_data);
 
                             if (file_title_data.episode_number !== undefined) {
-                                episode_set.add(parseInt(file_title_data.episode_number));
+                                const episodeNum = parseInt(file_title_data.episode_number);
+                                const seasonNum = parseInt(file_title_data.anime_season);
+
+                                const results = await seasonFlattener(season_tracker, seasonNum, episodeNum);
+                                const absEpisodeNum = results.episodeNum
+
+                                if (results.reprocess === true) {
+                                    reprocessEpisodes.push({})
+                                }
+
+                                season_tracker.push({seasonNum: seasonNum, episodeNum: episodeNum});
+                                season_tracker.filter(n => !Number.isNaN(n.seasonNum) && !Number.isNaN(n.episodeNum));
+
+                                file_title_data.episode_number = absEpisodeNum;
+                                
+                                episode_set.add(absEpisodeNum);
                             } else {
                                 if (isPureNumber(file_title_data.file_name)) {
                                     file_title_data.episode_number = parseInt(file_title_data.file_name);
@@ -431,6 +504,9 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                             }
                         }
                     }
+
+                    console.log('All File Names:')
+                    console.log(allFileNames);
 
                     let bestMatch;
                     if (potential_files.length > 1) {
@@ -461,6 +537,9 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                             if (sortedRange.length > 1) {
                                 console.log(`Caching From FetchTorrentMetadata: anilistId=${alID}, episodes [${sortedRange[0]}..${sortedRange[sortedRange.length - 1]}], audio: ${audio_type}, title: ${torrent.name}`);
                                 cacheTorrentRange(alID, sortedRange[0], sortedRange[sortedRange.length - 1], audio_type, magnetURI, seeders, raw_torrent.infoHash);
+                                if (hasDualAudioOrEnglishDub(torrent.name) && audio_type !== 'dub') {
+                                    cacheTorrentRange(alID, sortedRange[0], sortedRange[sortedRange.length - 1], 'dub', magnetURI, seeders, raw_torrent.infoHash);
+                                }
                             }
                         } else {
                             console.log('Is InfoHash In Cache: ', isInfoHashInCache(raw_torrent.infoHash, alID));
@@ -618,26 +697,6 @@ function extractYears(text) {
     return matches || [];
 }
 
-async function torrentHealthCheck(torrent) {
-    await new Promise((resolveHealth, rejectHealth) => {
-        const healthCheckTimeout = setTimeout(() => {
-          // console.log('Health check timeout triggered');
-          if (torrent.numPeers === 0) {
-            // console.log('Peer Health Check Failed - no peers found.');
-            rejectHealth(new Error('No peers found, torrent likely unhealthy.'));
-          } else {
-            // console.log(`Peer Health Passed - ${torrent.numPeers} peer(s) connected.`);
-            resolveHealth();
-          }
-        }, 10000);
-
-        torrent.on('error', (err) => {
-          clearTimeout(healthCheckTimeout);
-          rejectHealth(err);
-        });
-    });
-
-}
 
 
 function sortTorrentList(torrents) {
@@ -727,6 +786,61 @@ function base32ToHex(base32) {
 
 function blacklistFilter(entries) {
     return entries.filter(entry => !isInfoHashInBlackList(entry.infoHash))
+}
+
+async function seasonFlattener(list, seasonNum, episodeNum) {
+    // console.log('Season List: ')
+    // console.log(list);
+    console.log(`Relative Season: ${seasonNum}, Relative Episode ${episodeNum}`);
+
+    /* if (seasonNum === 5 && episodeNum === 10) {
+        console.log(`---------------Relative Season: ${seasonNum}, Relative Episode ${episodeNum}---------------------`)
+    } */
+
+    if (Number.isNaN(seasonNum) || seasonNum === undefined || seasonNum === null || seasonNum == false) {
+        console.log(`SeasonNum is NaN or falsy returning episode number: `, episodeNum);
+        return { episodeNum: episodeNum, reprocess: false }
+    } else if (seasonNum === 1) {
+        console.log(`Season Num is 1 returing episode number: `, episodeNum)
+        return  { episodeNum: episodeNum, reprocess: false }
+    } else if (list.length === 0){
+        console.log(`Season list is empty returing episode number: `, episodeNum)
+        return  { episodeNum: episodeNum, reprocess: true }
+    } else {
+        console.log(`Season flattener finding absolute episode number for given season number: ${seasonNum} episode number: ${episodeNum}`);
+
+        const minSeason = Math.min(...list.map(pair => pair.seasonNum));
+
+        const checkSeasonOrder = list.filter(n => n.seasonNum - 1 === seasonNum - 1 || n.seasonNum ===  )
+        if ()
+        const seasonMap = {};
+
+        for (const pair of list) {
+            // If the season is not yet in the map or this pair's episode is greater than what we have, update it.
+            if (!seasonMap[pair.seasonNum] || pair.episodeNum > seasonMap[pair.seasonNum].episodeNum) {
+              seasonMap[pair.seasonNum] = pair;
+            }
+        }
+
+        const seasonData = Object.values(seasonMap);
+
+        const sortedSeasons = seasonData.slice().sort((a, b) => a.seasonNum - b.seasonNum);
+
+        let cumulativeEpisodes = 0;
+        for (const season of sortedSeasons) {
+            if (season.seasonNum < seasonNum) {
+                // console.log(`Adding season.seasonNum: ${season.seasonNum} with season.episodeNum: ${season.episodeNum} to cumlativeEpisodes: ${cumulativeEpisodes}`);
+                cumulativeEpisodes += season.episodeNum;
+            }
+        }
+
+        // console.log('Cumulative Sum:', cumulativeEpisodes);
+        // console.log('Episode Number: ', episodeNum);
+
+        console.log('Absolute Episode Number Found: ', cumulativeEpisodes + episodeNum)
+        return { episodeNum: cumulativeEpisodes + episodeNum, reprocess: true};
+
+    }
 }
 
 export {

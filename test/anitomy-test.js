@@ -89,7 +89,7 @@ function isPureNumber(str) {
   return /^\d+$/.test(str.trim());
 }
 
-let title = "at 1070.mkv";
+let title = "[ShadoWalkeR] The Prince of Tennis - S05E10 - Original Prodigy Fuji Syuusuke.mkv";
 title = cleanLeadingZeroes(title)
 console.log(title);
 const results = await modified_anitomy(title);
