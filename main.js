@@ -7,7 +7,7 @@ import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata, findAll
 import { getGlobalClient, getGlobalClientTest } from "./webtorrent-client.js";
 
 
-// todo cache update all torrents with file metadata should be added, also advanced handling for cached torrents with no fileData, if they fail their metadata retrieval remove them from the cache.
+// last thing to add is an anilist call for year abstraction    
 
 process.on('unhandledRejection', (reason, promise) => {
     // reason might be a RuntimeError with message: "abort(AbortError: The operation was aborted.)"
@@ -39,7 +39,7 @@ process.on('uncaughtException', (err) => {
     }
 });
 
-await testSeasonFlattener();
+// await testSeasonFlattener();
 
 async function testSeasonFlattener() {
     const raw_torrent = {
@@ -338,6 +338,23 @@ async function writeTorrentMetadataFromCache(fileData, magnetURI, episode_number
         const potential_files = [];
         const season_tracker = [];
 
+        for (let i = 0; i < fileList.length; i++) {
+            const file = fileList[i];
+            // console.log(`Checking file: ${file.name}`);
+
+            if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
+                let file_name = addSpacesAroundHyphens(file.name);
+                file_name = cleanLeadingZeroes(file_name)
+                let file_title_data = await parse_title_reserve(file_name);
+
+                const episodeNum = parseInt(file_title_data.episode_number);
+                const seasonNum = parseInt(file_title_data.anime_season);
+
+                season_tracker.push({seasonNum: seasonNum, episodeNum: episodeNum});
+                season_tracker.filter(n => !Number.isNaN(n.seasonNum) && !Number.isNaN(n.episodeNum));
+            }
+        }
+
 
         for (let i = 0; i < fileList.length; i++) {
             const file = fileList[i];
@@ -457,13 +474,35 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                     const potential_files = [];
                     const episode_set = new Set();
                     const season_tracker = [];
-                    const allFileNames = [];
-                    const reprocessEpisodes = []; 
-                    
+            
+
                     for (let i = 0; i < torrent.files.length; i++) {
                         const file = torrent.files[i];
-                        allFileNames.push(file.name);
+                        
+                        if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
+                            let file_name = addSpacesAroundHyphens(file.name);
+                            file_name = cleanLeadingZeroes(file_name);
+                            // console.log('file name: ', file_name);
+                            let file_title_data = await parse_title_reserve(file_name);
+                            // console.log('file title data:');
+                            // console.log(file_title_data);
 
+                            if (file_title_data.episode_number !== undefined) {
+                                const episodeNum = parseInt(file_title_data.episode_number);
+                                const seasonNum = parseInt(file_title_data.anime_season);
+                    
+                                season_tracker.push({seasonNum: seasonNum, episodeNum: episodeNum});
+                                season_tracker.filter(n => !Number.isNaN(n.seasonNum) && !Number.isNaN(n.episodeNum));
+
+                                
+                            } 
+                        }
+                    }
+
+
+                    for (let i = 0; i < torrent.files.length; i++) {
+                        const file = torrent.files[i];
+                        
                         if (file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mp4')) {
                             let file_name = addSpacesAroundHyphens(file.name);
                             file_name = cleanLeadingZeroes(file_name);
@@ -476,15 +515,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                                 const episodeNum = parseInt(file_title_data.episode_number);
                                 const seasonNum = parseInt(file_title_data.anime_season);
 
-                                const results = await seasonFlattener(season_tracker, seasonNum, episodeNum);
-                                const absEpisodeNum = results.episodeNum
-
-                                if (results.reprocess === true) {
-                                    reprocessEpisodes.push({})
-                                }
-
-                                season_tracker.push({seasonNum: seasonNum, episodeNum: episodeNum});
-                                season_tracker.filter(n => !Number.isNaN(n.seasonNum) && !Number.isNaN(n.episodeNum));
+                                const absEpisodeNum = await seasonFlattener(season_tracker, seasonNum, episodeNum);
 
                                 file_title_data.episode_number = absEpisodeNum;
                                 
@@ -504,9 +535,6 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                             }
                         }
                     }
-
-                    console.log('All File Names:')
-                    console.log(allFileNames);
 
                     let bestMatch;
                     if (potential_files.length > 1) {
@@ -791,28 +819,29 @@ function blacklistFilter(entries) {
 async function seasonFlattener(list, seasonNum, episodeNum) {
     // console.log('Season List: ')
     // console.log(list);
-    console.log(`Relative Season: ${seasonNum}, Relative Episode ${episodeNum}`);
+    // console.log(`Relative Season: ${seasonNum}, Relative Episode ${episodeNum}`);
 
     /* if (seasonNum === 5 && episodeNum === 10) {
         console.log(`---------------Relative Season: ${seasonNum}, Relative Episode ${episodeNum}---------------------`)
     } */
 
     if (Number.isNaN(seasonNum) || seasonNum === undefined || seasonNum === null || seasonNum == false) {
-        console.log(`SeasonNum is NaN or falsy returning episode number: `, episodeNum);
-        return { episodeNum: episodeNum, reprocess: false }
+        // console.log(`SeasonNum is NaN or falsy returning episode number: `, episodeNum);
+        // console.log('\n\n');
+        return episodeNum
     } else if (seasonNum === 1) {
-        console.log(`Season Num is 1 returing episode number: `, episodeNum)
-        return  { episodeNum: episodeNum, reprocess: false }
+        // console.log(`Season Num is 1 returing episode number: `, episodeNum)
+        // console.log('\n\n');
+        return episodeNum
     } else if (list.length === 0){
-        console.log(`Season list is empty returing episode number: `, episodeNum)
-        return  { episodeNum: episodeNum, reprocess: true }
+        // console.log(`Season list is empty returing episode number: `, episodeNum)
+        // console.log('\n\n');
+        return episodeNum
     } else {
-        console.log(`Season flattener finding absolute episode number for given season number: ${seasonNum} episode number: ${episodeNum}`);
+        // console.log(`Season flattener finding absolute episode number for given season number: ${seasonNum} episode number: ${episodeNum}`);
 
-        const minSeason = Math.min(...list.map(pair => pair.seasonNum));
+        // const minSeason = Math.min(...list.map(pair => pair.seasonNum));
 
-        const checkSeasonOrder = list.filter(n => n.seasonNum - 1 === seasonNum - 1 || n.seasonNum ===  )
-        if ()
         const seasonMap = {};
 
         for (const pair of list) {
@@ -837,8 +866,9 @@ async function seasonFlattener(list, seasonNum, episodeNum) {
         // console.log('Cumulative Sum:', cumulativeEpisodes);
         // console.log('Episode Number: ', episodeNum);
 
-        console.log('Absolute Episode Number Found: ', cumulativeEpisodes + episodeNum)
-        return { episodeNum: cumulativeEpisodes + episodeNum, reprocess: true};
+        // console.log('Absolute Episode Number Found: ', cumulativeEpisodes + episodeNum)
+        //console.log('\n\n');
+        return cumulativeEpisodes + episodeNum;
 
     }
 }
