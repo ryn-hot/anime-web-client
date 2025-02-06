@@ -73,7 +73,7 @@ async function testSeasonFlattener() {
 
 
 async function crawler_dispatch(db, english_title, romanji_title, audio, alID, anidbId, episode_number, format, mode, altAnimeTitles, proxy = null) {
-
+    // console.log(altAnimeTitles)
     if (mode === 'build' && episode_number > 1) {
         // Database look back goes here. returns true for any source being present need to change to just torrents!
         const hasEpisode1 = db.hasTypeEpisodeSource(alID, 1, audio, 'torrent');
@@ -155,10 +155,10 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
 
         
         console.log('Nyaa Finders Called');
-
+        console.log(altAnimeTitles);
         const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, audio, alID);
         const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
-        const nyaa_results_filtered = nyaa_results.filter(trs => filterAltTitles(alID, trs, english_title, romanji_title));
+        const nyaa_results_filtered = nyaa_results.filter(trs => filterAltTitles(alID, trs, english_title, romanji_title, altAnimeTitles));
         // console.log('Nyaa Results'); 
         // console.log(nyaa_results);
         // console.log('\n');
@@ -167,7 +167,7 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         if (nyaa_results.length < 3) {
             const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, audio, alID);
             const nyaa_fallback_results = await nyaa_function_dispatch(nyaa_fallback_q, false, true);
-            const nyaa_fallback_results_filtered = nyaa_fallback_results.filter(trs => filterAltTitles(alID, trs, english_title, romanji_title));
+            const nyaa_fallback_results_filtered = nyaa_fallback_results.filter(trs => filterAltTitles(alID, trs, english_title, romanji_title, altAnimeTitles));
             // console.log('Nyaa Fall Back Results'); 
             // console.log(nyaa_fallback_results);
             // console.log('\n');
