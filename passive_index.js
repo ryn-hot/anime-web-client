@@ -414,7 +414,7 @@ async function passive_index_queuer(db) {
             const animestatus = anime.status;
 
             const animeAlternatives = anime.relations.edges.filter(edge => edge.node.type === "ANIME" && edge.relationType === "ALTERNATIVE");
-            const animeAltTitles = [];
+            let animeAltTitles = [];
 
             for (const edge of animeAlternatives) {
                 const eng_title = edge.node.title.english
@@ -423,6 +423,10 @@ async function passive_index_queuer(db) {
                 animeAltTitles.push(eng_title);
                 animeAltTitles.push(rom_title); 
             }
+
+            console.log('animeAltTitle: ', animeAltTitles);
+            animeAltTitles = animeAltTitles.filter(title => title !== null );
+
             // console.log('anime.episodes: ', anime.episodes);
             // console.log('anime airing episode: ', anime.nextAiringEpisode?.episode);
             // console.log('episodesResponse', episodesResponse);
@@ -625,7 +629,8 @@ async function processAnimeTask(task, db) {
     // Insert or update the anime row in DB if needed
     // If indefinite, store that indefinite flag in DB
     console.log(`Inserting Anime: ${task.englishTitle}, Episode Count: ${task.episodeNumber}, Format: ${task.format}`);
-    
+    console.log('altTitle List: ', task.animeAltTitles);
+
     db.insertAnime({
         anilistId: task.anilistId,
         malId: task.myAnimeListId,
@@ -653,7 +658,7 @@ async function processAnimeTask(task, db) {
                 audio: 'sub',
                 format: task.format,
                 mode: task.mode,
-                altAnimeTitles: task.altAnimeTitles
+                animeAltTitles: task.animeAltTitles
             });
 
             if (task.isDubbed) {
@@ -668,7 +673,7 @@ async function processAnimeTask(task, db) {
                     audio: 'dub',
                     format: task.format,
                     mode: task.mode,
-                    altAnimeTitles: task.altAnimeTitles
+                    animeAltTitles: task.animeAltTitles
                 });
             } 
         }
@@ -694,7 +699,7 @@ async function processEpisodeTask(task, db, concurrency) {
             task.episodeNumber,
             task.format,
             task.mode,
-            task.altAnimeTitles,
+            task.animeAltTitles,
             proxy,
         );
         
@@ -702,6 +707,7 @@ async function processEpisodeTask(task, db, concurrency) {
         // Then pass this proxy to your crawler logic 
     } else {
         console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }, Format ${task.format}`);
+        console.log(task.animeAltTitles);
 
         await crawler_dispatch(
             db,
@@ -713,7 +719,7 @@ async function processEpisodeTask(task, db, concurrency) {
             task.episodeNumber,
             task.format,
             task.mode,
-            task.altAnimeTitles
+            task.animeAltTitles
         ); 
 
         /* if (task.anilistId === 22) {
