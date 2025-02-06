@@ -341,27 +341,39 @@ async function main() {
 async function passive_index_queuer(db) {
     const query = `
     query ($page: Int, $perPage: Int) {
-        Page(page: $page, perPage: $perPage) {
-        pageInfo {
-            currentPage
-            hasNextPage
-        }
-        media {
-            id
-            idMal
-            title {
-            romaji
-            english
+            Page(page: $page, perPage: $perPage) {
+            pageInfo {
+                currentPage
+                hasNextPage
             }
-            status
-            episodes
-            format
-            nextAiringEpisode {
-            airingAt
-            timeUntilAiring
-            episode
+            media {
+                id
+                idMal
+                title {
+                    romaji
+                    english
+                }
+                status
+                episodes
+                format
+                nextAiringEpisode {
+                    airingAt
+                    timeUntilAiring
+                    episode
+                }
+                relations {
+                    edges {
+                        node {
+                            type
+                            title {
+                                english
+                                romaji
+                            }
+                        }
+                        relationType
+                    }
+                }
             }
-        }
         }
     }
     `;
@@ -400,6 +412,17 @@ async function passive_index_queuer(db) {
             let romanjiTitle = anime.title?.romaji || '';
             const episodesResponse = anime.episodes || anime.nextAiringEpisode.episode || 0;   // AniList-supplied total
             const animestatus = anime.status;
+
+            const animeAlternatives = anime.relations.edges.filter(edge => edge.node.type === "ANIME" && edge.relationType === "ALTERNATIVE");
+            const animeAltTitles = [];
+
+            for (const edge of animeAlternatives) {
+                const eng_title = edge.node.title.english
+                const rom_title = edge.node.title.romaji
+
+                animeAltTitles.push(eng_title);
+                animeAltTitles.push(rom_title); 
+            }
             // console.log('anime.episodes: ', anime.episodes);
             // console.log('anime airing episode: ', anime.nextAiringEpisode?.episode);
             // console.log('episodesResponse', episodesResponse);
@@ -466,8 +489,10 @@ async function passive_index_queuer(db) {
                     englishTitle,
                     romanjiTitle,
                     episodeNumber: anilistEpisodes,
-                    isDubbed,
-                    mode
+                    isDubbed: isDubbed,
+                    mode: mode,
+                    animeAltTitles: animeAltTitles,
+
                 });
 
                 console.log(`Queueing missing anime ID ${anilistId} for insertion.`);
@@ -494,7 +519,8 @@ async function passive_index_queuer(db) {
                             episodeNumber: epNum,
                             audio: 'sub',
                             format: format,
-                            mode
+                            mode: mode,
+                            animeAltTitles: animeAltTitles,
                         });
 
                         if (isDubbed) {
@@ -508,7 +534,8 @@ async function passive_index_queuer(db) {
                                 episodeNumber: epNum,
                                 audio: 'dub',
                                 format: format,
-                                mode
+                                mode: mode,
+                                animeAltTitles: animeAltTitles,
                             });
                         }
                        
@@ -625,7 +652,8 @@ async function processAnimeTask(task, db) {
                 episodeNumber: i,
                 audio: 'sub',
                 format: task.format,
-                mode: task.mode
+                mode: task.mode,
+                altAnimeTitles: task.altAnimeTitles
             });
 
             if (task.isDubbed) {
@@ -639,7 +667,8 @@ async function processAnimeTask(task, db) {
                     episodeNumber: i,
                     audio: 'dub',
                     format: task.format,
-                    mode: task.mode
+                    mode: task.mode,
+                    altAnimeTitles: task.altAnimeTitles
                 });
             } 
         }
@@ -665,6 +694,7 @@ async function processEpisodeTask(task, db, concurrency) {
             task.episodeNumber,
             task.format,
             task.mode,
+            task.altAnimeTitles,
             proxy,
         );
         
@@ -682,7 +712,8 @@ async function processEpisodeTask(task, db, concurrency) {
             task.anidbId,
             task.episodeNumber,
             task.format,
-            task.mode
+            task.mode,
+            task.altAnimeTitles
         ); 
 
         /* if (task.anilistId === 22) {

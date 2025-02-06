@@ -5,6 +5,7 @@ import { nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } fr
 import { nyaa_function_dispatch } from "./query-dispatcher.js";
 import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata, findAllTorrentsForEpisode, cacheTorrentRange, isInfoHashInCache, wipeInfoHashFromCache, addToBlackList, isInfoHashInBlackList } from "./cache.js";
 import { getGlobalClient, getGlobalClientTest } from "./webtorrent-client.js";
+import levenshtein from 'fast-levenshtein';
 
 
 // last thing to add is an anilist call for year abstraction    
@@ -71,7 +72,7 @@ async function testSeasonFlattener() {
 }
 
 
-async function crawler_dispatch(db, english_title, romanji_title, audio, alID, anidbId, episode_number, format, mode, proxy = null) {
+async function crawler_dispatch(db, english_title, romanji_title, audio, alID, anidbId, episode_number, format, mode, altAnimeTitles, proxy = null) {
 
     if (mode === 'build' && episode_number > 1) {
         // Database look back goes here. returns true for any source being present need to change to just torrents!
@@ -152,25 +153,27 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         // console.log('sea_dex returned');
 
 
-        if (yearsFound.length === 0) {
-            console.log('Nyaa Finders Called');
+        
+        console.log('Nyaa Finders Called');
 
-            const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, audio, alID);
-            const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
-            // console.log('Nyaa Results'); 
-            // console.log(nyaa_results);
+        const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, audio, alID);
+        const nyaa_results = await nyaa_function_dispatch(nyaa_queries, true, false);
+        const nyaa_results_filtered = nyaa_results.filter(trs => filterAltTitles(alID, trs, english_title, romanji_title));
+        // console.log('Nyaa Results'); 
+        // console.log(nyaa_results);
+        // console.log('\n');
+        trs_results.push(...nyaa_results_filtered);
+
+        if (nyaa_results.length < 3) {
+            const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, audio, alID);
+            const nyaa_fallback_results = await nyaa_function_dispatch(nyaa_fallback_q, false, true);
+            const nyaa_fallback_results_filtered = nyaa_fallback_results.filter(trs => filterAltTitles(alID, trs, english_title, romanji_title));
+            // console.log('Nyaa Fall Back Results'); 
+            // console.log(nyaa_fallback_results);
             // console.log('\n');
-            trs_results.push(...nyaa_results);
-
-            if (nyaa_results.length < 3) {
-                const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, audio, alID);
-                const nyaa_fallback_results = await nyaa_function_dispatch(nyaa_fallback_q, false, true);
-                // console.log('Nyaa Fall Back Results'); 
-                // console.log(nyaa_fallback_results);
-                // console.log('\n');
-                trs_results.push(...nyaa_fallback_results);
-            }
+            trs_results.push(...nyaa_fallback_results_filtered);
         }
+        
 
         
         /* const gogo_query = gogoanime_query_creator(romanji_title, episode_number, audio);
@@ -871,6 +874,34 @@ async function seasonFlattener(list, seasonNum, episodeNum) {
         return cumulativeEpisodes + episodeNum;
 
     }
+}
+
+
+function cleanTorrentTitle(title) {
+    let cleaned = title.toLowerCase();
+    cleaned = cleaned.replace(/\[[^\]]*\]/g, '');
+    cleaned = cleaned.replace(/\bS\d+E\d+\b/gi, '');
+    cleaned = cleaned.replace(/[^\w\s()]/g, '').trim();
+    return cleaned;
+}
+
+
+function filterAltTitles(alID, trs, engTargetTitle, romTargetTitle, altAnimeTitles) {
+    const cleaned = cleanTorrentTitle(trs.title);
+    const engTargetLevDist = levenshtein.get(cleaned, engTargetTitle.toLowerCase());
+    const romTargetDist = levenshtein.get(cleaned, romTargetTitle.toLowerCase());
+
+    const targetMinDist = Math.min(engTargetLevDist, romTargetDist);
+
+    for (const altTitle of altAnimeTitles) {
+        const altDist = levenshtein.get(cleaned, altTitle.toLowerCase());
+        if (altDist < targetMinDist) {
+            wipeInfoHashFromCache(alID, trs.infoHash);
+            return false
+        }
+    }
+
+    return true
 }
 
 export {

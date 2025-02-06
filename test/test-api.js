@@ -132,7 +132,7 @@ export async function getTopRated(page = 1, perPage = 16) {
   return fetchAniListData(query, variables);
 }
 
-async function alIdFetch(alID = 17) {
+async function alIdFetch(alID = 33) {
   const query = `
   query ($id: Int) {
     Media(id: $id, type: ANIME) {
@@ -148,6 +148,19 @@ async function alIdFetch(alID = 17) {
           timeUntilAiring
           episode
         }
+      
+      relations {
+        edges {
+            node {
+                type
+                title {
+                    english
+                    romaji
+                }
+            }
+            relationType
+        }
+      }
     }
   }
   `
@@ -160,8 +173,28 @@ async function alIdFetch(alID = 17) {
       variables: { id: alID }
     })
   });
+
   const data = await response.json();
+  const pageData = data.data.Media;
+  const relations = data.data.Media.relations;
+
   console.log(data.data.Media);
+  console.log('relations');
+  console.log(relations);
+
+  const animeAlternatives = pageData.relations.edges.filter(edge => edge.node.type === "ANIME" && edge.relationType === "ALTERNATIVE");
+  const animeAltTitles = [];
+
+  for (const edge of animeAlternatives) {
+      const eng_title = edge.node.title.english
+      const rom_title = edge.node.title.romaji
+
+      animeAltTitles.push(eng_title);
+      animeAltTitles.push(rom_title); 
+  }
+  
+  console.log(animeAltTitles);
+
   return data;
 
 }
@@ -206,9 +239,9 @@ function formatString(str) {
 
 async function main() {
   // Test cases
-  await test_anidb()
+  await alIdFetch();
 }
 
 
 
-main();
+//main();

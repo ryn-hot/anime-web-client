@@ -89,14 +89,23 @@ function isPureNumber(str) {
   return /^\d+$/.test(str.trim());
 }
 
-let title = "[ShadoWalkeR] The Prince of Tennis - S05E10 - Original Prodigy Fuji Syuusuke.mkv";
-title = cleanLeadingZeroes(title)
+function cleanTorrentTitle(title) {
+  let cleaned = title.toLowerCase();
+  cleaned = cleaned.replace(/\[[^\]]*\]/g, '');
+  cleaned = cleaned.replace(/\bS\d+E\d+\b/gi, '');
+  cleaned = cleaned.replace(/[^\w\s()]/g, '').trim();
+  return cleaned;
+}
+
+let title = "[ASW] Rurouni Kenshin (2023) - 40 [1080p HEVC x265 10Bit][AAC]";
+title = cleanTorrentTitle(title)
 console.log(title);
-const results = await modified_anitomy(title);
+
+/* const results = await modified_anitomy(title);
 
 console.log(results[0]); 
 
-console.log(isPureNumber(results[0].file_name)); 
+console.log(isPureNumber(results[0].file_name)); */
 
 /* console.log(cleanLeadingZeroes("String 01 - 099")); // "String 1"
 console.log(cleanLeadingZeroes("String 10001")); // "String 10001"
@@ -107,6 +116,7 @@ console.log(cleanLeadingZeroes("0012 Test 0013")); // "12 Test 13"
 
 console.log(addSpacesAroundHyphens("range 1-2")); // "range 1 - 2"
 console.log(addSpacesAroundHyphens("range 1 - 2")); // "range 1 - 2"
+
 
 
 
