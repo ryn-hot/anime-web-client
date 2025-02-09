@@ -1,6 +1,6 @@
 //https://api.ani.zip/mappings?anilist_id=' + media.id storing future api call
 
-import { seadex_finder, parse_title_reserve, find_best_match, animeToshoEpisodeFilter, animeToshoBatchFilter, fetchWithRetry, hasDualAudioOrEnglishDub, modified_anitomy } from "./anime-finder-funcs.js";
+import { seadex_finder, parse_title_reserve, find_best_match, animeToshoEpisodeFilter, animeToshoBatchFilter, fetchWithRetry, hasDualAudioOrEnglishDub, modified_anitomy, normalizeTitle } from "./anime-finder-funcs.js";
 import { nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } from "./query-creator.js";
 import { nyaa_function_dispatch } from "./query-dispatcher.js";
 import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata, findAllTorrentsForEpisode, cacheTorrentRange, isInfoHashInCache, wipeInfoHashFromCache, addToBlackList, isInfoHashInBlackList } from "./cache.js";
@@ -881,21 +881,43 @@ function cleanTorrentTitle(title) {
     let cleaned = title.toLowerCase();
     cleaned = cleaned.replace(/\[[^\]]*\]/g, '');
     cleaned = cleaned.replace(/\bS\d+E\d+\b/gi, '');
+
+    cleaned = cleaned.replace(/\(([^)]*)\)/g, (match, inner) => {
+        if (/^[\d\s]+$/.test(inner)) {
+            return match; // Keep the parentheses as they are.
+        } else {
+            return ''; // Remove the parentheses and everything inside them.
+        }
+    });
+
+
     cleaned = cleaned.replace(/[^\w\s()]/g, '').trim();
     return cleaned;
 }
 
 
 function filterAltTitles(alID, trs, engTargetTitle, romTargetTitle, altAnimeTitles) {
-    const cleaned = cleanTorrentTitle(trs.title);
-    const engTargetLevDist = levenshtein.get(cleaned, engTargetTitle.toLowerCase());
-    const romTargetDist = levenshtein.get(cleaned, romTargetTitle.toLowerCase());
+   
+    let cleaned = cleanTorrentTitle(trs.title);
+    cleaned = normalizeTitle(cleaned);
+
+    // console.log(`trs: ${cleaned}, endTargetTitle: ${normalizeTitle(engTargetTitle)}, romTargetTitle: ${normalizeTitle(romTargetTitle)}`)
+
+    const engTargetLevDist = levenshtein.get(cleaned, normalizeTitle(engTargetTitle));
+    const romTargetDist = levenshtein.get(cleaned, normalizeTitle(romTargetTitle));
 
     const targetMinDist = Math.min(engTargetLevDist, romTargetDist);
+    // console.log('targetMinDist: ', targetMinDist);
 
     for (const altTitle of altAnimeTitles) {
-        const altDist = levenshtein.get(cleaned, altTitle.toLowerCase());
+        // console.log(`altTitle: ${normalizeTitle(altTitle)}`);
+
+        const altDist = levenshtein.get(cleaned, normalizeTitle(altTitle));
+        // console.log('altDist: ', altDist);
+
         if (altDist < targetMinDist) {
+            // console.log('altDis less than targetMinDist');
+
             wipeInfoHashFromCache(alID, trs.infoHash);
             return false
         }
