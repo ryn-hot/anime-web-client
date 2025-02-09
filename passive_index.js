@@ -424,7 +424,7 @@ async function passive_index_queuer(db) {
                 animeAltTitles.push(rom_title); 
             }
 
-            console.log('animeAltTitle: ', animeAltTitles);
+            // console.log('animeAltTitle: ', animeAltTitles);
             animeAltTitles = animeAltTitles.filter(title => title !== null );
 
             // console.log('anime.episodes: ', anime.episodes);
@@ -629,7 +629,7 @@ async function processAnimeTask(task, db) {
     // Insert or update the anime row in DB if needed
     // If indefinite, store that indefinite flag in DB
     console.log(`Inserting Anime: ${task.englishTitle}, Episode Count: ${task.episodeNumber}, Format: ${task.format}`);
-    console.log('altTitle List: ', task.animeAltTitles);
+    // console.log('altTitle List: ', task.animeAltTitles);
 
     db.insertAnime({
         anilistId: task.anilistId,
@@ -707,7 +707,7 @@ async function processEpisodeTask(task, db, concurrency) {
         // Then pass this proxy to your crawler logic 
     } else {
         console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }, Format ${task.format}`);
-        console.log(task.animeAltTitles);
+        //console.log(task.animeAltTitles);
 
         await crawler_dispatch(
             db,
@@ -722,7 +722,7 @@ async function processEpisodeTask(task, db, concurrency) {
             task.animeAltTitles
         ); 
 
-        /* if (task.anilistId === 22) {
+        /* if (task.anilistId === 45) {
             console.log(`\n\n\nfetching: ${task.englishTitle}, Episode: ${task.episodeNumber}, Audio: ${ task.audio }, Format ${task.format}`);
 
             await crawler_dispatch(
@@ -734,7 +734,8 @@ async function processEpisodeTask(task, db, concurrency) {
                 task.anidbId,
                 task.episodeNumber,
                 task.format,
-                task.mode
+                task.mode,
+                task.animeAltTitles
             ); 
         } */
        

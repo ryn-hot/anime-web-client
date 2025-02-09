@@ -93,11 +93,21 @@ function cleanTorrentTitle(title) {
   let cleaned = title.toLowerCase();
   cleaned = cleaned.replace(/\[[^\]]*\]/g, '');
   cleaned = cleaned.replace(/\bS\d+E\d+\b/gi, '');
+
+  cleaned = cleaned.replace(/\(([^)]*)\)/g, (match, inner) => {
+      if (/^[\d\s]+$/.test(inner)) {
+          return match; // Keep the parentheses as they are.
+      } else {
+          return ''; // Remove the parentheses and everything inside them.
+      }
+  });
+
+  
   cleaned = cleaned.replace(/[^\w\s()]/g, '').trim();
   return cleaned;
 }
 
-let title = "[ASW] Rurouni Kenshin (2023) - 40 [1080p HEVC x265 10Bit][AAC]";
+let title = "rurouni kenshin (2023)   v2 (web 1080p x265 10bit aac eac3)  (meiji kenkaku romantan)";
 title = cleanTorrentTitle(title)
 console.log(title);
 

@@ -1355,7 +1355,8 @@ export {
     fetchWithRetry,
     delay,
     hasDualAudioOrEnglishDub,
-    modified_anitomy
+    modified_anitomy,
+    normalizeTitle
 }
 
 // console.log(results); 
