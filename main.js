@@ -143,14 +143,15 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
             console.log('toshoEpisodeResults Length: ', toshoEpisodeResults.length);
             trs_results.push(...toshoEpisodeResults);
 
-            if (epCount) {
-                const toshoBatchResults = await animeToshoBatchFilter(anidbId, epCount, episode_number, audio);
-                console.log('toshoBatchResults Length: ', toshoBatchResults.length);
-                trs_results.push(...toshoBatchResults);
-            }
         }
         
-        // console.log('sea_dex returned');
+        if (epCount) {
+            const toshoBatchResults = await animeToshoBatchFilter(anidbId, epCount, episode_number, audio);
+            console.log('toshoBatchResults Length: ', toshoBatchResults.length);
+            trs_results.push(...toshoBatchResults);
+        }
+        
+        // consol   e.log('sea_dex returned');
 
 
         
