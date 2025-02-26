@@ -6,6 +6,7 @@ import { nyaa_function_dispatch } from "./query-dispatcher.js";
 import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata, findAllTorrentsForEpisode, cacheTorrentRange, isInfoHashInCache, wipeInfoHashFromCache, addToBlackList, isInfoHashInBlackList } from "./cache.js";
 import { getGlobalClient, getGlobalClientTest } from "./webtorrent-client.js";
 import levenshtein from 'fast-levenshtein';
+import { torrentEmitter } from "./torrentEmitter.js";
 
 
 // last thing to add is an anilist call for year abstraction    
@@ -93,7 +94,7 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         
     }
 
-    const yearsFound = extractYears(english_title); 
+    // const yearsFound = extractYears(english_title); 
 
     // const cached = findMagnetForEpisode(alID, episode_number, audio);
     const cached = findAllTorrentsForEpisode(alID, episode_number, audio);
@@ -107,7 +108,7 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
     // console.log('----------------------------------------------------------------------\n');
 
 
-    if (cached) {
+    if (cached && mode !== 'fetch') {
         // console.log('Crawler Dispatch Cache Branch');
         await processCachedTorrents(cached, episode_number, audio, alID, anidbId, db, format, english_title, romanji_title);
 
@@ -136,13 +137,26 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
     
         
         const sea_dex_query_results = await seadex_finder(alID, audio, episode_number, format, english_title, romanji_title);
+
+        console.log('sea dex length: ', sea_dex_query_results.length);
+
+        if (sea_dex_query_results.length >= 0 && mode === 'fetch') {
+            const results = dedupeMagnetLinks(sea_dex_query_results);
+
+            const sorted_res = sortTorrentList(results);
+
+            const eventKey = `torrentFound-${alID}-${episode_number}-${audio}`;
+            torrentEmitter.emit(eventKey, sorted_res);
+            console.log(`seadex event emmitted`)
+        }
+
+
         trs_results.push(...sea_dex_query_results)
         
         if (format !== 'MOVIE' && anidbEid) {
             const toshoEpisodeResults = await animeToshoEpisodeFilter(anidbEid, audio); 
             console.log('toshoEpisodeResults Length: ', toshoEpisodeResults.length);
             trs_results.push(...toshoEpisodeResults);
-
         }
         
         if (epCount) {
@@ -152,7 +166,20 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         }
         
         // consol   e.log('sea_dex returned');
+        console.log('tosho length: ', trs_results.length);
 
+        if (trs_results.length >= 0 && mode === 'fetch') {
+            const results = dedupeMagnetLinks(trs_results);
+
+            const healthy_res = blacklistFilter(results);
+
+            const sorted_res = sortTorrentList(healthy_res);
+
+            const eventKey = `torrentFound-${alID}-${episode_number}-${audio}`;
+            torrentEmitter.emit(eventKey, sorted_res);
+            console.log(`tosho event emmitted`)
+
+        }
 
         
         console.log('Nyaa Finders Called');
@@ -176,7 +203,19 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         }
         
 
-        
+        if (trs_results.length >= 0 && mode === 'fetch') {
+            const results = dedupeMagnetLinks(trs_results);
+
+            const healthy_res = blacklistFilter(results);
+
+            const sorted_res = sortTorrentList(healthy_res);
+
+            const eventKey = `torrentFound-${alID}-${episode_number}-${audio}`;
+            torrentEmitter.emit(eventKey, sorted_res);
+            console.log(`nyaa event emmitted`)
+
+        }
+
         /* const gogo_query = gogoanime_query_creator(romanji_title, episode_number, audio);
         const gogo_link = await gogo_anime_finder(...gogo_query);
         
@@ -195,18 +234,19 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
             console.log('No torrents found for this episode');
         } else {
             // console.log('Torrent Results > 1');
-            const trs_results_deduped = dedupeMagnetLinks(trs_results);
+            if (mode !== 'fetch') {
+                const trs_results_deduped = dedupeMagnetLinks(trs_results);
 
-            const trs_healthy = blacklistFilter(trs_results_deduped);
-            // console.log(`trs_results deduped: `, trs_results);
-            const trs_results_sorted = sortTorrentList(trs_healthy);
-            // console.log(`trs_results sorted: `, trs_results_sorted);
-            // console.log('Trs Results: ', trs_results_deduped.length);
-            // sconsole.log(trs_results_deduped);
-        
-            // const trs_final = []; 
-            await processTorrents(trs_results_sorted, episode_number, audio, alID, anidbId, db, format, english_title, romanji_title);
-
+                const trs_healthy = blacklistFilter(trs_results_deduped);
+                // console.log(`trs_results deduped: `, trs_results);
+                const trs_results_sorted = sortTorrentList(trs_healthy);
+                // console.log(`trs_results sorted: `, trs_results_sorted);
+                // console.log('Trs Results: ', trs_results_deduped.length);
+                // sconsole.log(trs_results_deduped);
+            
+                // const trs_final = []; 
+                await processTorrents(trs_results_sorted, episode_number, audio, alID, anidbId, db, format, english_title, romanji_title);
+            }
         }
     } 
 }
@@ -224,7 +264,7 @@ async function processCachedTorrents(cached, episode_number, audio, alID, anidbI
         const fileData = getTorrentMetadata(candidate.infoHash);
 
         if (fileData) {
-            console.log(`cache hit for torrent metadata`)
+            // console.log(`cache hit for torrent metadata`)
             //console.log(`fileData: ` + `\n`, fileData);
             return writeTorrentMetadataFromCache(
                 fileData, 
@@ -567,7 +607,7 @@ async function fetchTorrentMetadata(magnetURI, episode_number, seeders, audio_ty
                                 .sort((a, b) => a - b);
 
                             if (sortedRange.length > 1) {
-                                console.log(`Caching From FetchTorrentMetadata: anilistId=${alID}, episodes [${sortedRange[0]}..${sortedRange[sortedRange.length - 1]}], audio: ${audio_type}, title: ${torrent.name}`);
+                                // console.log(`Caching From FetchTorrentMetadata: anilistId=${alID}, episodes [${sortedRange[0]}..${sortedRange[sortedRange.length - 1]}], audio: ${audio_type}, title: ${torrent.name}`);
                                 cacheTorrentRange(alID, sortedRange[0], sortedRange[sortedRange.length - 1], audio_type, magnetURI, seeders, raw_torrent.infoHash);
                                 if (hasDualAudioOrEnglishDub(torrent.name) && audio_type !== 'dub') {
                                     cacheTorrentRange(alID, sortedRange[0], sortedRange[sortedRange.length - 1], 'dub', magnetURI, seeders, raw_torrent.infoHash);
@@ -690,13 +730,13 @@ function dedupeMagnetLinks(entries) {
 
         // Check if the info hash has already been seen
         if (!seenHashes.has(infoHash)) {
-            console.log(`Torrent is Unique Adding: ${infoHash}`)
+            // console.log(`Torrent is Unique Adding: ${infoHash}`)
             seenHashes.add(infoHash);
             return true; // Keep the entry
         }
         
         // Duplicate found; filter it out
-        console.log(`Torrent is duplicate: ${infoHash}`)
+        // console.log(`Torrent is duplicate: ${infoHash}`)
         return false;
     });
 }
@@ -931,5 +971,7 @@ export {
     crawler_dispatch,
     cleanLeadingZeroes,
     extractInfoHash,
-    addSpacesAroundHyphens
+    addSpacesAroundHyphens,
+    fetchTorrentMetadata,
+    seasonFlattener
 }

@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS sources (
     info_hash    TEXT,  -- optional
     file_index   INTEGER,  -- optional
     file_name    TEXT,  -- optional
-    seeders      INTEGER, 
+    seeders      INTEGER, -- add a health field
 
 
     -- For http/hosted category

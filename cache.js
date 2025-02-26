@@ -44,7 +44,7 @@ function cacheTorrentRange(anilistId, startEp, endEp, audioType, magnetLink, see
             existingSlices[dupeIndex].seeders = seeders;
         }
     } else {
-        console.log('Torrent Cached')
+        // console.log('Torrent Cached')
         // Otherwise, push a new slice entry
         existingSlices.push({
             startEp,

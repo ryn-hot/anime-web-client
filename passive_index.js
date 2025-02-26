@@ -312,6 +312,44 @@ class AnimeDatabase {
     
         return row; 
     }
+
+    getTorrentSource(anilistId, episodeNumber, audioType) {
+        try {
+          this.connect();
+          const stmt = this.db.prepare(`
+            SELECT *
+            FROM sources
+            WHERE anilist_id = ?
+              AND episode_number = ?
+              AND audio_type = ?
+              AND category = 'torrent'
+            LIMIT 1
+          `);
+          const source = stmt.get(anilistId, episodeNumber, audioType);
+          return source ? source : false;
+        } catch (error) {
+          console.error('Error fetching torrent source:', error);
+          throw error;
+        }
+    }
+
+
+    getAnime(anilistId) {
+        try {
+          this.connect();
+          const stmt = this.db.prepare(`
+            SELECT *
+            FROM anime
+            WHERE anilist_id = ?
+          `);
+          const animeRow = stmt.get(anilistId);
+          return animeRow ? animeRow : false;
+        } catch (error) {
+          console.error('Error fetching anime:', error);
+          throw error;
+        }
+    }
+
 }
 
 // const tasksQueue = [];
@@ -562,6 +600,7 @@ async function passive_index_queuer(db) {
 }
 
 
+
 async function passive_index_process({ mode = 'sequential', concurrency = 1 }, db) {
     if (mode === 'sequential') {
         // Start a single worker that processes tasks one by one
@@ -571,6 +610,9 @@ async function passive_index_process({ mode = 'sequential', concurrency = 1 }, d
         processTasksConcurrently(concurrency, db);
       }
 }
+
+
+
 
 async function processTasksSequentially(db, concurrency) {
     while (true) {
@@ -768,4 +810,7 @@ async function fetchAnimeData(query, page = 1, perPage = 50) {
 };
 
 
-await main()
+export {
+    AnimeDatabase
+}
+// await main()
