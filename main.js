@@ -73,8 +73,20 @@ async function testSeasonFlattener() {
 }
 
 
-async function crawler_dispatch(db, english_title, romanji_title, audio, alID, anidbId, episode_number, format, mode, altAnimeTitles, proxy = null) {
+async function crawler_dispatch(db, english_title, romanji_title, audio, alID, anidbId, episode_number, format, mode, altAnimeTitles, abortSignal = null, proxy = null) {
     // console.log(altAnimeTitles)
+    if (abortSignal && abortSignal.aborted) {
+        console.log("Crawler aborted before starting");
+        return;
+    }
+
+    if (abortSignal) {
+        abortSignal.addEventListener("abort", () => {
+            console.log("Crawler received abort signal, stopping execution.");
+            return;
+        });
+    }
+
     if (mode === 'build' && episode_number > 1) {
         // Database look back goes here. returns true for any source being present need to change to just torrents!
         const hasEpisode1 = db.hasTypeEpisodeSource(alID, 1, audio, 'torrent');
@@ -249,6 +261,7 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
             }
         }
     } 
+    return;
 }
 
 async function processCachedTorrents(cached, episode_number, audio, alID, anidbId, db, format, english_title, romanji_title) {

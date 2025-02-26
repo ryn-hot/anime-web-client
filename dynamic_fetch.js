@@ -6,7 +6,7 @@ import { cacheTorrentRange, storeTorrentMetadata, isInfoHashInCache } from "./ca
 import fetch from 'node-fetch';
 import { parse_title_reserve } from "./anime-finder-funcs.js"
 
-const results = await dynamicFinder(151807, 2, 'sub'); 
+const results = await dynamicFinder(151807, 3, 'sub'); 
 
 console.log(results)
 
@@ -31,13 +31,23 @@ async function dynamicFinder(alID, episodeNum, audio) {
         } else {
             const fetched_info = await alIdAnimeFetch(alID, episodeNum);
             anime_info = fetched_info.animeInfo;
-            db.insertAnime(anime_info.anilist_id, anime_info.mal_id, anime_info.anidb_id, anime_info.english_title, anime_info.romanji_title, 0, anime_info.format);
+            db.insertAnime({
+                anilistId: anime_info.anilist_id, 
+                malId: anime_info.mal_id, 
+                anidbId: anime_info.anidb_id, 
+                englishTitle: anime_info.english_title, 
+                romanjiTitle: anime_info.romanji_title, 
+                episodeNumber: 0, 
+                format: anime_info.format
+            });
             altAnimeTitles = fetched_info.animeAltTitles;
     
         }
 
         const eventKey = `torrentFound-${alID}-${episodeNum}-${audio}`;
         
+        const crawlerAbortController = new AbortController();
+
         return new Promise((resolve, reject) => {
             let finished = false;
             const abortControllers = []; // Holds AbortControllers for each candidate
@@ -45,6 +55,7 @@ async function dynamicFinder(alID, episodeNum, audio) {
             // Function to abort all pending torrentResolve calls.
             function abortAll() {
               abortControllers.forEach((controller) => controller.abort());
+              crawlerAbortController.abort();
             }
       
             const torrentEventHandler = (torrentData) => {
@@ -112,9 +123,10 @@ async function dynamicFinder(alID, episodeNum, audio) {
               episodeNum,
               anime_info.format,
               mode,
-              altAnimeTitles
+              altAnimeTitles,
+              crawlerAbortController.signal
             );
-          });
+        });
     }
 
 }
@@ -441,15 +453,15 @@ async function torrentResolve(magnetURI, episode_number, seeders, audio_type, al
                         };
 
                         db.storeEpisodeAndSource({
-                        anilistId: alID,
-                        anidbId: anidbId,
-                        episodeNumber: episode_number,
-                        audioType: audio_type,
-                        category: 'torrent',
-                        magnetLink: fileInfo.magnetLink,
-                        fileIndex: fileInfo.fileIndex,
-                        fileName: fileInfo.fileName,
-                        seeders: seeders,
+                            anilistId: alID,
+                            anidbId: anidbId,
+                            episodeNumber: episode_number,
+                            audioType: audio_type,
+                            category: 'torrent',
+                            magnetLink: fileInfo.magnetLink,
+                            fileIndex: fileInfo.fileIndex,
+                            fileName: fileInfo.fileName,
+                            seeders: seeders,
                         }); 
 
                         console.log('Storing episode file info:' + `\n`, fileInfo);
