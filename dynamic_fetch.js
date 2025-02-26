@@ -6,8 +6,8 @@ import { cacheTorrentRange, storeTorrentMetadata, isInfoHashInCache } from "./ca
 import fetch from 'node-fetch';
 import { parse_title_reserve } from "./anime-finder-funcs.js"
 
-const results = await dynamicFinder(151807, 3, 'sub'); 
-
+const results = await dynamicFinder(151807, 5, 'sub'); 
+console.log('results:')
 console.log(results)
 
 async function dynamicFinder(alID, episodeNum, audio) { 

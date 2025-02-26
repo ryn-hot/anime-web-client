@@ -3,8 +3,8 @@
 import { seadex_finder, parse_title_reserve, find_best_match, animeToshoEpisodeFilter, animeToshoBatchFilter, fetchWithRetry, hasDualAudioOrEnglishDub, modified_anitomy, normalizeTitle } from "./anime-finder-funcs.js";
 import { nyaa_query_creator, nyaa_fallback_queries, gogoanime_query_creator } from "./query-creator.js";
 import { nyaa_function_dispatch } from "./query-dispatcher.js";
-import { findMagnetForEpisode, storeTorrentMetadata, getTorrentMetadata, findAllTorrentsForEpisode, cacheTorrentRange, isInfoHashInCache, wipeInfoHashFromCache, addToBlackList, isInfoHashInBlackList } from "./cache.js";
-import { getGlobalClient, getGlobalClientTest } from "./webtorrent-client.js";
+import { storeTorrentMetadata, getTorrentMetadata, findAllTorrentsForEpisode, cacheTorrentRange, isInfoHashInCache, wipeInfoHashFromCache, addToBlackList, isInfoHashInBlackList } from "./cache.js";
+import { getGlobalClient } from "./webtorrent-client.js";
 import levenshtein from 'fast-levenshtein';
 import { torrentEmitter } from "./torrentEmitter.js";
 
@@ -181,6 +181,11 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         console.log('tosho length: ', trs_results.length);
 
         if (trs_results.length >= 0 && mode === 'fetch') {
+            if (abortSignal && abortSignal.aborted) {
+                console.log("Crawler aborted before starting");
+                return;
+            }
+
             const results = dedupeMagnetLinks(trs_results);
 
             const healthy_res = blacklistFilter(results);
@@ -193,7 +198,11 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
 
         }
 
-        
+        if (abortSignal && abortSignal.aborted) {
+            console.log("Crawler aborted before starting");
+            return;
+        }
+
         console.log('Nyaa Finders Called');
         console.log(altAnimeTitles);
         const nyaa_queries = nyaa_query_creator(english_title, romanji_title, season_number, episode_number, audio, alID);
@@ -203,6 +212,11 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         // console.log(nyaa_results);
         // console.log('\n');
         trs_results.push(...nyaa_results_filtered);
+
+        if (abortSignal && abortSignal.aborted) {
+            console.log("Crawler aborted before starting");
+            return;
+        }
 
         if (nyaa_results.length < 3) {
             const nyaa_fallback_q = nyaa_fallback_queries(english_title, romanji_title, episode_number, audio, alID);
@@ -216,6 +230,12 @@ async function crawler_dispatch(db, english_title, romanji_title, audio, alID, a
         
 
         if (trs_results.length >= 0 && mode === 'fetch') {
+
+            if (abortSignal && abortSignal.aborted) {
+                console.log("Crawler aborted before starting");
+                return;
+            }
+
             const results = dedupeMagnetLinks(trs_results);
 
             const healthy_res = blacklistFilter(results);
