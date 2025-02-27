@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS anime (
     anidb_id      INTEGER,
     english_title TEXT,
     romanji_title TEXT,
-    episode_number INTEGER,
+    episode_list TEXT,
     format        TEXT
     -- any other fields, e.g. year, average_rating, etc.
 
@@ -65,4 +65,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_sources ON sources (
     COALESCE(video_url, ''),
     COALESCE(nzb_data, '')
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_torrent_info 
+ON sources (anilist_id, episode_number, info_hash)
+WHERE category = 'torrent' AND info_hash IS NOT NULL;
 

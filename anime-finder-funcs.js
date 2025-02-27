@@ -8,7 +8,7 @@ import { globalTorrentCache, cacheTorrentRange } from './cache.js';
 import { miruToshoEpisode } from "./miru-sources/tosho-test.js";
 import { miruToshoMovie } from "./miru-sources/tosho-test.js";
 import { miruToshoBatchAnime } from './miru-sources/tosho-test.js';
-import { cleanLeadingZeroes, extractInfoHash, addSpacesAroundHyphens } from './main.js';
+import { cleanLeadingZeroes, extractInfoHash, addSpacesAroundHyphens } from './crawler_dispatch.js';
 
 
 

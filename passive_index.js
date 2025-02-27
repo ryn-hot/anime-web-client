@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import fs from 'fs/promises';
 import { enqueue, dequeue, size } from './tasks-queue.js';
 import { nextProxy, reportFailure} from './proxy-manager.js';
-import { crawler_dispatch } from "./main.js";
+import { crawler_dispatch } from "./crawler_dispatch.js";
 import { checkMALDubs, animescheduleDubCheck } from "./dubcheck.js";
 import fetch from 'node-fetch';
 
@@ -96,6 +96,11 @@ class AnimeDatabase {
     
     insertAnime({ anilistId, malId, anidbId, englishTitle, romanjiTitle, episodeNumber, format }) {
         try {
+
+            const episodeList = episodeNumber !== undefined && episodeNumber !== null 
+            ? JSON.stringify([episodeNumber])
+            : JSON.stringify([]);
+
             const stmt = this.db.prepare(`
                 INSERT INTO anime (
                     anilist_id,
@@ -114,7 +119,7 @@ class AnimeDatabase {
                 anidbId || null,
                 englishTitle || null,
                 romanjiTitle || null,
-                episodeNumber || null,
+                episodeList || null,
                 format || null
             );
     
@@ -148,10 +153,13 @@ class AnimeDatabase {
           VALUES (@anilistId, @anidbId, @episodeNumber, @episodeTitle)
         `;
       
-        const incrementAnime = `
-          UPDATE anime
-          SET episode_number = episode_number + 1
-          WHERE anilist_id = @anilistId
+        const updateAnimeEpisodeList = `
+            UPDATE anime
+            SET episode_list = CASE
+            WHEN episode_list IS NULL THEN json('[' || ? || ']')
+            ELSE json_insert(episode_list, '$[' || json_array_length(episode_list) || ']', ?)
+            END
+            WHERE anilist_id = ?
         `;
       
         const insertSource = `
@@ -202,10 +210,8 @@ class AnimeDatabase {
           if (result.changes === 1) {
             // 2) Since we inserted a new row for that (anilist_id, episode_number),
             //    increment the anime's episode_number
-            const animeStmt = this.db.prepare(incrementAnime);
-            animeStmt.run({
-              anilistId
-            });
+            const animeStmt = this.db.prepare(updateAnimeEpisodeList);
+            animeStmt.run(episodeNumber, episodeNumber, anilistId );
           }
       
           // 3) Insert the source row unconditionally
@@ -354,7 +360,7 @@ class AnimeDatabase {
 
 // const tasksQueue = [];
 
-// Example usage:
+// await main()
 async function main() {
     const db = new AnimeDatabase('./anime.db');
     
@@ -544,13 +550,31 @@ async function passive_index_queuer(db) {
                 // 4.2 The anime already exists
 
                 // 4.3 Now check episodes
-                const localStats = episodeStats.get(anilistId) || { localCount: 0, maxEpisode: 0 };
-                const localMaxEp = localStats.maxEpisode || 0;
+                const localCount = episodeStats.get(anilistId).localCount || 0;
 
-                if (anilistEpisodes > localMaxEp) {
+
+
+                if (anilistEpisodes > localCount) {
                     // There's a difference in episode counts 
                     // We queue missing episodes individually
-                    for (let epNum = localMaxEp + 1; epNum <= anilistEpisodes; epNum++) {
+                    const anime = db.getAnime(anilistId);
+                    let episodeList = [];
+    
+                    if (anime && anime.episode_list) {
+                        episodeList = JSON.parse(anime.episode_list);
+                    }
+                    
+                    const lastEpisode = episodeList[episodeList.length - 1];
+                    let tempList = episodeList;
+    
+                    if (lastEpisode < anilistEpisodes) {
+                        tempList.push(anilistEpisodes)
+                    }
+    
+                    let missingEpisodes = findMissingIntegers(tempList);
+                    missingEpisodes.push(lastEpisode);
+
+                    for (const ep of missingEpisodes) {
                         enqueue({
                             type: 'episode',
                             anilistId,
@@ -558,7 +582,7 @@ async function passive_index_queuer(db) {
                             anidbId,
                             englishTitle,
                             romanjiTitle,
-                            episodeNumber: epNum,
+                            episodeNumber: ep,
                             audio: 'sub',
                             format: format,
                             mode: mode,
@@ -679,7 +703,7 @@ async function processAnimeTask(task, db) {
         anidbId: task.anidbId,
         englishTitle: task.englishTitle,
         romanjiTitle: task.romanjiTitle,
-        episodeNumber: 0,
+        episode_list: null,
         format: task.format,
     });
 
@@ -808,6 +832,27 @@ async function fetchAnimeData(query, page = 1, perPage = 50) {
     console.error('Error fetching data:', error);
     }
 };
+
+function findMissingIntegers(nums) {
+    const missingRanges = [];
+    
+    // Iterate through the array, comparing consecutive elements
+    for (let i = 0; i < nums.length - 1; i++) {
+      const current = nums[i];
+      const next = nums[i + 1];
+      
+      // Check if there are missing numbers between current and next
+      if (next - current > 1) {
+        const start = current + 1;
+        const end = next - 1;
+        
+        // Add the range to our result
+        missingRanges.push([start, end]);
+      }
+    }
+    
+    return missingRanges;
+}
 
 
 export {

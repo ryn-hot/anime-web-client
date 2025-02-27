@@ -1,14 +1,64 @@
-import { crawler_dispatch, addSpacesAroundHyphens, cleanLeadingZeroes, seasonFlattener } from "./main.js";
+import { crawler_dispatch, addSpacesAroundHyphens, cleanLeadingZeroes, seasonFlattener } from "./crawler_dispatch.js";
 import { AnimeDatabase } from "./passive_index.js";
 import { torrentEmitter } from './torrentEmitter.js';
 import { getGlobalClient } from "./webtorrent-client.js";
 import { cacheTorrentRange, storeTorrentMetadata, isInfoHashInCache } from "./cache.js";
 import fetch from 'node-fetch';
-import { parse_title_reserve } from "./anime-finder-funcs.js"
+import { parse_title_reserve } from "./anime-finder-funcs.js";
+import path from "path"; 
 
-const results = await dynamicFinder(151807, 5, 'sub'); 
-console.log('results:')
-console.log(results)
+const results = await dynamicFinder(151807, 2, 'sub'); 
+console.log('results: ', results);
+
+
+async function streamTorrent(alID, episodeNum, audio) {
+    const result = await dynamicFinder(alID, episodeNum, audio);
+
+    const videoFileFormat = extractFileSuffix(result.fileName); 
+  
+    const client = getGlobalClient();
+
+    client.add(result.magnetLink, { sequential: true }, torrent => {
+        console.log(`Torrent ${torrent.infoHash} added.`);
+        
+        // Get the specific file using fileIndex.
+        const file = torrent.files[result.fileIndex];
+        if (!file) {
+          res.status(404).send("File not found in torrent");
+          return;
+        }
+        
+        // Set appropriate headers based on your file type.
+        // Here we assume a video file (e.g., mp4 or mkv). Adjust accordingly.
+        res.writeHead(200, {
+          "Content-Type": `video/${videoFileFormat}`, // Change if needed based on file extension.
+          "Content-Disposition": `inline; filename="${result.fileName}"`
+        });
+        
+        // Create a read stream for the file.
+        const stream = file.createReadStream();
+        
+        // Optionally, listen to stream events.
+        stream.on("error", err => {
+          console.error("Stream error:", err);
+          res.end();
+        });
+        
+        // Pipe the file stream directly to the HTTP response.
+        stream.pipe(res);
+        
+        // Once streaming finishes, you might want to clean up the torrent.
+        stream.on("end", () => {
+          console.log("Streaming finished.");
+          // Optionally, you can destroy the torrent if you don't need it anymore.
+          torrent.destroy();
+        });
+    });
+    console.log('results:')
+    console.log(results)
+
+}
+
 
 async function dynamicFinder(alID, episodeNum, audio) { 
     const db = new AnimeDatabase('./anime.db');
@@ -17,8 +67,8 @@ async function dynamicFinder(alID, episodeNum, audio) {
     const source = db.getTorrentSource(alID, episodeNum, audio);
 
     if (source) {
-        console.log('database hit');
-        console.log('source: ', source);
+        // console.log('database hit');
+        // console.log('source: ', source);
 
         return source
     } else {
@@ -37,7 +87,7 @@ async function dynamicFinder(alID, episodeNum, audio) {
                 anidbId: anime_info.anidb_id, 
                 englishTitle: anime_info.english_title, 
                 romanjiTitle: anime_info.romanji_title, 
-                episodeNumber: 0, 
+                episode_list: null, 
                 format: anime_info.format
             });
             altAnimeTitles = fetched_info.animeAltTitles;
@@ -59,8 +109,8 @@ async function dynamicFinder(alID, episodeNum, audio) {
             }
       
             const torrentEventHandler = (torrentData) => {
-              console.log("Event fired:");
-              console.log(torrentData);
+              // console.log("Event fired:");
+              // console.log(torrentData);
       
               // Ensure torrentData is an array.
               const candidates = Array.isArray(torrentData) ? torrentData : [torrentData];
@@ -110,7 +160,7 @@ async function dynamicFinder(alID, episodeNum, audio) {
                 torrentEmitter.removeListener(eventKey, torrentEventHandler);
                 reject(new Error("Timeout: No torrent candidate succeeded"));
               }
-            }, 30000);
+            }, 120000);
       
             // Start the crawler after the listener is active.
             crawler_dispatch(
@@ -459,6 +509,7 @@ async function torrentResolve(magnetURI, episode_number, seeders, audio_type, al
                             audioType: audio_type,
                             category: 'torrent',
                             magnetLink: fileInfo.magnetLink,
+                            info_hash: raw_torrent.infoHash,
                             fileIndex: fileInfo.fileIndex,
                             fileName: fileInfo.fileName,
                             seeders: seeders,
@@ -504,6 +555,7 @@ async function torrentResolve(magnetURI, episode_number, seeders, audio_type, al
                         audioType: audio_type,
                         category: 'torrent',
                         magnetLink: fileInfo.magnetLink,
+                        info_hash: raw_torrent.infoHash,
                         fileIndex: fileInfo.fileIndex,
                         fileName: fileInfo.fileName,
                         seeders: seeders,
@@ -536,3 +588,12 @@ async function torrentResolve(magnetURI, episode_number, seeders, audio_type, al
         });
     });
 }
+
+function extractFileSuffix(filename) {
+    // Get the extension including the period (e.g., '.mp4')
+    const extension = path.extname(filename);
+    
+    // Remove the leading period to get just the suffix
+    return extension.slice(1);
+}
+  
