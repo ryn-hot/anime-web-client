@@ -7,9 +7,9 @@ const anilistAPI = new AniListAPI();
 // Helper function to get the current season
 function getCurrentSeason() {
     const month = new Date().getMonth() + 1;
-    if (month >= 3 && month <= 5) return 'SPRING';
-    if (month >= 6 && month <= 8) return 'SUMMER';
-    if (month >= 9 && month <= 12) return 'FALL';
+    if (month > 3 && month <= 6) return 'SPRING';
+    if (month >= 7 && month <= 9) return 'SUMMER';
+    if (month >= 10 && month <= 12) return 'FALL';
     return 'WINTER';
 }
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SecretAnime</title>
+    <title>SecretAnime - Watch</title>
     <!-- Link to the external CSS file -->
     <link rel="stylesheet" href="css/styles.css">
     <!-- Link to Font Awesome for icons -->
@@ -96,6 +96,112 @@
         </div>
     </header>
 
-    <script type="module" src="js/watch.js"></script>
+    <!-- Main Content Area -->
+    <main id="main-content">
+        <!-- Video Player Container -->
+        <div class="video-panel">
+            <div class="video-container">
+                <!-- Video Player Placeholder (will be replaced with embedded player) -->
+                <div id="video-player" class="video-player">
+                    <!-- Placeholder for the embedded video player -->
+                    <div class="video-placeholder">
+                        <i class="fas fa-play-circle"></i>
+                        <p>Video player will be embedded here</p>
+                    </div>
+                </div>
+                
+                <!-- Video Controls -->
+                <div class="video-controls">
+                    <div class="video-controls-left">
+                        <button class="control-button play-pause">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button class="control-button volume">
+                            <i class="fas fa-volume-up"></i>
+                        </button>
+                        <div class="time-display">
+                            <span class="current-time">00:00</span>
+                            <span class="time-separator">/</span>
+                            <span class="total-time">00:00</span>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="video-controls-right">
+                        <button class="control-button settings">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <button class="control-button fullscreen">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Video Information -->
+            <div class="video-info">
+                <h1 class="video-title">Video Title</h1>
+                <div class="episode-info">
+                    <span class="episode-number">Episode 1</span>
+                    <span class="episode-separator">•</span>
+                    <span class="episode-date">March 3, 2025</span>
+                </div>
+                <div class="video-actions">
+                    <button class="action-button like">
+                        <i class="fas fa-thumbs-up"></i>
+                        <span>Like</span>
+                    </button>
+                    <button class="action-button share">
+                        <i class="fas fa-share"></i>
+                        <span>Share</span>
+                    </button>
+                    <button class="action-button save">
+                        <i class="fas fa-bookmark"></i>
+                        <span>Save</span>
+                    </button>
+                </div>
+                <div class="video-description">
+                    <p>Video description goes here. This can include a summary of the episode, relevant information, and more.</p>
+                </div>
+            </div>
+            
+            <!-- Related Episodes -->
+            <div class="related-episodes">
+                <h2 class="section-title">Related Episodes</h2>
+                <div class="episodes-list">
+                    <!-- Episodes will be populated here -->
+                    <div class="episode-item">
+                        <div class="episode-thumbnail">
+                            <img src="/api/placeholder/160/90" alt="Episode thumbnail">
+                            <span class="episode-duration">24:30</span>
+                        </div>
+                        <div class="episode-details">
+                            <h3 class="episode-title">Episode 2: The Journey Begins</h3>
+                            <span class="episode-views">15K views</span>
+                        </div>
+                    </div>
+                    
+                    <div class="episode-item">
+                        <div class="episode-thumbnail">
+                            <img src="/api/placeholder/160/90" alt="Episode thumbnail">
+                            <span class="episode-duration">23:45</span>
+                        </div>
+                        <div class="episode-details">
+                            <h3 class="episode-title">Episode 3: New Challenges</h3>
+                            <span class="episode-views">12K views</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
 
+    <!-- Main JavaScript -->
+    <script src="js/watch.js"></script>
 </body>
+</html>

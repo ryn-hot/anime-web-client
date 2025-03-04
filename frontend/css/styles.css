@@ -962,4 +962,365 @@ body::-webkit-scrollbar-thumb:hover {
     }
 }
 
+.video-panel {
+    background-color: #242424; /* Slightly lighter than the main background */
+    border-radius: 8px 8px 0 0; /* Only round the top corners */
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    padding: 20px 0 0 0; /* Padding ONLY on top */
+    margin: 30px 20px;
+    max-width: 1200px; /* Match video container width */
+    overflow: hidden; /* Ensure content doesn't break the shape */
+}
+
+.video-panel .video-container,
+.video-panel .video-info,
+.video-panel .related-episodes {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Video Player Container */
+.video-container {
+    width: 98%; /* this value changes the video player housing size */
+    max-width: 1200px;
+    margin: 0px; /* 20px auto; */
+    background-color: #000;
+    border-radius: 0px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    position: relative;
+}
+
+/* Video Player */
+.video-player {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background-color: #111;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Placeholder for video player */
+.video-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.video-placeholder i {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+.video-placeholder p {
+    font-size: 18px;
+    font-weight: 500;
+}
+
+/* Video Controls */
+.video-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background-color: #181818;
+    border-top: 1px solid #333;
+    position: relative;
+}
+
+.video-controls-left, .video-controls-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Control Buttons */
+.control-button {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.control-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Time Display */
+.time-display {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    margin-left: 5px;
+}
+
+.time-separator {
+    margin: 0 5px;
+}
+
+/* Progress Bar */
+.progress-bar-container {
+    flex-grow: 1;
+    margin: 0 20px;
+    height: 5px;
+    position: relative;
+}
+
+.progress-bar-bg {
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    width: 20%; /* Default position */
+    background-color: #ff4081; /* Primary accent color */
+    border-radius: 5px;
+    transition: width 0.1s linear;
+}
+
+/* Video Information */
+.video-info {
+    padding: 20px;
+    background-color: #1c1c1c;
+    border-radius: 8px;
+    margin: 20px; /* 20px auto;*/
+    width: 95%;
+    max-width: 1200px;
+}
+
+.video-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #fff;
+}
+
+.episode-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.video-actions {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 20px;
+}
+
+.action-button {
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 8px 15px;
+    border-radius: 20px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.action-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.action-button i {
+    font-size: 16px;
+}
+
+.video-description {
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.6;
+    font-size: 15px;
+}
+
+/* Related Episodes */
+.related-episodes {
+    max-width: 1200px;
+    margin: 20px; /* 30px */
+    padding: 0 20px;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #fff;
+}
+
+.episodes-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.episode-item {
+    display: flex;
+    gap: 15px;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.episode-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.episode-thumbnail {
+    position: relative;
+    width: 160px;
+    height: 90px;
+    border-radius: 5px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.episode-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.episode-duration {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 12px;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.episode-details {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.episode-title {
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0;
+    color: #fff;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.episode-views {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .video-controls {
+        padding: 8px 10px;
+    }
+    
+    .progress-bar-container {
+        margin: 0 10px;
+    }
+    
+    .control-button {
+        width: 35px;
+        height: 35px;
+        font-size: 14px;
+    }
+    
+    .time-display {
+        font-size: 12px;
+    }
+    
+    .video-title {
+        font-size: 20px;
+    }
+    
+    .episodes-list {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Hover effect for video controls */
+.video-container:hover .video-controls {
+    opacity: 1;
+}
+
+/* Hide controls when not hovering (optional) */
+.video-controls {
+    transition: opacity 0.3s;
+}
+
+/* Fullscreen styling */
+.video-container.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    border-radius: 0;
+}
+
+/* Settings dropdown */
+.settings-dropdown {
+    position: absolute;
+    bottom: 50px;
+    right: 10px;
+    background-color: #242424;
+    border-radius: 5px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    padding: 10px 0;
+    z-index: 5;
+    display: none;
+}
+
+.settings-dropdown.active {
+    display: block;
+}
+
+.settings-dropdown ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.settings-dropdown li {
+    padding: 8px 15px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.settings-dropdown li:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
 
