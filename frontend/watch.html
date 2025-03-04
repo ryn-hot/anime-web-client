@@ -145,12 +145,45 @@
             
             <!-- Video Information -->
             <div class="video-info">
-                <h1 class="video-title">Video Title</h1>
-                <div class="episode-info">
-                    <span class="episode-number">Episode 1</span>
-                    <span class="episode-separator">•</span>
-                    <span class="episode-date">March 3, 2025</span>
+                <div class="video-info-container">
+                    <!-- Left Side: Episode Info -->
+                    <div class="episode-details-panel">
+                        <h1 class="video-title">You are watching</h1>
+                        <div class="episode-info">
+                            <span class="episode-number">Episode 1</span>
+                        </div>
+                        <p class="server-message">If current server doesn't work please try other servers beside.</p>
+                    </div>
+                    
+                    <!-- Right Side: Source Selection -->
+                    <div class="source-selection">
+                        <!-- SUB Section -->
+                        <div class="language-section">
+                            <div class="language-label">
+                                <i class="fas fa-closed-captioning"></i>
+                                <span>SUB:</span>
+                            </div>
+                            <div class="source-buttons">
+                                <button class="source-button active" data-source="sub-1">HD-1</button>
+                                <button class="source-button" data-source="sub-2">HD-2</button>
+                            </div>
+                        </div>
+                        
+                        <!-- DUB Section -->
+                        <div class="language-section">
+                            <div class="language-label">
+                                <i class="fas fa-microphone"></i>
+                                <span>DUB:</span>
+                            </div>
+                            <div class="source-buttons">
+                                <button class="source-button" data-source="dub-1">HD-1</button>
+                                <button class="source-button" data-source="dub-2">HD-2</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+                
+                <!-- Video Actions (like, share, save buttons) -->
                 <div class="video-actions">
                     <button class="action-button like">
                         <i class="fas fa-thumbs-up"></i>
@@ -165,6 +198,8 @@
                         <span>Save</span>
                     </button>
                 </div>
+                
+                <!-- Video Description -->
                 <div class="video-description">
                     <p>Video description goes here. This can include a summary of the episode, relevant information, and more.</p>
                 </div>

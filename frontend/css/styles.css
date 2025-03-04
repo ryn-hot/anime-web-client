@@ -1239,6 +1239,124 @@ body::-webkit-scrollbar-thumb:hover {
     color: rgba(255, 255, 255, 0.6);
 }
 
+
+/* Video Info Container */
+.video-info-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+/* Episode Details Panel (Left Side) */
+.episode-details-panel {
+    flex: 0 1 300px;
+    background-color: rgba(255, 105, 180, 0.2); /* Light pink background, transparent */
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+.episode-details-panel .video-title {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.episode-details-panel .episode-number {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.server-message {
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.8);
+    margin-top: 15px;
+}
+
+/* Source Selection (Right Side) */
+.source-selection {
+    flex: 1 1 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.language-section {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.language-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    width: 80px;
+}
+
+.language-label i {
+    font-size: 18px;
+}
+
+.source-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.source-button {
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.source-button:hover {
+    background-color: #444;
+}
+
+.source-button.active {
+    background-color: rgba(255, 105, 180, 0.8); /* Pink for active button */
+    color: #fff;
+}
+
+/* Adjust existing video actions to work with the new layout */
+.video-actions {
+    margin-top: 0;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Media queries for responsive design */
+@media (max-width: 768px) {
+    .video-info-container {
+        flex-direction: column;
+    }
+    
+    .episode-details-panel,
+    .source-selection {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+    
+    .language-section {
+        flex-wrap: wrap;
+    }
+}
+
 /* Responsive Adjustments */
 @media (max-width: 768px) {
     .video-controls {
