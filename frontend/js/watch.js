@@ -1,9 +1,52 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Sidebar navigation functionality
+    // Sidebar functionality
     const menuButton = document.querySelector('.menu-button');
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.querySelector('.overlay');
 
+    menuButton.addEventListener('click', () => {
+        toggleSidebar();
+    });
+    
+    // Event listener for overlay click
+    overlay.addEventListener('click', closeSidebar);
+    
+    // Event listener for Escape key
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeSidebar();
+        }
+    });
+
+    // Search functionality
+    const searchButton = document.getElementById('search-button');
+    if (searchButton) {
+        searchButton.addEventListener('click', () => {
+            const searchSelect = document.querySelector('.search-input[name="keyword"]');
+            const searchValue = searchSelect ? searchSelect.value.trim() : '';
+            window.location.href = `search.html${searchValue ? `?search=${encodeURIComponent(searchValue)}` : ''}`;
+        });
+    }
+    
+    const searchForm = document.querySelector('.search-content form');
+    if (searchForm) {
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault(); // Prevent the default form submission
+            const searchSelect = document.querySelector('.search-input[name="keyword"]');
+            const searchValue = searchSelect ? searchSelect.value.trim() : '';
+            window.location.href = `search.html${searchValue ? `?search=${encodeURIComponent(searchValue)}` : ''}`;
+        });
+    }
+
+    const filterButton = document.getElementById('filter-button');
+    if (filterButton) {
+        filterButton.addEventListener('click', () => {
+            const searchSelect = document.querySelector('.search-input[name="keyword"]');
+            const searchValue = searchSelect ? searchSelect.value.trim() : '';
+            window.location.href = `search.html${searchValue ? `?search=${encodeURIComponent(searchValue)}` : ''}`;
+        });
+    }
+    
     // Toggle sidebar expand/collapse
     function toggleSidebar() {
         if (sidebar.classList.contains('expanded')) {
@@ -21,46 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.classList.remove('active');
     }
 
-    // Event listeners
-    menuButton.addEventListener('click', toggleSidebar);
-    overlay.addEventListener('click', closeSidebar);
-    
-    // Event listener for Escape key
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            closeSidebar();
-        }
-    });
-
-    // Search functionality
-    const searchButton = document.getElementById('search-button');
-    if (searchButton) {
-        searchButton.addEventListener('click', () => {
-            const searchInput = document.querySelector('.search-input[name="keyword"]');
-            const searchValue = searchInput ? searchInput.value.trim() : '';
-            window.location.href = `search.html${searchValue ? `?search=${encodeURIComponent(searchValue)}` : ''}`;
-        });
-    }
-    
-    const searchForm = document.querySelector('.search-content form');
-    if (searchForm) {
-        searchForm.addEventListener('submit', (e) => {
-            e.preventDefault(); // Prevent the default form submission
-            const searchInput = document.querySelector('.search-input[name="keyword"]');
-            const searchValue = searchInput ? searchInput.value.trim() : '';
-            window.location.href = `search.html${searchValue ? `?search=${encodeURIComponent(searchValue)}` : ''}`;
-        });
-    }
-
-    const filterButton = document.getElementById('filter-button');
-    if (filterButton) {
-        filterButton.addEventListener('click', () => {
-            const searchInput = document.querySelector('.search-input[name="keyword"]');
-            const searchValue = searchInput ? searchInput.value.trim() : '';
-            window.location.href = `search.html${searchValue ? `?search=${encodeURIComponent(searchValue)}` : ''}`;
-        });
-    }
-
+    // Video Player Controls
     const videoContainer = document.querySelector('.video-container');
     const videoPlayer = document.getElementById('video-player');
     const playPauseButton = document.querySelector('.play-pause');
@@ -79,7 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentProgress = 20; // Default progress percentage
     
     // Initialize placeholder values
-    totalTimeDisplay.textContent = "24:30"; // Example duration
+    if (totalTimeDisplay) {
+        totalTimeDisplay.textContent = "24:30"; // Example duration
+    }
     
     // Play/Pause button functionality
     if (playPauseButton) {
@@ -155,9 +161,11 @@ document.addEventListener('DOMContentLoaded', () => {
                       !!document.mozFullScreenElement ||
                       !!document.msFullscreenElement;
         
-        fullscreenButton.innerHTML = isFullscreen ? 
-            '<i class="fas fa-compress"></i>' : 
-            '<i class="fas fa-expand"></i>';
+        if (fullscreenButton) {
+            fullscreenButton.innerHTML = isFullscreen ? 
+                '<i class="fas fa-compress"></i>' : 
+                '<i class="fas fa-expand"></i>';
+        }
     }
     
     // Settings button functionality
@@ -238,6 +246,201 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${formattedMinutes}:${formattedSeconds}`;
     }
     
+    // Dynamically create video info section
+    function createVideoInfoSection() {
+        // Find the video panel or main content to append to
+        const videoPanel = document.querySelector('.video-panel') || document.getElementById('main-content');
+        if (!videoPanel) return; // Exit if no container is found
+        
+        // Check if video-info already exists
+        let videoInfo = document.querySelector('.video-info');
+        if (videoInfo) {
+            // Clear existing content if it exists
+            videoInfo.innerHTML = '';
+        } else {
+            // Create new element if it doesn't exist
+            videoInfo = document.createElement('div');
+            videoInfo.className = 'video-info';
+            // Insert after video container
+            const videoContainer = document.querySelector('.video-container');
+            const relatedEpisodes = document.querySelector('.related-episodes');
+            if (videoContainer && videoContainer.parentNode) {
+                videoContainer.parentNode.insertBefore(videoInfo, relatedEpisodes);
+            } else {
+                videoPanel.appendChild(videoInfo);
+            }
+        }
+        
+        // Create main container
+        const videoInfoContainer = document.createElement('div');
+        videoInfoContainer.className = 'video-info-container';
+        
+        // Create left panel (episode details)
+        const episodeDetailsPanel = document.createElement('div');
+        episodeDetailsPanel.className = 'episode-details-panel';
+        
+        const videoTitle = document.createElement('h1');
+        videoTitle.className = 'video-title';
+        videoTitle.textContent = 'You are watching';
+        
+        const episodeInfo = document.createElement('div');
+        episodeInfo.className = 'episode-info';
+        
+        const episodeNumber = document.createElement('span');
+        episodeNumber.className = 'episode-number';
+        episodeNumber.textContent = 'Episode 1';
+        episodeInfo.appendChild(episodeNumber);
+        
+        const serverMessage = document.createElement('p');
+        serverMessage.className = 'server-message';
+        serverMessage.textContent = "If current server doesn't work please try other servers beside.";
+        
+        episodeDetailsPanel.appendChild(videoTitle);
+        episodeDetailsPanel.appendChild(episodeInfo);
+        episodeDetailsPanel.appendChild(serverMessage);
+        
+        // Create right panel (source selection)
+        const sourceSelection = document.createElement('div');
+        sourceSelection.className = 'source-selection';
+        
+        // Create SUB section
+        const subSection = createLanguageSection('SUB', ['HD-1', 'HD-2'], true);
+        
+        // Create DUB section
+        const dubSection = createLanguageSection('DUB', ['HD-1', 'HD-2'], false);
+        
+        sourceSelection.appendChild(subSection);
+        sourceSelection.appendChild(dubSection);
+        
+        // Append panels to container
+        videoInfoContainer.appendChild(episodeDetailsPanel);
+        videoInfoContainer.appendChild(sourceSelection);
+        
+        // Create action buttons
+        
+        // Append all sections to video info
+        videoInfo.appendChild(videoInfoContainer);
+        
+        // Initialize event listeners for source buttons
+        initSourceButtons();
+    }
+    
+    // Helper function to create language sections (SUB/DUB)
+    function createLanguageSection(label, options, isFirstActive) {
+        const section = document.createElement('div');
+        section.className = 'language-section';
+        
+        const labelDiv = document.createElement('div');
+        labelDiv.className = 'language-label';
+        
+        const icon = document.createElement('i');
+        icon.className = `fas fa-${label === 'SUB' ? 'closed-captioning' : 'microphone'}`;
+        
+        const labelText = document.createElement('span');
+        labelText.textContent = `${label}:`;
+        
+        labelDiv.appendChild(icon);
+        labelDiv.appendChild(labelText);
+        
+        const buttonsDiv = document.createElement('div');
+        buttonsDiv.className = 'source-buttons';
+        
+        options.forEach((option, index) => {
+            const button = document.createElement('button');
+            button.className = 'source-button';
+            if (index === 0 && isFirstActive) {
+                button.classList.add('active');
+            }
+            button.dataset.source = `${label.toLowerCase()}-${index + 1}`;
+            button.textContent = option;
+            
+            buttonsDiv.appendChild(button);
+        });
+        
+        section.appendChild(labelDiv);
+        section.appendChild(buttonsDiv);
+        
+        return section;
+    }
+    
+    
+    // Initialize event listeners for source buttons
+    function initSourceButtons() {
+        const sourceButtons = document.querySelectorAll('.source-button');
+        
+        sourceButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Get data-source attribute
+                const source = this.getAttribute('data-source');
+                
+                // Remove active class from all buttons in the same group
+                const parentSection = this.closest('.language-section');
+                parentSection.querySelectorAll('.source-button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                // Add active class to the clicked button
+                this.classList.add('active');
+                
+                // Change video source (placeholder functionality for now)
+                console.log(`Switched to source: ${source}`);
+                
+                // Show a temporary notification
+                const notification = document.createElement('div');
+                notification.className = 'source-change-notification';
+                notification.textContent = `Loading ${source.includes('sub') ? 'Subtitled' : 'Dubbed'} version, ${source.slice(-1)}`;
+                
+                const videoContainer = document.querySelector('.video-container');
+                if (videoContainer) {
+                    videoContainer.appendChild(notification);
+                    
+                    // Remove notification after 3 seconds
+                    setTimeout(() => {
+                        notification.classList.add('fade-out');
+                        setTimeout(() => notification.remove(), 500);
+                    }, 3000);
+                }
+            });
+        });
+    }
+    
+    // Add CSS for notification
+    function addNotificationStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            .source-change-notification {
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                background-color: rgba(0, 0, 0, 0.7);
+                color: white;
+                padding: 10px 15px;
+                border-radius: 5px;
+                z-index: 10;
+                animation: fadeIn 0.3s;
+            }
+            
+            .source-change-notification.fade-out {
+                animation: fadeOut 0.5s;
+            }
+            
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            @keyframes fadeOut {
+                from { opacity: 1; transform: translateY(0); }
+                to { opacity: 0; transform: translateY(-10px); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Call the functions to set up the video info section
+    createVideoInfoSection();
+    addNotificationStyles();
+    
     // Episode items click event
     const episodeItems = document.querySelectorAll('.episode-item');
     episodeItems.forEach(item => {
@@ -245,19 +448,28 @@ document.addEventListener('DOMContentLoaded', () => {
             // Here you would load the selected episode in your embedded player
             // For now, let's update the title as an example
             const episodeTitle = item.querySelector('.episode-title').textContent;
-            document.querySelector('.video-title').textContent = episodeTitle;
+            const videoTitleElement = document.querySelector('.video-title');
+            if (videoTitleElement) {
+                videoTitleElement.textContent = episodeTitle;
+            }
             
             // Reset player to initial state
             isPlaying = false;
-            playPauseButton.innerHTML = '<i class="fas fa-play"></i>';
+            if (playPauseButton) {
+                playPauseButton.innerHTML = '<i class="fas fa-play"></i>';
+            }
             currentProgress = 0;
-            progressBar.style.width = '0%';
-            currentTimeDisplay.textContent = '00:00';
+            if (progressBar) {
+                progressBar.style.width = '0%';
+            }
+            if (currentTimeDisplay) {
+                currentTimeDisplay.textContent = '00:00';
+            }
             
             // Scroll to top of video player
-            videoPlayer.scrollIntoView({ behavior: 'smooth' });
+            if (videoPlayer) {
+                videoPlayer.scrollIntoView({ behavior: 'smooth' });
+            }
         });
     });
-    
 });
-
