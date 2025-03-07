@@ -974,7 +974,7 @@ body::-webkit-scrollbar-thumb:hover {
 
 .video-panel .video-container,
 .video-panel .video-info,
-.video-panel .related-episodes {
+.video-panel {
     margin-left: auto;
     margin-right: auto;
 }
@@ -1122,87 +1122,6 @@ body::-webkit-scrollbar-thumb:hover {
     margin-bottom: 20px;
 }
 
-/* Related Episodes */
-.related-episodes {
-    max-width: 1200px;
-    margin: 20px; /* 30px */
-    padding: 0 20px;
-}
-
-.section-title {
-    font-size: 20px;
-    font-weight: 600;
-    margin-bottom: 20px;
-    color: #fff;
-}
-
-.episodes-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-}
-
-.episode-item {
-    display: flex;
-    gap: 15px;
-    cursor: pointer;
-    padding: 10px;
-    border-radius: 8px;
-    transition: background-color 0.2s;
-}
-
-.episode-item:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-.episode-thumbnail {
-    position: relative;
-    width: 160px;
-    height: 90px;
-    border-radius: 5px;
-    overflow: hidden;
-    flex-shrink: 0;
-}
-
-.episode-thumbnail img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.episode-duration {
-    position: absolute;
-    bottom: 5px;
-    right: 5px;
-    background-color: rgba(0, 0, 0, 0.7);
-    color: #fff;
-    font-size: 12px;
-    padding: 2px 5px;
-    border-radius: 3px;
-}
-
-.episode-details {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-}
-
-.episode-title {
-    font-size: 14px;
-    font-weight: 500;
-    margin: 0;
-    color: #fff;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.episode-views {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.6);
-}
 
 
 /* Video Info Container */
@@ -1331,6 +1250,210 @@ body::-webkit-scrollbar-thumb:hover {
     color: #fff;
 }
 
+
+.seasons-section {
+    width: 95%;
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 0;
+}
+
+/* Section Header with Navigation */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 0 10px;
+}
+
+.section-header .section-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+}
+
+.navigation-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.nav-button {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.nav-button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Seasons Container */
+.seasons-container {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    padding: 10px 5px;
+    scroll-behavior: smooth;
+    scrollbar-width: none; /* Firefox */
+}
+
+.seasons-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Edge */
+}
+
+/* Season Card */
+.season-card {
+    width: 180px;
+    height: 100px;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.3s ease;;
+    display: flex; /* Add flexbox for centering content */
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+}
+
+.season-card.active {
+    box-shadow: 0 0 0 2px rgba(255, 105, 180, 0.8); /* Pink border */
+}
+
+.season-card.active .season-bg {
+    filter: brightness(0.9) grayscale(0); /* Brighter and colorful */
+}
+
+.season-card.active .season-title {
+    color: rgba(255, 255, 255, 1); /* Bright white */
+}
+
+
+.season-card.active .episode-count {
+    background-color: rgba(255, 105, 180, 0.8); /* Pink badge */
+    color: white;
+}
+
+.season-card.active .episode-count {
+    background-color: rgba(255, 105, 180, 0.8); /* Pink badge */
+    color: white;
+}
+
+/* Hover effects - show a preview of the active state */
+.season-card:not(.active):hover .season-bg {
+    filter: brightness(0.7) grayscale(0.1); /* Brighter than inactive but not as bright as active */
+}
+
+.season-card:not(.active):hover .season-title {
+    color: rgba(255, 255, 255, 0.9); /* Brighter text on hover */
+}
+
+.season-card:not(.active):hover .episode-count {
+    background-color: rgba(255, 105, 180, 0.8); /* Slightly brighter badge on hover */
+}
+
+.season-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+}
+
+.season-card::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.1) 0%,
+        rgba(0, 0, 0, 0.3) 70%,
+        rgba(0, 0, 0, 0.5) 100%
+    );
+    z-index: 1; /* Above background, below content */
+} 
+
+.season-card.active {
+    border: 2px solid rgba(255, 105, 180, 0.8); /* Pink border for active season */
+}
+
+.season-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    filter: brightness(0.5) grayscale(0.3);
+    transition: all 0.3s ease;
+    z-index: 0;
+}
+
+.season-card:hover .season-bg {
+    filter: brightness(0.9);
+}
+
+.season-card:hover .season-title {
+    color: rgba(255, 255, 255, 0.9); /* Brighter text on hover */
+}
+
+.season-card:hover .episode-count {
+    background-color: rgba(255, 105, 180, 0.8); /* Slightly brighter badge on hover */
+}
+
+.season-card.active:hover .season-bg {
+    filter: brightness(1) grayscale(0); /* Fully bright when active and hovered */
+}
+
+
+.season-info {
+    position: relative;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 15px;
+    background: none;   /* background: linear-gradient(transparent, rgba(0, 0, 0, 0.5)); */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    filter: none !important;
+    z-index: 5;
+}
+
+.season-title {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 5px 0;
+    text-align: center;
+    transition: all 0.3s ease;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    -webkit-font-smoothing: antialiased; /* Sharper text on webkit browsers */
+    z-index: 2;
+}
+
+.episode-count {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 8px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    -webkit-font-smoothing: antialiased; /* Sharper text on webkit browsers */
+    z-index: 2;
+}
 
 
 /* Media queries for responsive design */

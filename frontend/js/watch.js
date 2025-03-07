@@ -436,9 +436,157 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         document.head.appendChild(style);
     }
+
+
+    // Add this function to your watch.js file
+
+    // Function to create seasons section
+    function createSeasonsSection() {
+        const videoPanel = document.querySelector('.video-panel');
+        if (!videoPanel) return;
+        
+        // Sample seasons data (in a real app, this would come from an API or database)
+        const seasons = [
+            { number: 1, episodes: 12, thumbnail: '/api/placeholder/160/90' },
+            { number: 2, episodes: 13, thumbnail: '/api/placeholder/160/90' }
+        ];
+        
+        // Only create the section if there's more than one season
+        if (seasons.length <= 1) return;
+        
+        // Check if seasons section already exists
+        let seasonsSection = document.querySelector('.seasons-section');
+        if (seasonsSection) {
+            // Clear existing content if it exists
+            seasonsSection.innerHTML = '';
+        } else {
+            // Create new element if it doesn't exist
+            seasonsSection = document.createElement('div');
+            seasonsSection.className = 'seasons-section';
+            
+            // Append to video panel
+            videoPanel.appendChild(seasonsSection);
+        }
+        
+        // Create header with navigation
+        const sectionHeader = document.createElement('div');
+        sectionHeader.className = 'section-header';
+        
+        const sectionTitle = document.createElement('h2');
+        sectionTitle.className = 'section-title';
+        sectionTitle.textContent = 'Seasons';
+        
+        const navigationControls = document.createElement('div');
+        navigationControls.className = 'navigation-controls';
+        
+        const prevButton = document.createElement('button');
+        prevButton.className = 'nav-button prev';
+        prevButton.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        
+        const nextButton = document.createElement('button');
+        nextButton.className = 'nav-button next';
+        nextButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        
+        navigationControls.appendChild(prevButton);
+        navigationControls.appendChild(nextButton);
+        
+        sectionHeader.appendChild(sectionTitle);
+        sectionHeader.appendChild(navigationControls);
+        
+        // Create seasons container
+        const seasonsContainer = document.createElement('div');
+        seasonsContainer.className = 'seasons-container';
+        
+        // Add seasons
+        seasons.forEach(season => {
+            const seasonCard = document.createElement('div');
+            seasonCard.className = 'season-card';
+            seasonCard.dataset.season = season.number;
+            
+            // Add background image
+            const bgImage = document.createElement('div');
+            bgImage.className = 'season-bg';
+            bgImage.style.backgroundImage = `url(${season.thumbnail})`;
+            
+            // Add season info
+            const seasonInfo = document.createElement('div');
+            seasonInfo.className = 'season-info';
+            
+            const seasonTitle = document.createElement('h3');
+            seasonTitle.className = 'season-title';
+            seasonTitle.textContent = `Season ${season.number}`;
+            
+            const episodeCount = document.createElement('span');
+            episodeCount.className = 'episode-count';
+            episodeCount.textContent = `${season.episodes} Eps`;
+            
+            seasonInfo.appendChild(seasonTitle);
+            seasonInfo.appendChild(episodeCount);
+            
+            seasonCard.appendChild(bgImage);
+            seasonCard.appendChild(seasonInfo);
+            
+            seasonsContainer.appendChild(seasonCard);
+            
+            // Add click event
+            seasonCard.addEventListener('click', () => {
+                console.log(`Switching to Season ${season.number}`);
+                // Here you would handle season selection, update the UI, etc.
+                
+                // For example, update the episode number in the video info
+                const episodeNumberEl = document.querySelector('.episode-number');
+                if (episodeNumberEl) {
+                    episodeNumberEl.textContent = `Season ${season.number}, Episode 1`;
+                }
+                
+                // Mark this season as active
+                document.querySelectorAll('.season-card').forEach(card => {
+                    card.classList.remove('active');
+                });
+                seasonCard.classList.add('active');
+            });
+        });
+        
+        // Append all to section
+        seasonsSection.appendChild(sectionHeader);
+        seasonsSection.appendChild(seasonsContainer);
+        
+        // Set up navigation
+        let scrollPosition = 0;
+        const cardWidth = 220; // Approximate width including margins
+        
+        prevButton.addEventListener('click', () => {
+            scrollPosition = Math.max(scrollPosition - cardWidth, 0);
+            seasonsContainer.scrollTo({
+                left: scrollPosition,
+                behavior: 'smooth'
+            });
+        });
+        
+        nextButton.addEventListener('click', () => {
+            scrollPosition = Math.min(
+                scrollPosition + cardWidth,
+                seasonsContainer.scrollWidth - seasonsContainer.clientWidth
+            );
+            seasonsContainer.scrollTo({
+                left: scrollPosition,
+                behavior: 'smooth'
+            });
+        });
+        
+        // Make first season active by default
+        if (seasons.length > 0) {
+            seasonsContainer.querySelector('.season-card').classList.add('active');
+        }
+    }
+
+// Add call to createSeasonsSection after createVideoInfoSection
+// In your existing code, after createVideoInfoSection() call, add:
+// createSeasonsSection();
     
     // Call the functions to set up the video info section
     createVideoInfoSection();
+    createSeasonsSection();
     addNotificationStyles();
     
     // Episode items click event
@@ -472,4 +620,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+
+
 });
