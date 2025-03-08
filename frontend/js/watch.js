@@ -275,29 +275,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const videoInfoContainer = document.createElement('div');
         videoInfoContainer.className = 'video-info-container';
         
-        // Create left panel (episode details)
         const episodeDetailsPanel = document.createElement('div');
         episodeDetailsPanel.className = 'episode-details-panel';
-        
+
+        // Create a content wrapper for better margin control
+        const episodeDetailsContent = document.createElement('div');
+        episodeDetailsContent.className = 'episode-details-content';
+
         const videoTitle = document.createElement('h1');
         videoTitle.className = 'video-title';
         videoTitle.textContent = 'You are watching';
-        
+
         const episodeInfo = document.createElement('div');
         episodeInfo.className = 'episode-info';
-        
+
         const episodeNumber = document.createElement('span');
         episodeNumber.className = 'episode-number';
         episodeNumber.textContent = 'Episode 1';
         episodeInfo.appendChild(episodeNumber);
-        
+
         const serverMessage = document.createElement('p');
         serverMessage.className = 'server-message';
         serverMessage.textContent = "If current server doesn't work please try other servers beside.";
-        
-        episodeDetailsPanel.appendChild(videoTitle);
-        episodeDetailsPanel.appendChild(episodeInfo);
-        episodeDetailsPanel.appendChild(serverMessage);
+
+        // Append to content wrapper first
+        episodeDetailsContent.appendChild(videoTitle);
+        episodeDetailsContent.appendChild(episodeInfo);
+        episodeDetailsContent.appendChild(serverMessage);
+
+        // Then append content wrapper to panel
+        episodeDetailsPanel.appendChild(episodeDetailsContent);
         
         // Create right panel (source selection)
         const sourceSelection = document.createElement('div');

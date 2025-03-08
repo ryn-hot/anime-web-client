@@ -1132,7 +1132,7 @@ body::-webkit-scrollbar-thumb:hover {
     flex-wrap: nowrap; /* Don't wrap on small screens */
     gap: 20px;
     height: 100%;
-    padding: 0 5px;
+    padding: 0 0px;
 }
 
 
@@ -1142,7 +1142,7 @@ body::-webkit-scrollbar-thumb:hover {
     width: 250px; /* CRITICAL: Add fixed width for text wrapping */
     background-color: rgba(255, 105, 180, 0.2); 
     border-radius: 8px;
-    padding: 10px; /* Add some padding */
+    padding: 0px; /* This value adjusts the size of the container will increase size veritcally with more padding */
     text-align: center;
     
     /* CRITICAL: Use flexbox for layout */
