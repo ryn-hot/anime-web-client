@@ -963,13 +963,19 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 .video-panel {
-    background-color: #242424; /* Slightly lighter than the main background */
-    border-radius: 8px 8px 0 0; /* Only round the top corners */
+    flex: 1 1 auto; /* Grow to fill remaining space */
+    min-width: 0; 
+    max-width: calc(100% - 340px);
+    background-color: #242424;
+    border-radius: 8px 8px 0 0;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-    padding: 20px 0 0 0; /* Padding ONLY on top */
-    margin: 30px 20px;
-    max-width: 1200px; /* Match video container width */
-    overflow: hidden; /* Ensure content doesn't break the shape */
+    padding: 20px 0 0 0;
+    margin: 0px 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    order: 1
+
 }
 
 .video-panel .video-container,
@@ -981,11 +987,11 @@ body::-webkit-scrollbar-thumb:hover {
 
 /* Video Player Container */
 .video-container {
-    width: 98%; /* this value changes the video player housing size */
-    max-width: 1200px;
-    margin: 0px; /* 20px auto; */
+    width: 100%; /* Take full width of parent */
+    max-width: none; /* Remove max-width constraint */
+    margin: 0; /* Remove margins */
     background-color: #000;
-    border-radius: 0px;
+    border-radius: 0;
     overflow: hidden;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
     position: relative;
@@ -1029,7 +1035,8 @@ body::-webkit-scrollbar-thumb:hover {
     padding: 10px 20px;
     background-color: #181818;
     border-top: 1px solid #333;
-    position: relative;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .video-controls-left, .video-controls-right {
@@ -1096,13 +1103,15 @@ body::-webkit-scrollbar-thumb:hover {
 
 /* Video Information */
 .video-info {
+    width: 100%;
+    max-width: none;
+    margin: 10px 0;
     padding: 20px;
     background-color: #1c1c1c;
     border-radius: 8px;
-    margin: 10px; /* 20px auto;*/
-    width: 95%;
-    max-width: 1200px;
-    height: 100px;
+    box-sizing: border-box;
+    height: auto; /* Allow height to adjust based on content */
+    min-height: 100px;
 }
 
 .video-title {
@@ -1128,11 +1137,12 @@ body::-webkit-scrollbar-thumb:hover {
 .video-info-container {
     display: flex;
     justify-content: space-between;
-    align-items: center; /* Center vertically */
-    flex-wrap: nowrap; /* Don't wrap on small screens */
+    align-items: center;
+    flex-wrap: nowrap;
     gap: 20px;
+    width: 100%;
     height: 100%;
-    padding: 0 0px;
+    padding: 0;
 }
 
 
@@ -1252,10 +1262,11 @@ body::-webkit-scrollbar-thumb:hover {
 
 
 .seasons-section {
-    width: 95%;
-    max-width: 1200px;
-    margin: 20px auto;
+    width: 100%; /* Fill video panel width */
+    max-width: none; /* Remove maximum width constraint */
+    margin: 0px 0; /* Vertical margin only */
     padding: 0;
+    /* box-sizing: border-box; */
 }
 
 /* Section Header with Navigation */
@@ -1264,7 +1275,10 @@ body::-webkit-scrollbar-thumb:hover {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 15px;
-    padding: 0 10px;
+    padding: 0 15px;
+    width: 100%;
+    width: calc(100% - 40px); /* Adjust width to account for padding */
+    box-sizing: border-box; /* Ensure padding is included in width calculation */
 }
 
 .section-header .section-title {
@@ -1272,11 +1286,13 @@ body::-webkit-scrollbar-thumb:hover {
     font-weight: 600;
     color: #fff;
     margin: 0;
+    flex-shrink: 0;
 }
 
 .navigation-controls {
     display: flex;
     gap: 10px;
+    flex-shrink: 0; /* Prevent controls from shrinking */
 }
 
 .nav-button {
@@ -1302,9 +1318,10 @@ body::-webkit-scrollbar-thumb:hover {
     display: flex;
     gap: 20px;
     overflow-x: auto;
-    padding: 10px 5px;
+    padding: 10px 10px;
     scroll-behavior: smooth;
     scrollbar-width: none; /* Firefox */
+    width: 100%;
 }
 
 .seasons-container::-webkit-scrollbar {
@@ -1385,6 +1402,12 @@ body::-webkit-scrollbar-thumb:hover {
 
 .season-card.active {
     border: 2px solid rgba(255, 105, 180, 0.8); /* Pink border for active season */
+}
+
+/* Adjust spacing in video panel to accommodate seasons section */
+.video-panel > :last-child {
+    margin-bottom: 0; /* Remove margin from last element */
+    padding-bottom: 10px; /* Add some padding at bottom */
 }
 
 .season-bg {
@@ -1556,5 +1579,193 @@ body::-webkit-scrollbar-thumb:hover {
 
 .settings-dropdown li:hover {
     background-color: rgba(255, 255, 255, 0.1);
+}
+
+
+/* Main Content */
+#main-content-watch {
+    margin-left: 70px; /* Default sidebar width (collapsed) */
+    padding: 20px;
+    transition: margin-left 0.3s ease;
+    display: flex; /* Use flexbox for layout */
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    gap: 20px;
+    align-items: flex-start;
+}
+
+/* Episodes Panel Styling */
+.episodes-panel {
+    width: 300px; /* Fixed width for side panel */
+    flex: 0 0 300px; /* Don't grow or shrink */
+    background-color: #1a1a1a;
+    border-radius: 8px;
+    overflow: hidden;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    margin-top: 0px; /* Match video panel top margin */
+    align-self: flex-start; /* Stick to the top */
+    position: sticky;
+    top: 90px; /* Add some space from the top */
+    max-height: calc(100vh - 120px); /* Limit height and enable scrolling if needed */
+    overflow-y: auto;
+    order: 2
+}
+
+/* Episodes Panel Styling - Refine existing styles */
+.episodes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.episodes-header h2 {
+    font-size: 20px; /* Slightly smaller */
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+}
+
+.episodes-controls {
+    display: flex;
+    gap: 8px; /* Smaller gap */
+    align-items: center;
+}
+
+.episode-search {
+    position: relative;
+    background-color: #333;
+    border-radius: 20px;
+    padding: 4px 10px; /* Smaller padding */
+    display: flex;
+    align-items: center;
+}
+
+.search-hash {
+    color: #888;
+    margin-right: 5px;
+    font-weight: 500;
+}
+
+.episode-search input {
+    background: none;
+    border: none;
+    color: white;
+    outline: none;
+    width: 60px; /* Smaller width */
+    font-size: 13px; /* Smaller font */
+}
+
+.episode-cc-button,
+.episode-quality-button,
+.episode-list-button {
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    width: 28px; /* Smaller */
+    height: 28px; /* Smaller */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px; /* Smaller font */
+}
+
+.episode-cc-button {
+    width: auto;
+    padding: 0 8px;
+}
+
+/* Adjust episodes grid for side panel */
+.episodes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3 columns instead of 6 */
+    gap: 8px; /* Smaller gap */
+}
+
+.episode-button {
+    background-color: #333;
+    border: none;
+    color: #fff;
+    border-radius: 4px;
+    padding: 10px 0; /* Slightly smaller */
+    font-size: 14px; /* Smaller font */
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Fix episodes panel scrollbar styling */
+.episodes-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.episodes-panel::-webkit-scrollbar-track {
+    background: #1c1c1c;
+}
+
+.episodes-panel::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 3px;
+    border: 1px solid #1c1c1c;
+}
+
+/* Episodes Navigation */
+.episodes-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    padding: 8px 15px;
+    background-color: #222;
+    border-radius: 20px;
+}
+
+.episodes-range {
+    color: #fff;
+    font-size: 16px;
+}
+
+.episodes-navigation .nav-button {
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.episodes-navigation .nav-button:hover {
+    color: #ccc;
+}
+
+/* Episodes Grid */
+.episodes-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+}
+
+.episode-button {
+    background-color: #333;
+    border: none;
+    color: #fff;
+    border-radius: 4px;
+    padding: 12px 0;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.episode-button:hover {
+    background-color: #444;
+}
+
+.episode-button.active {
+    background-color: #e74c3c; /* Red/orange color similar to reference */
+    color: #fff;
 }
 

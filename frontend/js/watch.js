@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Dynamically create video info section
     function createVideoInfoSection() {
         // Find the video panel or main content to append to
-        const videoPanel = document.querySelector('.video-panel') || document.getElementById('main-content');
+        const videoPanel = document.querySelector('.video-panel') || document.getElementById('main-content-watch');
         if (!videoPanel) return; // Exit if no container is found
         
         // Check if video-info already exists
@@ -587,13 +587,155 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-// Add call to createSeasonsSection after createVideoInfoSection
-// In your existing code, after createVideoInfoSection() call, add:
-// createSeasonsSection();
+    // Function to create episodes panel
+    function createEpisodesPanel() {
+        // Find the main content container
+        const mainContent = document.getElementById('main-content-watch');
+        if (!mainContent) return;
+        
+        // Sample episode data (in a real app, this would come from an API or database)
+        const episodeData = {
+            total: 100,
+            current: 1,
+            range: "001-100"
+        };
+        
+        // Create the episodes section
+        const episodesSection = document.createElement('div');
+        episodesSection.className = 'episodes-panel';
+        
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'episodes-header';
+        
+        const title = document.createElement('h2');
+        title.textContent = 'Episodes';
+        header.appendChild(title);
+        
+        // Create search and control buttons
+        const controls = document.createElement('div');
+        controls.className = 'episodes-controls';
+        
+        const searchInput = document.createElement('div');
+        searchInput.className = 'episode-search';
+        searchInput.innerHTML = '<span class="search-hash">#</span><input type="text" placeholder="Find">';
+        
+        const ccButton = document.createElement('button');
+        ccButton.className = 'episode-cc-button';
+        ccButton.innerHTML = 'CC';
+        
+        const listView1Button = document.createElement('button');
+        listView1Button.className = 'episode-list-button';
+        listView1Button.innerHTML = '<i class="fas fa-th-large"></i>';
+        
+        const listView2Button = document.createElement('button');
+        listView2Button.className = 'episode-list-button';
+        listView2Button.innerHTML = '<i class="fas fa-list"></i>';
+        
+        controls.appendChild(searchInput);
+        controls.appendChild(ccButton);
+        controls.appendChild(listView1Button);
+        controls.appendChild(listView2Button);
+        
+        header.appendChild(controls);
+        
+        // Create navigation bar
+        const navigation = document.createElement('div');
+        navigation.className = 'episodes-navigation';
+        
+        const prevButton = document.createElement('button');
+        prevButton.className = 'nav-button prev';
+        prevButton.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        
+        const rangeText = document.createElement('span');
+        rangeText.className = 'episodes-range';
+        rangeText.textContent = episodeData.range;
+        
+        const nextButton = document.createElement('button');
+        nextButton.className = 'nav-button next';
+        nextButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        
+        navigation.appendChild(prevButton);
+        navigation.appendChild(rangeText);
+        navigation.appendChild(nextButton);
+        
+        // Create episodes grid
+        const grid = document.createElement('div');
+        grid.className = 'episodes-grid';
+        
+        // Generate episode buttons
+        for (let i = 1; i <= episodeData.total; i++) {
+            const episodeButton = document.createElement('button');
+            episodeButton.className = 'episode-button';
+            episodeButton.textContent = i;
+            
+            // Highlight current episode
+            if (i === episodeData.current) {
+                episodeButton.classList.add('active');
+            }
+            
+            // Add click event
+            episodeButton.addEventListener('click', () => {
+                // Remove active class from all buttons
+                document.querySelectorAll('.episode-button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                // Add active class to clicked button
+                episodeButton.classList.add('active');
+                
+                // Update episode info in the video info panel
+                const episodeNumberEl = document.querySelector('.episode-number');
+                if (episodeNumberEl) {
+                    const seasonText = episodeNumberEl.textContent.includes('Season') 
+                        ? episodeNumberEl.textContent.split(',')[0] + ', ' 
+                        : '';
+                    episodeNumberEl.textContent = `${seasonText}Episode ${i}`;
+                }
+                
+                console.log(`Switching to episode ${i}`);
+                // Here you would load the new episode video
+            });
+            
+            grid.appendChild(episodeButton);
+        }
+        
+        // Assemble the panel
+        episodesSection.appendChild(header);
+        episodesSection.appendChild(navigation);
+        episodesSection.appendChild(grid);
+        
+        // Insert at the beginning of main content, before the video panel
+        const videoPanel = document.querySelector('.video-panel');
+        if (videoPanel) {
+            // Insert before the video panel
+            mainContent.insertBefore(episodesSection, videoPanel);
+        } else {
+            // Just append to main content if video panel isn't found
+            mainContent.appendChild(episodesSection);
+        }
+        
+        // Set up navigation buttons
+        prevButton.addEventListener('click', () => {
+            console.log('Navigate to previous episode set');
+            // Here you would implement pagination logic
+        });
+        
+        nextButton.addEventListener('click', () => {
+            console.log('Navigate to next episode set');
+            // Here you would implement pagination logic
+        });
+    }
+    
+
+    // Add call to createSeasonsSection after createVideoInfoSection
+    // In your existing code, after createVideoInfoSection() call, add:
+    // createSeasonsSection();
     
     // Call the functions to set up the video info section
     createVideoInfoSection();
     createSeasonsSection();
+    createEpisodesPanel(); 
     addNotificationStyles();
     
     // Episode items click event
