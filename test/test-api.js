@@ -132,7 +132,7 @@ export async function getTopRated(page = 1, perPage = 16) {
   return fetchAniListData(query, variables);
 }
 
-async function alIdFetch(alID = 33) {
+async function alIdFetch(alID = 21) {
   const query = `
   query ($id: Int) {
     Media(id: $id, type: ANIME) {
@@ -178,9 +178,8 @@ async function alIdFetch(alID = 33) {
   const pageData = data.data.Media;
   const relations = data.data.Media.relations;
 
-  console.log(data.data.Media);
-  console.log('relations');
-  console.log(relations);
+  console.log(data.data.Media.episodes);
+  
 
   const animeAlternatives = pageData.relations.edges.filter(edge => edge.node.type === "ANIME" && edge.relationType === "ALTERNATIVE");
   const animeAltTitles = [];
@@ -199,13 +198,13 @@ async function alIdFetch(alID = 33) {
 
 }
 
-async function test_anidb(epnum = 1121) {
-  const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + 21);
+async function test_anidb(epnum = 10) {
+  const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + 21459);
   const json = await mappingsResponse.json();
   const ep = json?.episodeCount || -1;
   const anidbId = json?.mappings?.anidb_id || -1;
   const episodes = json?.episodes || -1;
-  console.log(episodes);
+  // console.log(episodes);
   const epKey = epnum.toString();
   if (episodes[epKey]) {
     console.log(episodes[epKey].anidbEid);
@@ -213,7 +212,7 @@ async function test_anidb(epnum = 1121) {
 
   //console.log(json);
   // target = 286363
-  console.log(anidbId);
+  //console.log(mappingsResponse);
 }
 
 async function subTest() {
@@ -239,9 +238,9 @@ function formatString(str) {
 
 async function main() {
   // Test cases
-  await alIdFetch();
+  await test_anidb();
 }
 
 
 
-//main();
+await main();

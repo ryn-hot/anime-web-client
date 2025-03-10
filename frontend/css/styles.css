@@ -1656,7 +1656,6 @@ body::-webkit-scrollbar-thumb:hover {
     font-size: 13px; /* Smaller font */
 }
 
-.episode-cc-button,
 .episode-quality-button,
 .episode-list-button {
     background-color: #333;
@@ -1672,10 +1671,6 @@ body::-webkit-scrollbar-thumb:hover {
     font-size: 13px; /* Smaller font */
 }
 
-.episode-cc-button {
-    width: auto;
-    padding: 0 8px;
-}
 
 /* Adjust episodes grid for side panel */
 .episodes-grid {

@@ -1,3 +1,15 @@
+
+function getAnimeData() {
+    const animeDataStr = sessionStorage.getItem('currentAnimeData');
+    if (animeDataStr) {
+        try {
+            return JSON.parse(animeDataStr);
+        } catch (e) {
+            console.error('Error parsing anime data:', e);
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Sidebar functionality
     const menuButton = document.querySelector('.menu-button');
@@ -249,6 +261,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Dynamically create video info section
     function createVideoInfoSection() {
         // Find the video panel or main content to append to
+        // const animeData = getAnimeData();
+
         const videoPanel = document.querySelector('.video-panel') || document.getElementById('main-content-watch');
         if (!videoPanel) return; // Exit if no container is found
         
@@ -448,31 +462,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add this function to your watch.js file
 
     // Function to create seasons section
-    function createSeasonsSection() {
+    // Function to create related series section (formerly seasons section)
+    function createRelatedSeriesSection() {
+        const animeData = getAnimeData();
         const videoPanel = document.querySelector('.video-panel');
         if (!videoPanel) return;
         
-        // Sample seasons data (in a real app, this would come from an API or database)
-        const seasons = [
-            { number: 1, episodes: 12, thumbnail: '/api/placeholder/160/90' },
-            { number: 2, episodes: 13, thumbnail: '/api/placeholder/160/90' }
-        ];
+        // Get relations array from animeData
+        const relations = animeData.relations || [];
         
-        // Only create the section if there's more than one season
-        if (seasons.length <= 1) return;
+        // Only create the section if there are relations
+        if (relations.length === 0) return;
         
-        // Check if seasons section already exists
-        let seasonsSection = document.querySelector('.seasons-section');
-        if (seasonsSection) {
+        // Check if section already exists
+        let relatedSection = document.querySelector('.seasons-section');
+        if (relatedSection) {
             // Clear existing content if it exists
-            seasonsSection.innerHTML = '';
+            relatedSection.innerHTML = '';
         } else {
             // Create new element if it doesn't exist
-            seasonsSection = document.createElement('div');
-            seasonsSection.className = 'seasons-section';
+            relatedSection = document.createElement('div');
+            relatedSection.className = 'seasons-section';
             
             // Append to video panel
-            videoPanel.appendChild(seasonsSection);
+            videoPanel.appendChild(relatedSection);
         }
         
         // Create header with navigation
@@ -481,7 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const sectionTitle = document.createElement('h2');
         sectionTitle.className = 'section-title';
-        sectionTitle.textContent = 'Seasons';
+        sectionTitle.textContent = 'Related Series';
         
         const navigationControls = document.createElement('div');
         navigationControls.className = 'navigation-controls';
@@ -500,63 +513,68 @@ document.addEventListener('DOMContentLoaded', () => {
         sectionHeader.appendChild(sectionTitle);
         sectionHeader.appendChild(navigationControls);
         
-        // Create seasons container
-        const seasonsContainer = document.createElement('div');
-        seasonsContainer.className = 'seasons-container';
+        // Create container
+        const relatedContainer = document.createElement('div');
+        relatedContainer.className = 'seasons-container';
         
-        // Add seasons
-        seasons.forEach(season => {
-            const seasonCard = document.createElement('div');
-            seasonCard.className = 'season-card';
-            seasonCard.dataset.season = season.number;
+        // Add relation cards
+        relations.forEach(relation => {
+            const relationCard = document.createElement('div');
+            relationCard.className = 'season-card';
+            relationCard.dataset.relationType = relation.relationType;
             
             // Add background image
             const bgImage = document.createElement('div');
             bgImage.className = 'season-bg';
-            bgImage.style.backgroundImage = `url(${season.thumbnail})`;
+            bgImage.style.backgroundImage = `url(${relation.img || '/api/placeholder/160/90'})`;
             
-            // Add season info
-            const seasonInfo = document.createElement('div');
-            seasonInfo.className = 'season-info';
+            // Add relation info
+            const relationInfo = document.createElement('div');
+            relationInfo.className = 'season-info';
             
-            const seasonTitle = document.createElement('h3');
-            seasonTitle.className = 'season-title';
-            seasonTitle.textContent = `Season ${season.number}`;
+            const relationTitle = document.createElement('h3');
+            relationTitle.className = 'season-title';
+            
+            // Format the title based on relation type
+            if (relation.relationType === 'PREQUEL') {
+                relationTitle.textContent = 'Prequel';
+            } else if (relation.relationType === 'SEQUEL') {
+                relationTitle.textContent = 'Sequel';
+            } else {
+                relationTitle.textContent = relation.relationType;
+            }
             
             const episodeCount = document.createElement('span');
             episodeCount.className = 'episode-count';
-            episodeCount.textContent = `${season.episodes} Eps`;
+            episodeCount.textContent = `${relation.episodeNum || '?'} Eps`;
             
-            seasonInfo.appendChild(seasonTitle);
-            seasonInfo.appendChild(episodeCount);
+            relationInfo.appendChild(relationTitle);
+            relationInfo.appendChild(episodeCount);
             
-            seasonCard.appendChild(bgImage);
-            seasonCard.appendChild(seasonInfo);
+            relationCard.appendChild(bgImage);
+            relationCard.appendChild(relationInfo);
             
-            seasonsContainer.appendChild(seasonCard);
+            relatedContainer.appendChild(relationCard);
             
             // Add click event
-            seasonCard.addEventListener('click', () => {
-                console.log(`Switching to Season ${season.number}`);
-                // Here you would handle season selection, update the UI, etc.
+            relationCard.addEventListener('click', () => {
+                console.log(`Switching to ${relation.relationType}`);
                 
-                // For example, update the episode number in the video info
-                const episodeNumberEl = document.querySelector('.episode-number');
-                if (episodeNumberEl) {
-                    episodeNumberEl.textContent = `Season ${season.number}, Episode 1`;
-                }
-                
-                // Mark this season as active
+                // Mark this relation as active
                 document.querySelectorAll('.season-card').forEach(card => {
                     card.classList.remove('active');
                 });
-                seasonCard.classList.add('active');
+                relationCard.classList.add('active');
+                
+                // Here you would navigate to the related anime
+                // For now, just log it
+                console.log(`Navigate to related series`);
             });
         });
         
         // Append all to section
-        seasonsSection.appendChild(sectionHeader);
-        seasonsSection.appendChild(seasonsContainer);
+        relatedSection.appendChild(sectionHeader);
+        relatedSection.appendChild(relatedContainer);
         
         // Set up navigation
         let scrollPosition = 0;
@@ -564,7 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         prevButton.addEventListener('click', () => {
             scrollPosition = Math.max(scrollPosition - cardWidth, 0);
-            seasonsContainer.scrollTo({
+            relatedContainer.scrollTo({
                 left: scrollPosition,
                 behavior: 'smooth'
             });
@@ -573,31 +591,33 @@ document.addEventListener('DOMContentLoaded', () => {
         nextButton.addEventListener('click', () => {
             scrollPosition = Math.min(
                 scrollPosition + cardWidth,
-                seasonsContainer.scrollWidth - seasonsContainer.clientWidth
+                relatedContainer.scrollWidth - relatedContainer.clientWidth
             );
-            seasonsContainer.scrollTo({
+            relatedContainer.scrollTo({
                 left: scrollPosition,
                 behavior: 'smooth'
             });
         });
         
-        // Make first season active by default
-        if (seasons.length > 0) {
-            seasonsContainer.querySelector('.season-card').classList.add('active');
+        // Make first relation card active by default
+        if (relations.length > 0) {
+            relatedContainer.querySelector('.season-card').classList.add('active');
         }
     }
 
     // Function to create episodes panel
     function createEpisodesPanel() {
         // Find the main content container
+        const animeData = getAnimeData();
         const mainContent = document.getElementById('main-content-watch');
         if (!mainContent) return;
         
         // Sample episode data (in a real app, this would come from an API or database)
+        const totalEpisodes = animeData.episodes;
         const episodeData = {
-            total: 100,
+            total: totalEpisodes,
             current: 1,
-            range: "001-100"
+            range: `001-${String(totalEpisodes).padStart(3, '0')}`
         };
         
         // Create the episodes section
@@ -620,9 +640,7 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.className = 'episode-search';
         searchInput.innerHTML = '<span class="search-hash">#</span><input type="text" placeholder="Find">';
         
-        const ccButton = document.createElement('button');
-        ccButton.className = 'episode-cc-button';
-        ccButton.innerHTML = 'CC';
+
         
         const listView1Button = document.createElement('button');
         listView1Button.className = 'episode-list-button';
@@ -633,7 +651,6 @@ document.addEventListener('DOMContentLoaded', () => {
         listView2Button.innerHTML = '<i class="fas fa-list"></i>';
         
         controls.appendChild(searchInput);
-        controls.appendChild(ccButton);
         controls.appendChild(listView1Button);
         controls.appendChild(listView2Button);
         
@@ -734,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Call the functions to set up the video info section
     createVideoInfoSection();
-    createSeasonsSection();
+    createRelatedSeriesSection();
     createEpisodesPanel(); 
     addNotificationStyles();
     
@@ -770,6 +787,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-
+   
 
 });
