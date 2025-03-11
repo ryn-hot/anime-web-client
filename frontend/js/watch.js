@@ -537,11 +537,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Format the title based on relation type
             if (relation.relationType === 'PREQUEL') {
-                relationTitle.textContent = 'Prequel';
+                relationTitle.textContent = relation.title || 'Prequel';
             } else if (relation.relationType === 'SEQUEL') {
-                relationTitle.textContent = 'Sequel';
-            } else {
-                relationTitle.textContent = relation.relationType;
+                relationTitle.textContent = relation.title || 'Sequel';
             }
             
             const episodeCount = document.createElement('span');
@@ -612,13 +610,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const mainContent = document.getElementById('main-content-watch');
         if (!mainContent) return;
         
-        // Sample episode data (in a real app, this would come from an API or database)
-        const totalEpisodes = animeData.episodes;
-        const episodeData = {
-            total: totalEpisodes,
-            current: 1,
-            range: `001-${String(totalEpisodes).padStart(3, '0')}`
-        };
+        // Get total episodes
+        const totalEpisodes = animeData.episodes || 0;
+        if (totalEpisodes <= 0) return; // Don't create panel if no episodes
+        
+        // Pagination settings
+        const episodesPerPage = 100;
+        let currentPage = 0; // 0-based index for pages
+        const totalPages = Math.ceil(totalEpisodes / episodesPerPage);
+        
+        // Calculate current range
+        function updateEpisodeRange() {
+            const startEp = currentPage * episodesPerPage + 1;
+            const endEp = Math.min((currentPage + 1) * episodesPerPage, totalEpisodes);
+            return {
+                start: startEp,
+                end: endEp,
+                display: `${String(startEp).padStart(3, '0')}-${String(endEp).padStart(3, '0')}`
+            };
+        }
+        
+        let currentRange = updateEpisodeRange();
         
         // Create the episodes section
         const episodesSection = document.createElement('div');
@@ -639,8 +651,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.createElement('div');
         searchInput.className = 'episode-search';
         searchInput.innerHTML = '<span class="search-hash">#</span><input type="text" placeholder="Find">';
-        
-
         
         const listView1Button = document.createElement('button');
         listView1Button.className = 'episode-list-button';
@@ -663,59 +673,76 @@ document.addEventListener('DOMContentLoaded', () => {
         const prevButton = document.createElement('button');
         prevButton.className = 'nav-button prev';
         prevButton.innerHTML = '<i class="fas fa-chevron-left"></i>';
+        if (currentPage === 0) {
+            prevButton.disabled = true;
+            prevButton.style.opacity = '0.5';
+            prevButton.style.cursor = 'not-allowed';
+        }
         
         const rangeText = document.createElement('span');
         rangeText.className = 'episodes-range';
-        rangeText.textContent = episodeData.range;
+        rangeText.textContent = currentRange.display;
         
         const nextButton = document.createElement('button');
         nextButton.className = 'nav-button next';
         nextButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+        if (currentPage === totalPages - 1 || totalPages <= 1) {
+            nextButton.disabled = true;
+            nextButton.style.opacity = '0.5';
+            nextButton.style.cursor = 'not-allowed';
+        }
+        
+        // Function to generate episode buttons for current page
+        function generateEpisodeButtons() {
+            const grid = document.createElement('div');
+            grid.className = 'episodes-grid';
+            
+            // Only generate buttons for current page
+            for (let i = currentRange.start; i <= currentRange.end; i++) {
+                const episodeButton = document.createElement('button');
+                episodeButton.className = 'episode-button';
+                episodeButton.textContent = i;
+                
+                // Highlight current episode (assuming episode 1 is active by default)
+                if (i === 1 && currentPage === 0) {
+                    episodeButton.classList.add('active');
+                }
+                
+                // Add click event
+                episodeButton.addEventListener('click', () => {
+                    // Remove active class from all buttons
+                    document.querySelectorAll('.episode-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    
+                    // Add active class to clicked button
+                    episodeButton.classList.add('active');
+                    
+                    // Update episode info in the video info panel
+                    const episodeNumberEl = document.querySelector('.episode-number');
+                    if (episodeNumberEl) {
+                        const seasonText = episodeNumberEl.textContent.includes('Season') 
+                            ? episodeNumberEl.textContent.split(',')[0] + ', ' 
+                            : '';
+                        episodeNumberEl.textContent = `${seasonText}Episode ${i}`;
+                    }
+                    
+                    console.log(`Switching to episode ${i}`);
+                    // Here you would load the new episode video
+                });
+                
+                grid.appendChild(episodeButton);
+            }
+            
+            return grid;
+        }
+        
+        // Initial grid
+        const grid = generateEpisodeButtons();
         
         navigation.appendChild(prevButton);
         navigation.appendChild(rangeText);
         navigation.appendChild(nextButton);
-        
-        // Create episodes grid
-        const grid = document.createElement('div');
-        grid.className = 'episodes-grid';
-        
-        // Generate episode buttons
-        for (let i = 1; i <= episodeData.total; i++) {
-            const episodeButton = document.createElement('button');
-            episodeButton.className = 'episode-button';
-            episodeButton.textContent = i;
-            
-            // Highlight current episode
-            if (i === episodeData.current) {
-                episodeButton.classList.add('active');
-            }
-            
-            // Add click event
-            episodeButton.addEventListener('click', () => {
-                // Remove active class from all buttons
-                document.querySelectorAll('.episode-button').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                
-                // Add active class to clicked button
-                episodeButton.classList.add('active');
-                
-                // Update episode info in the video info panel
-                const episodeNumberEl = document.querySelector('.episode-number');
-                if (episodeNumberEl) {
-                    const seasonText = episodeNumberEl.textContent.includes('Season') 
-                        ? episodeNumberEl.textContent.split(',')[0] + ', ' 
-                        : '';
-                    episodeNumberEl.textContent = `${seasonText}Episode ${i}`;
-                }
-                
-                console.log(`Switching to episode ${i}`);
-                // Here you would load the new episode video
-            });
-            
-            grid.appendChild(episodeButton);
-        }
         
         // Assemble the panel
         episodesSection.appendChild(header);
@@ -725,25 +752,81 @@ document.addEventListener('DOMContentLoaded', () => {
         // Insert at the beginning of main content, before the video panel
         const videoPanel = document.querySelector('.video-panel');
         if (videoPanel) {
-            // Insert before the video panel
             mainContent.insertBefore(episodesSection, videoPanel);
         } else {
-            // Just append to main content if video panel isn't found
             mainContent.appendChild(episodesSection);
+        }
+        
+        // Function to update the episode grid when page changes
+        function updateEpisodeGrid() {
+            // Update range text
+            currentRange = updateEpisodeRange();
+            rangeText.textContent = currentRange.display;
+            
+            // Enable/disable pagination buttons
+            prevButton.disabled = currentPage === 0;
+            prevButton.style.opacity = currentPage === 0 ? '0.5' : '1';
+            prevButton.style.cursor = currentPage === 0 ? 'not-allowed' : 'pointer';
+            
+            nextButton.disabled = currentPage === totalPages - 1;
+            nextButton.style.opacity = currentPage === totalPages - 1 ? '0.5' : '1';
+            nextButton.style.cursor = currentPage === totalPages - 1 ? 'not-allowed' : 'pointer';
+            
+            // Replace the grid with a new one
+            const oldGrid = episodesSection.querySelector('.episodes-grid');
+            const newGrid = generateEpisodeButtons();
+            episodesSection.replaceChild(newGrid, oldGrid);
         }
         
         // Set up navigation buttons
         prevButton.addEventListener('click', () => {
-            console.log('Navigate to previous episode set');
-            // Here you would implement pagination logic
+            if (currentPage > 0) {
+                currentPage--;
+                updateEpisodeGrid();
+                // Scroll to top of episodes grid
+                grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         });
         
         nextButton.addEventListener('click', () => {
-            console.log('Navigate to next episode set');
-            // Here you would implement pagination logic
+            if (currentPage < totalPages - 1) {
+                currentPage++;
+                updateEpisodeGrid();
+                // Scroll to top of episodes grid
+                grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+        
+        // Search functionality
+        const searchInputElement = searchInput.querySelector('input');
+        searchInputElement.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                const searchValue = parseInt(searchInputElement.value);
+                if (!isNaN(searchValue) && searchValue > 0 && searchValue <= totalEpisodes) {
+                    // Calculate which page this episode is on
+                    const targetPage = Math.floor((searchValue - 1) / episodesPerPage);
+                    
+                    // Only change page if needed
+                    if (targetPage !== currentPage) {
+                        currentPage = targetPage;
+                        updateEpisodeGrid();
+                    }
+                    
+                    // Find and click the target episode button
+                    setTimeout(() => {
+                        const targetButton = Array.from(
+                            episodesSection.querySelectorAll('.episode-button')
+                        ).find(btn => parseInt(btn.textContent) === searchValue);
+                        
+                        if (targetButton) {
+                            targetButton.click();
+                            targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }, 100); // Small delay to ensure the grid has updated
+                }
+            }
         });
     }
-    
 
     // Add call to createSeasonsSection after createVideoInfoSection
     // In your existing code, after createVideoInfoSection() call, add:

@@ -988,6 +988,7 @@ function addAnimeItemClickHandlers() {
                                     overview: episodes[epKey].overview, 
                                     img: episodes[epKey].image, 
                                     title: episodes[epKey].title.en,
+                                    duration: episodes[epKey].duration
                                 }
                             )
                         }
@@ -1027,7 +1028,7 @@ function seasonsResolver(edges, format) {
     const filter = edges.filter(edge => edge.node.format === format && (edge.relationType === "PREQUEL" || edge.relationType === "SEQUEL" ));
     const relations = []
     for (const edge of filter) {
-        relations.push({relationType: edge.relationType, episodeNum: edge.node.episodes, img: edge.node.coverImage.extraLarge})
+        relations.push({relationType: edge.relationType, episodeNum: edge.node.episodes, img: edge.node.coverImage.extraLarge, title: edge.node.title.english || edge.node.title.romaji})
     }
 
     return relations
