@@ -614,10 +614,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalEpisodes = animeData.episodes || 0;
         if (totalEpisodes <= 0) return; // Don't create panel if no episodes
         
-        // Pagination settings
-        const episodesPerPage = 100;
+        // View mode state
+        let viewMode = 'grid'; // 'grid' or 'card'
+        
+        // Pagination settings - dynamic based on view mode
+        function getEpisodesPerPage() {
+            return viewMode === 'grid' ? 100 : 6; // 100 for grid view, 5 for card view
+        }
+        
         let currentPage = 0; // 0-based index for pages
-        const totalPages = Math.ceil(totalEpisodes / episodesPerPage);
+        
+        // Calculate pagination details based on current view mode
+        function calculatePagination() {
+            const episodesPerPage = getEpisodesPerPage();
+            const totalPages = Math.ceil(totalEpisodes / episodesPerPage);
+            return { episodesPerPage, totalPages };
+        }
+        
+        let { episodesPerPage, totalPages } = calculatePagination();
         
         // Calculate current range
         function updateEpisodeRange() {
@@ -653,11 +667,13 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.innerHTML = '<span class="search-hash">#</span><input type="text" placeholder="Find">';
         
         const listView1Button = document.createElement('button');
-        listView1Button.className = 'episode-list-button';
+        listView1Button.className = 'episode-list-button active'; // Start with grid view active
+        listView1Button.id = 'grid-view-button';
         listView1Button.innerHTML = '<i class="fas fa-th-large"></i>';
         
         const listView2Button = document.createElement('button');
         listView2Button.className = 'episode-list-button';
+        listView2Button.id = 'list-view-button';
         listView2Button.innerHTML = '<i class="fas fa-list"></i>';
         
         controls.appendChild(searchInput);
@@ -692,8 +708,140 @@ document.addEventListener('DOMContentLoaded', () => {
             nextButton.style.cursor = 'not-allowed';
         }
         
-        // Function to generate episode buttons for current page
-        function generateEpisodeButtons() {
+        navigation.appendChild(prevButton);
+        navigation.appendChild(rangeText);
+        navigation.appendChild(nextButton);
+        
+        // Add CSS for the card view
+        function addCardViewStyles() {
+            const style = document.createElement('style');
+            style.textContent = `
+                .episodes-grid.card-view {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                }
+                
+                .episode-card {
+                    display: flex;
+                    background-color: #292929;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    height: 120px;
+                    transition: transform 0.2s, box-shadow 0.2s;
+                    cursor: pointer;
+                }
+                
+                .episode-card:hover {
+                    transform: translateY(-3px);
+                    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+                }
+                
+                .episode-card.active {
+                    border: 2px solid #e74c3c;
+                }
+                
+                .episode-card-thumbnail {
+                    width: 213px; /* 16:9 ratio based on height */
+                    height: 120px;
+                    background-size: cover;
+                    background-position: center;
+                    flex-shrink: 0;
+                    position: relative;
+                }
+                
+                .episode-number-overlay {
+                    position: absolute;
+                    top: 8px;
+                    left: 8px;
+                    background-color: rgba(0, 0, 0, 0.7);
+                    color: white;
+                    padding: 3px 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-weight: bold;
+                }
+                
+                .episode-duration {
+                    position: absolute;
+                    bottom: 8px;
+                    right: 8px;
+                    background-color: rgba(0, 0, 0, 0.7);
+                    color: white;
+                    padding: 3px 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                }
+                
+                .episode-card-content {
+                    padding: 12px;
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                    flex: 1;
+                }
+                
+                .episode-card-title {
+                    font-weight: bold;
+                    margin: 0 0 8px 0;
+                    font-size: 14px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                
+                .episode-card-overview {
+                    font-size: 12px;
+                    color: #ccc;
+                    line-height: 1.4;
+                    overflow: hidden;
+                    display: -webkit-box;
+                    -webkit-line-clamp: 3;
+                    -webkit-box-orient: vertical;
+                    max-height: 4.2em;
+                }
+                
+                .episode-button {
+                    transition: transform 0.2s, background-color 0.2s;
+                }
+                
+                .episode-button:hover {
+                    transform: scale(1.05);
+                    background-color: #3a3a3a;
+                }
+                
+                .episode-button.active {
+                    background-color: #e74c3c;
+                    color: white;
+                    font-weight: bold;
+                }
+                
+                .episode-list-button {
+                    background: none;
+                    border: none;
+                    color: #aaa;
+                    font-size: 18px;
+                    padding: 5px 10px;
+                    cursor: pointer;
+                    transition: color 0.2s;
+                }
+                
+                .episode-list-button:hover {
+                    color: white;
+                }
+                
+                .episode-list-button.active {
+                    color: #e74c3c;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Add the custom styles
+        addCardViewStyles();
+        
+        // Function to generate episode grid (compact view)
+        function generateEpisodeGrid() {
             const grid = document.createElement('div');
             grid.className = 'episodes-grid';
             
@@ -719,13 +867,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     episodeButton.classList.add('active');
                     
                     // Update episode info in the video info panel
-                    const episodeNumberEl = document.querySelector('.episode-number');
-                    if (episodeNumberEl) {
-                        const seasonText = episodeNumberEl.textContent.includes('Season') 
-                            ? episodeNumberEl.textContent.split(',')[0] + ', ' 
-                            : '';
-                        episodeNumberEl.textContent = `${seasonText}Episode ${i}`;
-                    }
+                    updateEpisodeInfo(i);
                     
                     console.log(`Switching to episode ${i}`);
                     // Here you would load the new episode video
@@ -737,17 +879,142 @@ document.addEventListener('DOMContentLoaded', () => {
             return grid;
         }
         
-        // Initial grid
-        const grid = generateEpisodeButtons();
+        // Function to generate episode cards (detailed view)
+        function generateEpisodeCards() {
+            const grid = document.createElement('div');
+            grid.className = 'episodes-grid card-view';
+            
+            // Only generate cards for current page
+            for (let i = currentRange.start; i <= currentRange.end; i++) {
+                // Get episode data
+                const episodeData = getEpisodeData(i);
+                
+                const episodeCard = document.createElement('div');
+                episodeCard.className = 'episode-card';
+                
+                // Highlight active episode
+                if (i === 1 && currentPage === 0) {
+                    episodeCard.classList.add('active');
+                }
+                
+                // Create thumbnail area
+                const thumbnail = document.createElement('div');
+                thumbnail.className = 'episode-card-thumbnail';
+                thumbnail.style.backgroundImage = `url(${episodeData.img || '/api/placeholder/213/120'})`;
+                
+                // Episode number overlay
+                const episodeNumber = document.createElement('div');
+                episodeNumber.className = 'episode-number-overlay';
+                episodeNumber.textContent = `EP ${i}`;
+                thumbnail.appendChild(episodeNumber);
+                
+                // Duration if available
+                if (episodeData.duration) {
+                    const duration = document.createElement('div');
+                    duration.className = 'episode-duration';
+                    duration.textContent = formatDuration(episodeData.duration);
+                    thumbnail.appendChild(duration);
+                }
+                
+                // Create content area
+                const content = document.createElement('div');
+                content.className = 'episode-card-content';
+                
+                // Episode title
+                const title = document.createElement('h3');
+                title.className = 'episode-card-title';
+                title.textContent = episodeData.title || `Episode ${i}`;
+                content.appendChild(title);
+                
+                // Episode overview
+                const overview = document.createElement('p');
+                overview.className = 'episode-card-overview';
+                overview.textContent = episodeData.overview || 'No description available.';
+                content.appendChild(overview);
+                
+                // Assemble card
+                episodeCard.appendChild(thumbnail);
+                episodeCard.appendChild(content);
+                
+                // Add click event
+                episodeCard.addEventListener('click', () => {
+                    // Remove active class from all cards
+                    document.querySelectorAll('.episode-card').forEach(card => {
+                        card.classList.remove('active');
+                    });
+                    
+                    // Add active class to clicked card
+                    episodeCard.classList.add('active');
+                    
+                    // Update episode info in the video info panel
+                    updateEpisodeInfo(i);
+                    
+                    console.log(`Switching to episode ${i}`);
+                    // Here you would load the new episode video
+                });
+                
+                grid.appendChild(episodeCard);
+            }
+            
+            return grid;
+        }
         
-        navigation.appendChild(prevButton);
-        navigation.appendChild(rangeText);
-        navigation.appendChild(nextButton);
+        // Helper function to get episode data
+        function getEpisodeData(episodeNumber) {
+            if (animeData.episodeData && Array.isArray(animeData.episodeData)) {
+                // Adjust index since episodeData is likely 0-indexed but our display is 1-indexed
+                const episodeIndex = episodeNumber - 1;
+                if (episodeIndex >= 0 && episodeIndex < animeData.episodeData.length) {
+                    return animeData.episodeData[episodeIndex];
+                }
+            }
+            // Return fallback data if episode not found
+            return {
+                title: `Episode ${episodeNumber}`,
+                overview: 'No description available.',
+                img: '/api/placeholder/213/120',
+                duration: null
+            };
+        }
+        
+        // Format duration from minutes to MM:SS
+        function formatDuration(minutes) {
+            if (!minutes) return '??:??';
+            const hrs = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            if (hrs > 0) {
+                return `${hrs}:${String(mins).padStart(2, '0')}`;
+            }
+            return `${mins}:00`;
+        }
+        
+        // Function to update episode info in the video panel
+        function updateEpisodeInfo(episodeNumber) {
+            const episodeNumberEl = document.querySelector('.episode-number');
+            if (episodeNumberEl) {
+                episodeNumberEl.textContent = `Episode ${episodeNumber}`;
+            }
+            
+            // You could also update other elements like episode title, etc.
+            const episodeData = getEpisodeData(episodeNumber);
+            const videoTitleEl = document.querySelector('.video-title');
+            if (videoTitleEl && episodeData.title) {
+                videoTitleEl.textContent = `You are watching: ${episodeData.title}`;
+            }
+        }
+        
+        // Function to generate the appropriate view based on current mode
+        function generateCurrentView() {
+            return viewMode === 'grid' ? generateEpisodeGrid() : generateEpisodeCards();
+        }
+        
+        // Initial view
+        const initialView = generateCurrentView();
         
         // Assemble the panel
         episodesSection.appendChild(header);
         episodesSection.appendChild(navigation);
-        episodesSection.appendChild(grid);
+        episodesSection.appendChild(initialView);
         
         // Insert at the beginning of main content, before the video panel
         const videoPanel = document.querySelector('.video-panel');
@@ -757,8 +1024,18 @@ document.addEventListener('DOMContentLoaded', () => {
             mainContent.appendChild(episodesSection);
         }
         
-        // Function to update the episode grid when page changes
-        function updateEpisodeGrid() {
+        // Function to update the episode display when page or view mode changes
+        function updateEpisodeDisplay() {
+            // Recalculate pagination
+            const newPagination = calculatePagination();
+            episodesPerPage = newPagination.episodesPerPage;
+            totalPages = newPagination.totalPages;
+            
+            // Ensure current page is valid with new pagination
+            if (currentPage >= totalPages) {
+                currentPage = totalPages - 1;
+            }
+            
             // Update range text
             currentRange = updateEpisodeRange();
             rangeText.textContent = currentRange.display;
@@ -774,26 +1051,45 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Replace the grid with a new one
             const oldGrid = episodesSection.querySelector('.episodes-grid');
-            const newGrid = generateEpisodeButtons();
+            const newGrid = generateCurrentView();
             episodesSection.replaceChild(newGrid, oldGrid);
         }
+        
+        // Set up view mode toggle buttons
+        listView1Button.addEventListener('click', () => {
+            if (viewMode !== 'card') {
+                viewMode = 'card';
+                listView1Button.classList.add('active');
+                listView2Button.classList.remove('active');
+                updateEpisodeDisplay();
+            }
+        });
+        
+        listView2Button.addEventListener('click', () => {
+            if (viewMode !== 'grid') {
+                viewMode = 'grid';
+                listView2Button.classList.add('active');
+                listView1Button.classList.remove('active');
+                updateEpisodeDisplay();
+            }
+        });
         
         // Set up navigation buttons
         prevButton.addEventListener('click', () => {
             if (currentPage > 0) {
                 currentPage--;
-                updateEpisodeGrid();
+                updateEpisodeDisplay();
                 // Scroll to top of episodes grid
-                grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                episodesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         });
         
         nextButton.addEventListener('click', () => {
             if (currentPage < totalPages - 1) {
                 currentPage++;
-                updateEpisodeGrid();
+                updateEpisodeDisplay();
                 // Scroll to top of episodes grid
-                grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                episodesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         });
         
@@ -809,18 +1105,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Only change page if needed
                     if (targetPage !== currentPage) {
                         currentPage = targetPage;
-                        updateEpisodeGrid();
+                        updateEpisodeDisplay();
                     }
                     
-                    // Find and click the target episode button
+                    // Find and click the target episode button or card
                     setTimeout(() => {
-                        const targetButton = Array.from(
-                            episodesSection.querySelectorAll('.episode-button')
-                        ).find(btn => parseInt(btn.textContent) === searchValue);
-                        
-                        if (targetButton) {
-                            targetButton.click();
-                            targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        if (viewMode === 'grid') {
+                            const targetButton = Array.from(
+                                episodesSection.querySelectorAll('.episode-button')
+                            ).find(btn => parseInt(btn.textContent) === searchValue);
+                            
+                            if (targetButton) {
+                                targetButton.click();
+                                targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        } else {
+                            const targetCards = episodesSection.querySelectorAll('.episode-card');
+                            const targetIndex = searchValue - currentRange.start;
+                            if (targetIndex >= 0 && targetIndex < targetCards.length) {
+                                targetCards[targetIndex].click();
+                                targetCards[targetIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
                         }
                     }, 100); // Small delay to ensure the grid has updated
                 }
