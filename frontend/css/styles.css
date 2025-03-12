@@ -1595,8 +1595,8 @@ body::-webkit-scrollbar-thumb:hover {
 
 /* Episodes Panel Styling */
 .episodes-panel {
-    width: 300px; /* Fixed width for side panel */
-    flex: 0 0 300px; /* Don't grow or shrink */
+    /* width: 300px;
+    flex: 0 0 300px;*/
     background-color: #1a1a1a;
     border-radius: 8px;
     overflow: hidden;

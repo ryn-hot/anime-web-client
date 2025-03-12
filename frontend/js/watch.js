@@ -619,7 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Pagination settings - dynamic based on view mode
         function getEpisodesPerPage() {
-            return viewMode === 'grid' ? 100 : 6; // 100 for grid view, 5 for card view
+            return viewMode === 'grid' ? 100 : 6    ; // 100 for grid view, 5 for card view
         }
         
         let currentPage = 0; // 0-based index for pages
@@ -667,14 +667,14 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.innerHTML = '<span class="search-hash">#</span><input type="text" placeholder="Find">';
         
         const listView1Button = document.createElement('button');
-        listView1Button.className = 'episode-list-button active'; // Start with grid view active
-        listView1Button.id = 'grid-view-button';
-        listView1Button.innerHTML = '<i class="fas fa-th-large"></i>';
-        
+        listView1Button.className = 'episode-list-button'; // No longer active by default
+        listView1Button.id = 'card-view-button';
+        listView1Button.innerHTML = '<i class="fas fa-list"></i>'; // List icon for card view
+
         const listView2Button = document.createElement('button');
-        listView2Button.className = 'episode-list-button';
-        listView2Button.id = 'list-view-button';
-        listView2Button.innerHTML = '<i class="fas fa-list"></i>';
+        listView2Button.className = 'episode-list-button active'; // Now active by default
+        listView2Button.id = 'grid-view-button'; 
+        listView2Button.innerHTML = '<i class="fas fa-th-large"></i>'; // Grid icon for grid view
         
         controls.appendChild(searchInput);
         controls.appendChild(listView1Button);
@@ -713,9 +713,42 @@ document.addEventListener('DOMContentLoaded', () => {
         navigation.appendChild(nextButton);
         
         // Add CSS for the card view
+        // Add this CSS to the addCardViewStyles function
         function addCardViewStyles() {
             const style = document.createElement('style');
             style.textContent = `
+                /* Base episodes panel styles with transitions */
+                .episodes-panel {
+                    transition: width 0.3s ease, max-width 0.3s ease;
+                    width: 300px; /* Default width for grid view */
+                }
+                
+                /* Expanded panel for card view */
+                .episodes-panel.card-mode {
+                    width: 650px; /* Wider width for card view */
+                    max-width: calc(100vw - 40px); /* Responsive limit */
+                }
+                
+                /* Adjust main content layout when panel is in card mode */
+                #main-content-watch {
+                    transition: grid-template-columns 0.3s ease;
+                }
+                
+                /* Responsive adjustment for main content */
+                @media (max-width: 1000px) {
+                    .episodes-panel.card-mode {
+                        width: 550px;
+                    }
+                }
+                
+                @media (max-width: 850px) {
+                    .episodes-panel.card-mode {
+                        width: 100%;
+                        max-width: 100%;
+                    }
+                }
+                
+                /* Card view specific styles */
                 .episodes-grid.card-view {
                     display: flex;
                     flex-direction: column;
@@ -801,6 +834,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     max-height: 4.2em;
                 }
                 
+                /* Button styles */
                 .episode-button {
                     transition: transform 0.2s, background-color 0.2s;
                 }
@@ -836,7 +870,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             document.head.appendChild(style);
         }
-        
         // Add the custom styles
         addCardViewStyles();
         
@@ -892,6 +925,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const episodeCard = document.createElement('div');
                 episodeCard.className = 'episode-card';
                 
+                episodeCard.style.maxWidth = '100%';
+
                 // Highlight active episode
                 if (i === 1 && currentPage === 0) {
                     episodeCard.classList.add('active');
@@ -1061,7 +1096,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 viewMode = 'card';
                 listView1Button.classList.add('active');
                 listView2Button.classList.remove('active');
-                updateEpisodeDisplay();
+                
+                // Add card-mode class to expand the panel
+                episodesSection.classList.add('card-mode');
+                
+                // Update content after a short delay to allow for transition
+                setTimeout(() => {
+                    updateEpisodeDisplay();
+                }, 50);
             }
         });
         
@@ -1070,7 +1112,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 viewMode = 'grid';
                 listView2Button.classList.add('active');
                 listView1Button.classList.remove('active');
-                updateEpisodeDisplay();
+                
+                // Remove card-mode class to shrink the panel
+                episodesSection.classList.remove('card-mode');
+                
+                // Update content after a short delay to allow for transition
+                setTimeout(() => {
+                    updateEpisodeDisplay();
+                }, 50);
             }
         });
         
