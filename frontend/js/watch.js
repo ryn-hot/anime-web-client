@@ -76,343 +76,202 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.classList.remove('active');
     }
 
-    // Video Player Controls
-    const videoContainer = document.querySelector('.video-container');
-    const videoPlayer = document.getElementById('video-player');
-    const playPauseButton = document.querySelector('.play-pause');
-    const volumeButton = document.querySelector('.volume');
-    const fullscreenButton = document.querySelector('.fullscreen');
-    const settingsButton = document.querySelector('.settings');
-    const progressBar = document.querySelector('.progress-bar-fill');
-    const progressBarBg = document.querySelector('.progress-bar-bg');
-    const currentTimeDisplay = document.querySelector('.current-time');
-    const totalTimeDisplay = document.querySelector('.total-time');
-    
-    // Variables to track state
-    let isPlaying = false;
-    let isMuted = false;
-    let isFullscreen = false;
-    let currentProgress = 20; // Default progress percentage
-    
-    // Initialize placeholder values
-    if (totalTimeDisplay) {
-        totalTimeDisplay.textContent = "24:30"; // Example duration
-    }
-    
-    // Play/Pause button functionality
-    if (playPauseButton) {
-        playPauseButton.addEventListener('click', () => {
-            isPlaying = !isPlaying;
-            
-            // Update button icon
-            if (isPlaying) {
-                playPauseButton.innerHTML = '<i class="fas fa-pause"></i>';
-                // Here you would call the play method of your embedded player
-                currentTimeDisplay.textContent = formatTime(Math.floor(currentProgress * 1470 / 100)); // Example: calculate time based on progress
-            } else {
-                playPauseButton.innerHTML = '<i class="fas fa-play"></i>';
-                // Here you would call the pause method of your embedded player
-            }
-        });
-    }
-    
-    // Volume button functionality
-    if (volumeButton) {
-        volumeButton.addEventListener('click', () => {
-            isMuted = !isMuted;
-            
-            // Update button icon
-            volumeButton.innerHTML = isMuted ? 
-                '<i class="fas fa-volume-mute"></i>' : 
-                '<i class="fas fa-volume-up"></i>';
-            
-            // Here you would call the mute/unmute method of your embedded player
-        });
-    }
-    
-    // Fullscreen button functionality
-    if (fullscreenButton) {
-        fullscreenButton.addEventListener('click', () => {
-            isFullscreen = !isFullscreen;
-            
-            if (isFullscreen) {
-                // Enter fullscreen
-                if (videoContainer.requestFullscreen) {
-                    videoContainer.requestFullscreen();
-                } else if (videoContainer.webkitRequestFullscreen) {
-                    videoContainer.webkitRequestFullscreen();
-                } else if (videoContainer.msRequestFullscreen) {
-                    videoContainer.msRequestFullscreen();
-                }
-                
-                fullscreenButton.innerHTML = '<i class="fas fa-compress"></i>';
-            } else {
-                // Exit fullscreen
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                }
-                
-                fullscreenButton.innerHTML = '<i class="fas fa-expand"></i>';
-            }
-        });
-    }
-    
-    // Track fullscreen changes
-    document.addEventListener('fullscreenchange', updateFullscreenButton);
-    document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
-    document.addEventListener('mozfullscreenchange', updateFullscreenButton);
-    document.addEventListener('MSFullscreenChange', updateFullscreenButton);
-    
-    function updateFullscreenButton() {
-        isFullscreen = !!document.fullscreenElement || 
-                      !!document.webkitFullscreenElement || 
-                      !!document.mozFullScreenElement ||
-                      !!document.msFullscreenElement;
-        
-        if (fullscreenButton) {
-            fullscreenButton.innerHTML = isFullscreen ? 
-                '<i class="fas fa-compress"></i>' : 
-                '<i class="fas fa-expand"></i>';
-        }
-    }
-    
-    // Settings button functionality
-    if (settingsButton) {
-        settingsButton.addEventListener('click', () => {
-            // Create settings dropdown if it doesn't exist
-            let settingsDropdown = document.querySelector('.settings-dropdown');
-            
-            if (!settingsDropdown) {
-                settingsDropdown = document.createElement('div');
-                settingsDropdown.className = 'settings-dropdown';
-                
-                const settingsList = document.createElement('ul');
-                
-                // Add settings options
-                const qualityOption = document.createElement('li');
-                qualityOption.textContent = 'Quality: 1080p';
-                settingsList.appendChild(qualityOption);
-                
-                const speedOption = document.createElement('li');
-                speedOption.textContent = 'Playback Speed: Normal';
-                settingsList.appendChild(speedOption);
-                
-                const subtitlesOption = document.createElement('li');
-                subtitlesOption.textContent = 'Subtitles: English';
-                settingsList.appendChild(subtitlesOption);
-                
-                settingsDropdown.appendChild(settingsList);
-                videoContainer.appendChild(settingsDropdown);
-            }
-            
-            // Toggle dropdown visibility
-            settingsDropdown.classList.toggle('active');
-        });
-        
-        // Close settings dropdown when clicking outside
-        document.addEventListener('click', (event) => {
-            const settingsDropdown = document.querySelector('.settings-dropdown');
-            if (settingsDropdown && settingsDropdown.classList.contains('active')) {
-                if (!settingsDropdown.contains(event.target) && event.target !== settingsButton) {
-                    settingsDropdown.classList.remove('active');
-                }
-            }
-        });
-    }
-    
-    // Progress bar functionality
-    if (progressBarBg) {
-        progressBarBg.addEventListener('click', (event) => {
-            // Calculate click position relative to the progress bar width
-            const rect = progressBarBg.getBoundingClientRect();
-            const clickPosition = event.clientX - rect.left;
-            const progressBarWidth = rect.width;
-            
-            // Calculate percentage
-            currentProgress = Math.min(Math.max((clickPosition / progressBarWidth) * 100, 0), 100);
-            
-            // Update progress bar width
-            progressBar.style.width = `${currentProgress}%`;
-            
-            // Update current time display based on progress percentage
-            const totalTimeInSeconds = 1470; // Example: 24:30 in seconds
-            const currentTimeInSeconds = Math.floor(currentProgress * totalTimeInSeconds / 100);
-            currentTimeDisplay.textContent = formatTime(currentTimeInSeconds);
-            
-            // Here you would call the seek method of your embedded player
-        });
-    }
-    
-    // Format seconds to MM:SS
-    function formatTime(seconds) {
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        
-        const formattedMinutes = String(minutes).padStart(2, '0');
-        const formattedSeconds = String(remainingSeconds).padStart(2, '0');
-        
-        return `${formattedMinutes}:${formattedSeconds}`;
-    }
     
     // Dynamically create video info section
+    // Function to create video info section
+    // Function to create video info section
+    // Function to create video info section
+    // Function to create video info section
     function createVideoInfoSection() {
-        // Find the video panel or main content to append to
-        // const animeData = getAnimeData();
-
         const videoPanel = document.querySelector('.video-panel') || document.getElementById('main-content-watch');
-        if (!videoPanel) return; // Exit if no container is found
+        if (!videoPanel) return;
         
         // Check if video-info already exists
         let videoInfo = document.querySelector('.video-info');
         if (videoInfo) {
-            // Clear existing content if it exists
             videoInfo.innerHTML = '';
         } else {
-            // Create new element if it doesn't exist
             videoInfo = document.createElement('div');
             videoInfo.className = 'video-info';
-            // Insert after video container
             const videoContainer = document.querySelector('.video-container');
-            const relatedEpisodes = document.querySelector('.related-episodes');
             if (videoContainer && videoContainer.parentNode) {
-                videoContainer.parentNode.insertBefore(videoInfo, relatedEpisodes);
+                videoContainer.parentNode.insertBefore(videoInfo, videoContainer.nextSibling);
             } else {
                 videoPanel.appendChild(videoInfo);
             }
         }
         
-        // Create main container
-        const videoInfoContainer = document.createElement('div');
-        videoInfoContainer.className = 'video-info-container';
-        
-        const episodeDetailsPanel = document.createElement('div');
-        episodeDetailsPanel.className = 'episode-details-panel';
-
-        // Create a content wrapper for better margin control
-        const episodeDetailsContent = document.createElement('div');
-        episodeDetailsContent.className = 'episode-details-content';
-
-        const videoTitle = document.createElement('h1');
-        videoTitle.className = 'video-title';
-        videoTitle.textContent = 'You are watching';
-
+        // Left side: Episode info
         const episodeInfo = document.createElement('div');
         episodeInfo.className = 'episode-info';
-
-        const episodeNumber = document.createElement('span');
-        episodeNumber.className = 'episode-number';
-        episodeNumber.textContent = 'Episode 1';
-        episodeInfo.appendChild(episodeNumber);
-
+        
+        const titleContainer = document.createElement('div');
+        titleContainer.className = 'title-container';
+        
+        const watchingText = document.createElement('h2');
+        watchingText.className = 'watching-title';
+        const animeData = getAnimeData();
+        const animeTitle = animeData?.title || '';
+        watchingText.textContent = `You are watching: ${animeTitle} Episode 1`;
+        
         const serverMessage = document.createElement('p');
         serverMessage.className = 'server-message';
-        serverMessage.textContent = "If current server doesn't work please try other servers beside.";
-
-        // Append to content wrapper first
-        episodeDetailsContent.appendChild(videoTitle);
-        episodeDetailsContent.appendChild(episodeInfo);
-        episodeDetailsContent.appendChild(serverMessage);
-
-        // Then append content wrapper to panel
-        episodeDetailsPanel.appendChild(episodeDetailsContent);
+        serverMessage.textContent = "If the current server is not working, please try switching to other servers.";
         
-        // Create right panel (source selection)
-        const sourceSelection = document.createElement('div');
-        sourceSelection.className = 'source-selection';
+        titleContainer.appendChild(watchingText);
+        titleContainer.appendChild(serverMessage);
+        episodeInfo.appendChild(titleContainer);
         
-        // Create SUB section
-        const subSection = createLanguageSection('SUB', ['HD-1', 'HD-2'], true);
+        // Right side: Audio options
+        const audioOptions = document.createElement('div');
+        audioOptions.className = 'audio-options';
         
-        // Create DUB section
-        const dubSection = createLanguageSection('DUB', ['HD-1', 'HD-2'], false);
+        // Create SUB button
+        const subButton = document.createElement('button');
+        subButton.className = 'source-button active';
+        subButton.dataset.type = 'sub';
+        subButton.innerHTML = '<i class="fas fa-closed-captioning"></i> SUB';
         
-        sourceSelection.appendChild(subSection);
-        sourceSelection.appendChild(dubSection);
+        // Create DUB button
+        const dubButton = document.createElement('button');
+        dubButton.className = 'source-button';
+        dubButton.dataset.type = 'dub';
+        dubButton.innerHTML = '<i class="fas fa-microphone"></i> DUB';
         
-        // Append panels to container
-        videoInfoContainer.appendChild(episodeDetailsPanel);
-        videoInfoContainer.appendChild(sourceSelection);
+        // Add buttons to audio options
+        audioOptions.appendChild(subButton);
+        audioOptions.appendChild(dubButton);
         
-        // Create action buttons
+        // Append to video info
+        videoInfo.appendChild(episodeInfo);
+        videoInfo.appendChild(audioOptions);
         
-        // Append all sections to video info
-        videoInfo.appendChild(videoInfoContainer);
+        // Add CSS for the updated design
+        addVideoInfoStyles();
         
         // Initialize event listeners for source buttons
         initSourceButtons();
     }
-    
-    // Helper function to create language sections (SUB/DUB)
-    function createLanguageSection(label, options, isFirstActive) {
-        const section = document.createElement('div');
-        section.className = 'language-section';
+
+    // Function to add CSS for the updated video info section
+    // Function to add CSS for the updated video info section
+    // Function to add CSS for the updated video info section
+    function addVideoInfoStyles() {
+        // First, let's remove any previous style element we've added to avoid duplicates
+        const existingStyle = document.getElementById('video-info-styles');
+        if (existingStyle) {
+            existingStyle.remove();
+        }
         
-        const labelDiv = document.createElement('div');
-        labelDiv.className = 'language-label';
+        const style = document.createElement('style');
+        style.id = 'video-info-styles';
         
-        const icon = document.createElement('i');
-        icon.className = `fas fa-${label === 'SUB' ? 'closed-captioning' : 'microphone'}`;
-        
-        const labelText = document.createElement('span');
-        labelText.textContent = `${label}:`;
-        
-        labelDiv.appendChild(icon);
-        labelDiv.appendChild(labelText);
-        
-        const buttonsDiv = document.createElement('div');
-        buttonsDiv.className = 'source-buttons';
-        
-        options.forEach((option, index) => {
-            const button = document.createElement('button');
-            button.className = 'source-button';
-            if (index === 0 && isFirstActive) {
-                button.classList.add('active');
+        // Important: Use !important tags to override any conflicting CSS
+        style.textContent = `
+            .video-info {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                background-color: #1a1a1a !important;
+                padding: 15px 20px !important;
+                color: #fff !important;
+                box-shadow: none !important;
+                margin: 0 !important;
             }
-            button.dataset.source = `${label.toLowerCase()}-${index + 1}`;
-            button.textContent = option;
             
-            buttonsDiv.appendChild(button);
-        });
+            .episode-info {
+                flex: 1 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            .title-container {
+                display: flex !important;
+                flex-direction: column !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            .watching-title {
+                font-size: 18px !important;
+                margin: 0 0 10px 0 !important; /* Increased bottom margin for spacing */
+                padding: 0 !important;
+                font-weight: 500 !important;
+                color: #fff !important;
+                line-height: 1.2 !important;
+            }
+            
+            .server-message {
+                font-size: 14px !important;
+                color: #888 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                line-height: 1.4 !important;
+                font-weight: normal !important;
+                max-width: 600px !important;
+                text-align: left !important;
+            }
+            
+            .audio-options {
+                display: flex !important;
+                align-items: center !important;
+                gap: 10px !important;
+                flex-shrink: 0 !important;
+            }
+            
+            .source-button {
+                padding: 8px 20px !important;
+                border-radius: 25px !important;
+                border: none !important;
+                background-color: #333 !important;
+                color: #fff !important;
+                cursor: pointer !important;
+                transition: all 0.2s !important;
+                font-size: 14px !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 5px !important;
+            }
+            
+            .source-button i {
+                font-size: 16px !important;
+            }
+            
+            .source-button.active {
+                background-color: #e74c3c !important;
+            }
+            
+            .source-button:hover:not(.active) {
+                background-color: #444 !important;
+            }
+        `;
         
-        section.appendChild(labelDiv);
-        section.appendChild(buttonsDiv);
-        
-        return section;
+        document.head.appendChild(style);
     }
-    
-    
-    // Initialize event listeners for source buttons
+
+    // Function to initialize source button events
     function initSourceButtons() {
         const sourceButtons = document.querySelectorAll('.source-button');
         
         sourceButtons.forEach(button => {
             button.addEventListener('click', function() {
-                // Get data-source attribute
-                const source = this.getAttribute('data-source');
+                const type = this.dataset.type;
                 
-                // Remove active class from all buttons in the same group
-                const parentSection = this.closest('.language-section');
-                parentSection.querySelectorAll('.source-button').forEach(btn => {
+                // Remove active class from all buttons
+                document.querySelectorAll('.source-button').forEach(btn => {
                     btn.classList.remove('active');
                 });
                 
-                // Add active class to the clicked button
+                // Add active class to clicked button
                 this.classList.add('active');
                 
-                // Change video source (placeholder functionality for now)
-                console.log(`Switched to source: ${source}`);
-                
-                // Show a temporary notification
-                const notification = document.createElement('div');
-                notification.className = 'source-change-notification';
-                notification.textContent = `Loading ${source.includes('sub') ? 'Subtitled' : 'Dubbed'} version, ${source.slice(-1)}`;
-                
+                // Show notification
                 const videoContainer = document.querySelector('.video-container');
                 if (videoContainer) {
+                    const notification = document.createElement('div');
+                    notification.className = 'source-change-notification';
+                    notification.textContent = `Loading ${type === 'sub' ? 'Subtitled' : 'Dubbed'} version`;
+                    
                     videoContainer.appendChild(notification);
                     
                     // Remove notification after 3 seconds
@@ -421,9 +280,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         setTimeout(() => notification.remove(), 500);
                     }, 3000);
                 }
+                
+                console.log(`Switched to ${type.toUpperCase()}`);
             });
         });
     }
+    // Function to initialize server button events
+    
     
     // Add CSS for notification
     function addNotificationStyles() {
@@ -615,8 +478,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (totalEpisodes <= 0) return; // Don't create panel if no episodes
         
         // View mode state
-        let viewMode = 'grid'; // 'grid' or 'card'
+        let viewMode = 'card'; // 'grid' or 'card'
         
+        let currentlySelectedEpisode = 1;
+
         // Pagination settings - dynamic based on view mode
         function getEpisodesPerPage() {
             return viewMode === 'grid' ? 100 : 6    ; // 100 for grid view, 5 for card view
@@ -667,12 +532,12 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.innerHTML = '<span class="search-hash">#</span><input type="text" placeholder="Find">';
         
         const listView1Button = document.createElement('button');
-        listView1Button.className = 'episode-list-button'; // No longer active by default
+        listView1Button.className = 'episode-list-button active'; // Now active by default
         listView1Button.id = 'card-view-button';
         listView1Button.innerHTML = '<i class="fas fa-list"></i>'; // List icon for card view
 
         const listView2Button = document.createElement('button');
-        listView2Button.className = 'episode-list-button active'; // Now active by default
+        listView2Button.className = 'episode-list-button'; // No longer active by default
         listView2Button.id = 'grid-view-button'; 
         listView2Button.innerHTML = '<i class="fas fa-th-large"></i>'; // Grid icon for grid view
         
@@ -874,6 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
         addCardViewStyles();
         
         // Function to generate episode grid (compact view)
+        // Function to generate episode grid (compact view)
         function generateEpisodeGrid() {
             const grid = document.createElement('div');
             grid.className = 'episodes-grid';
@@ -884,13 +750,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 episodeButton.className = 'episode-button';
                 episodeButton.textContent = i;
                 
-                // Highlight current episode (assuming episode 1 is active by default)
-                if (i === 1 && currentPage === 0) {
+                // Highlight current episode based on currentlySelectedEpisode
+                if (i === currentlySelectedEpisode) {
                     episodeButton.classList.add('active');
                 }
                 
                 // Add click event
                 episodeButton.addEventListener('click', () => {
+                    const episodeNumber = parseInt(episodeButton.textContent);
+                    
                     // Remove active class from all buttons
                     document.querySelectorAll('.episode-button').forEach(btn => {
                         btn.classList.remove('active');
@@ -900,10 +768,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     episodeButton.classList.add('active');
                     
                     // Update episode info in the video info panel
-                    updateEpisodeInfo(i);
+                    updateEpisodeInfo(episodeNumber);
                     
-                    console.log(`Switching to episode ${i}`);
-                    // Here you would load the new episode video
+                    // Update the currently selected episode
+                    currentlySelectedEpisode = episodeNumber;
+                    
+                    console.log(`Switching to episode ${episodeNumber}`);
                 });
                 
                 grid.appendChild(episodeButton);
@@ -928,7 +798,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 episodeCard.style.maxWidth = '100%';
 
                 // Highlight active episode
-                if (i === 1 && currentPage === 0) {
+                if (i === currentlySelectedEpisode) {
                     episodeCard.classList.add('active');
                 }
                 
@@ -973,6 +843,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Add click event
                 episodeCard.addEventListener('click', () => {
+                    const episodeNumber = parseInt(episodeCard.querySelector('.episode-number-overlay').textContent.replace('EP ', ''));
+                    
                     // Remove active class from all cards
                     document.querySelectorAll('.episode-card').forEach(card => {
                         card.classList.remove('active');
@@ -982,10 +854,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     episodeCard.classList.add('active');
                     
                     // Update episode info in the video info panel
-                    updateEpisodeInfo(i);
+                    updateEpisodeInfo(episodeNumber);
                     
-                    console.log(`Switching to episode ${i}`);
-                    // Here you would load the new episode video
+                    // Update the currently selected episode
+                    currentlySelectedEpisode = episodeNumber;
+                    
+                    console.log(`Switching to episode ${episodeNumber}`);
                 });
                 
                 grid.appendChild(episodeCard);
@@ -1025,11 +899,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Function to update episode info in the video panel
         function updateEpisodeInfo(episodeNumber) {
-            const episodeNumberEl = document.querySelector('.episode-number');
-            if (episodeNumberEl) {
-                episodeNumberEl.textContent = `Episode ${episodeNumber}`;
-            }
+            const animeData = getAnimeData();
+            const animeTitle = animeData?.title || 'Anime';
             
+            const watchingTitleEl = document.querySelector('.watching-title');
+            if (watchingTitleEl) {
+                watchingTitleEl.textContent = `You are watching: ${animeTitle} Episode ${episodeNumber}`;
+            }
+
             // You could also update other elements like episode title, etc.
             const episodeData = getEpisodeData(episodeNumber);
             const videoTitleEl = document.querySelector('.video-title');
@@ -1050,7 +927,7 @@ document.addEventListener('DOMContentLoaded', () => {
         episodesSection.appendChild(header);
         episodesSection.appendChild(navigation);
         episodesSection.appendChild(initialView);
-        
+        episodesSection.classList.add('card-mode');
         // Insert at the beginning of main content, before the video panel
         const videoPanel = document.querySelector('.video-panel');
         if (videoPanel) {
@@ -1090,6 +967,9 @@ document.addEventListener('DOMContentLoaded', () => {
             episodesSection.replaceChild(newGrid, oldGrid);
         }
         
+        
+
+        // Set up view mode toggle buttons
         // Set up view mode toggle buttons
         listView1Button.addEventListener('click', () => {
             if (viewMode !== 'card') {
@@ -1097,21 +977,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 listView1Button.classList.add('active');
                 listView2Button.classList.remove('active');
                 
+                // Calculate which page contains the currently selected episode in card view
+                const episodesPerPageInCardView = 6; // Card view shows 6 episodes per page
+                const targetPage = Math.floor((currentlySelectedEpisode - 1) / episodesPerPageInCardView);
+                
+                // Update current page to ensure the selected episode is visible
+                currentPage = targetPage;
+                
                 // Add card-mode class to expand the panel
                 episodesSection.classList.add('card-mode');
                 
                 // Update content after a short delay to allow for transition
                 setTimeout(() => {
                     updateEpisodeDisplay();
+                    
+                    // Find and highlight the currently selected episode in the new view
+                    setTimeout(() => {
+                        const episodeCards = episodesSection.querySelectorAll('.episode-card');
+                        episodeCards.forEach(card => {
+                            const episodeNumber = parseInt(card.querySelector('.episode-number-overlay').textContent.replace('EP ', ''));
+                            if (episodeNumber === currentlySelectedEpisode) {
+                                card.classList.add('active');
+                            }
+                        });
+                    }, 50);
                 }, 50);
             }
         });
-        
+
         listView2Button.addEventListener('click', () => {
             if (viewMode !== 'grid') {
                 viewMode = 'grid';
                 listView2Button.classList.add('active');
                 listView1Button.classList.remove('active');
+                
+                // Calculate which page contains the currently selected episode in grid view
+                const episodesPerPageInGridView = 100; // Grid view shows 100 episodes per page
+                const targetPage = Math.floor((currentlySelectedEpisode - 1) / episodesPerPageInGridView);
+                
+                // Update current page to ensure the selected episode is visible
+                currentPage = targetPage;
                 
                 // Remove card-mode class to shrink the panel
                 episodesSection.classList.remove('card-mode');
@@ -1119,6 +1024,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Update content after a short delay to allow for transition
                 setTimeout(() => {
                     updateEpisodeDisplay();
+                    
+                    // Find and highlight the currently selected episode in the new view
+                    setTimeout(() => {
+                        const episodeButtons = episodesSection.querySelectorAll('.episode-button');
+                        episodeButtons.forEach(button => {
+                            if (parseInt(button.textContent) === currentlySelectedEpisode) {
+                                button.classList.add('active');
+                            }
+                        });
+                    }, 50);
                 }, 50);
             }
         });
@@ -1185,9 +1100,105 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add call to createSeasonsSection after createVideoInfoSection
     // In your existing code, after createVideoInfoSection() call, add:
     // createSeasonsSection();
-    
+    // Function to create video control bar
+    function createVideoControlBar() {
+        const videoContainer = document.querySelector('.video-container');
+        if (!videoContainer) return;
+        
+        // Create the control bar
+        const controlBar = document.createElement('div');
+        controlBar.className = 'video-control-bar';
+        
+        // Create buttons
+        const buttons = [
+            { icon: 'download', label: 'Download' },
+            { icon: 'bookmark', label: 'Bookmark' },
+            { icon: 'play-circle', label: 'AutoPlay' },
+            { icon: 'forward', label: 'AutoSkip' },
+            { icon: 'users', label: 'W2G' }
+        ];
+        
+        buttons.forEach(button => {
+            const buttonEl = document.createElement('button');
+            buttonEl.className = 'control-button';
+            buttonEl.setAttribute('aria-label', button.label);
+            buttonEl.dataset.action = button.label.toLowerCase();
+            
+            const icon = document.createElement('i');
+            icon.className = `fas fa-${button.icon}`;
+            
+            const text = document.createElement('span');
+            text.textContent = button.label;
+            
+            buttonEl.appendChild(icon);
+            buttonEl.appendChild(text);
+            
+            // Add click event listener
+            buttonEl.addEventListener('click', function() {
+                console.log(`${button.label} button clicked`);
+                // Toggle active state for some buttons
+                if (['autoplay', 'autoskip'].includes(button.label.toLowerCase())) {
+                    this.classList.toggle('active');
+                }
+            });
+            
+            controlBar.appendChild(buttonEl);
+        });
+        
+        // Insert the control bar after the video player
+        videoContainer.appendChild(controlBar);
+        
+        // Add CSS styles for the control bar
+        addVideoControlBarStyles();
+    }
+
+    // Function to add CSS styles for the control bar
+    function addVideoControlBarStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            .video-control-bar {
+                display: flex;
+                justify-content: space-around;
+                align-items: center;
+                background-color: #1a1a1a;
+                border-radius: 0 0 8px 8px;
+                padding: 10px 15px;
+                margin-top: -5px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            
+            .control-button {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                background: none;
+                border: none;
+                color: #aaa;
+                font-size: 12px;
+                padding: 5px 10px;
+                cursor: pointer;
+                transition: color 0.2s, transform 0.2s;
+            }
+            
+            .control-button:hover {
+                color: #e74c3c;
+                transform: translateY(-2px);
+            }
+            
+            .control-button.active {
+                color: #e74c3c;
+            }
+            
+            .control-button i {
+                font-size: 18px;
+                margin-bottom: 5px;
+            }
+        `;
+        document.head.appendChild(style);
+    }
     // Call the functions to set up the video info section
     createVideoInfoSection();
+    createVideoControlBar();
     createRelatedSeriesSection();
     createEpisodesPanel(); 
     addNotificationStyles();
