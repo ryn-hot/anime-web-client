@@ -470,6 +470,7 @@ function displayAnime(animeList, append = false) {
 }
 
 
+
 // Add this function to your search.js file
 function addAnimeItemClickHandlers() {
     document.querySelectorAll('.anime-item').forEach(item => {
