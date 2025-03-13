@@ -1,3 +1,6 @@
+import { AniListAPI } from "./bottleneck.js";
+
+const anilistAPI = new AniListAPI();
 
 function getAnimeData() {
     const animeDataStr = sessionStorage.getItem('currentAnimeData');
@@ -10,7 +13,23 @@ function getAnimeData() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+
+    const animeData = getAnimeData();
+    
+    // If data is flagged as loading or incomplete, show skeleton UI
+    if (!animeData || animeData.isLoading) {
+        showSkeletonUI();
+        
+        // Get the ID from URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        const animeId = urlParams.get('id');
+        
+        if (animeId) {
+            // Fetch complete data in the background
+            await fetchCompleteAnimeData(animeId);
+        }
+    }
 
     // Sidebar functionality
     const menuButton = document.querySelector('.menu-button');
@@ -77,7 +96,285 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.classList.remove('active');
     }
 
+
+    function updateUIWithCompleteData(animeData) {
+        function updateEpisodeInfo(episodeNumber) {
+            const animeData = getAnimeData();
+            const animeTitle = animeData?.title || 'Anime';
+            
+            const watchingTitleEl = document.querySelector('.watching-title');
+            if (watchingTitleEl) {
+                watchingTitleEl.textContent = `You are watching: ${animeTitle} Episode ${episodeNumber}`;
+            }
+
+            // You could also update other elements like episode title, etc.
+            const episodeData = getEpisodeData(episodeNumber);
+            const videoTitleEl = document.querySelector('.video-title');
+            if (videoTitleEl && episodeData.title) {
+                videoTitleEl.textContent = `You are watching: ${episodeData.title}`;
+            }
+        }
+
+
+        // Helper function to get episode data
+        function getEpisodeData(episodeNumber) {
+            if (animeData.episodeData && Array.isArray(animeData.episodeData)) {
+                // Adjust index since episodeData is likely 0-indexed but our display is 1-indexed
+                const episodeIndex = episodeNumber - 1;
+                if (episodeIndex >= 0 && episodeIndex < animeData.episodeData.length) {
+                    return animeData.episodeData[episodeIndex];
+                }
+            }
+            // Return fallback data if episode not found
+            return {
+                title: `Episode ${episodeNumber}`,
+                overview: 'No description available.',
+                img: '/api/placeholder/213/120',
+                duration: null
+            };
+        }
+        
+        // Update video info section
+        updateEpisodeInfo(1); // Start with episode 1
+        
+        // Create UI sections with complete data
+        createVideoInfoSection();
+        createVideoControlBar();
+        createRelatedSeriesSection();
+        createEpisodesPanel();
+        
+        // Remove any skeleton classes
+        document.querySelectorAll('.skeleton-loading').forEach(el => {
+            el.classList.remove('skeleton-loading');
+        });
+    }
+
+    async function fetchCompleteAnimeData(animeId) {
+        try {
+            // Fetch data from API
+            const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + animeId);
+            const mappingsjson = await mappingsResponse.json();
     
+            const episodeCount = mappingsjson?.episodeCount;
+            
+            // Fetch relational data
+            const relationalDataFetch = await alIdFetch(animeId);
+            const relationalData = relationalDataFetch?.data?.Media || {};
+            const relations = seasonsResolver(relationalData?.relations?.edges || [], relationalData?.format || '');
+    
+            // Process episode metadata
+            const episodeMetadata = [];
+            if (episodeCount) {
+                const episodes = mappingsjson?.episodes || -1;
+                if (episodes !== -1) {
+                    for (let i = 1; i <= episodeCount; i++) {
+                        const epKey = i.toString();
+                        if (episodes[epKey]) {
+                            episodeMetadata.push({
+                                episodeNumber: i,
+                                overview: episodes[epKey].overview,
+                                img: episodes[epKey].image,
+                                title: episodes[epKey].title?.en,
+                                duration: episodes[epKey].duration
+                            });
+                        }
+                    }
+                }
+            }
+    
+            // Calculate episodes
+            let anilistEpisodes;
+            if (relationalData.status === 'RELEASING' && relationalData.nextAiringEpisode) {
+                if (episodeCount >= relationalData.nextAiringEpisode.episode) {
+                    anilistEpisodes = relationalData.nextAiringEpisode.episode - 1;
+                } else {
+                    anilistEpisodes = episodeCount;
+                }
+            } else {
+                if (relationalData.episodes !== undefined) {
+                    anilistEpisodes = relationalData.episodes;
+                } else {
+                    anilistEpisodes = episodeCount;
+                }
+            }
+    
+            // Prepare complete anime data
+            const completeAnimeData = {
+                id: animeId,
+                idMal: relationalData.idMal,
+                title: relationalData.title?.english || relationalData.title?.romaji,
+                description: relationalData.description,
+                status: relationalData.status,
+                format: relationalData.format,
+                episodes: anilistEpisodes,
+                duration: relationalData.duration || 0,
+                genres: relationalData.genres || [],
+                relations: relations,
+                episodeData: episodeMetadata,
+                isLoading: false // Mark as loaded
+            };
+            
+            // Store complete data
+            sessionStorage.setItem('currentAnimeData', JSON.stringify(completeAnimeData));
+            
+            // Update UI with complete data
+            updateUIWithCompleteData(completeAnimeData);
+        } catch (error) {
+            console.error('Error fetching complete anime data:', error);
+            
+            // Update UI anyway, with an error state if needed
+            const currentData = getAnimeData();
+            if (currentData) {
+                currentData.isLoading = false;
+                currentData.loadError = true;
+                sessionStorage.setItem('currentAnimeData', JSON.stringify(currentData));
+            }
+        }
+    }
+
+    function showSkeletonUI() {
+        // Create skeleton for video player
+        const videoContainer = document.querySelector('.video-container');
+        if (videoContainer) {
+            videoContainer.innerHTML = `
+                <div class="video-placeholder skeleton-loading">
+                    <div class="skeleton-player"></div>
+                </div>
+            `;  
+        }
+        
+        // Create skeleton for video info
+        const videoInfo = document.querySelector('.video-info');
+        if (videoInfo) {
+            videoInfo.innerHTML = `
+                <div class="episode-info skeleton-loading">
+                    <div class="title-container">
+                        <div class="skeleton-text-large"></div>
+                        <div class="skeleton-text-small"></div>
+                    </div>
+                </div>
+                <div class="audio-options skeleton-loading">
+                    <div class="skeleton-button"></div>
+                    <div class="skeleton-button"></div>
+                </div>
+            `;
+        }
+        
+        // Create skeleton for episodes panel
+        const episodesPanel = document.querySelector('.episodes-panel');
+        if (episodesPanel) {
+            const episodesGrid = episodesPanel.querySelector('.episodes-grid');
+            if (episodesGrid) {
+                episodesGrid.innerHTML = '';
+                
+                // Create skeleton episode buttons or cards based on view mode
+                const viewMode = episodesPanel.classList.contains('card-mode') ? 'card' : 'grid';
+                
+                if (viewMode === 'grid') {
+                    // Create 24 skeleton grid buttons
+                    for (let i = 0; i < 24; i++) {
+                        const skeletonButton = document.createElement('div');
+                        skeletonButton.className = 'episode-button skeleton-loading';
+                        episodesGrid.appendChild(skeletonButton);
+                    }
+                } else {
+                    // Create 6 skeleton episode cards
+                    for (let i = 0; i < 6; i++) {
+                        const skeletonCard = document.createElement('div');
+                        skeletonCard.className = 'episode-card skeleton-loading';
+                        
+                        const thumbnail = document.createElement('div');
+                        thumbnail.className = 'skeleton-thumbnail';
+                        
+                        const content = document.createElement('div');
+                        content.className = 'skeleton-content';
+                        content.innerHTML = `
+                            <div class="skeleton-text-large"></div>
+                            <div class="skeleton-text-small"></div>
+                            <div class="skeleton-text-small"></div>
+                        `;
+                        
+                        skeletonCard.appendChild(thumbnail);
+                        skeletonCard.appendChild(content);
+                        episodesGrid.appendChild(skeletonCard);
+                    }
+                }
+            }
+        }
+        
+        // Create skeleton for related series section
+        const seasonsSection = document.querySelector('.seasons-section');
+        if (seasonsSection) {
+            const seasonsContainer = seasonsSection.querySelector('.seasons-container');
+            if (seasonsContainer) {
+                seasonsContainer.innerHTML = '';
+                
+                // Create 4 skeleton season cards
+                for (let i = 0; i < 4; i++) {
+                    const skeletonCard = document.createElement('div');
+                    skeletonCard.className = 'season-card skeleton-loading';
+                    seasonsContainer.appendChild(skeletonCard);
+                }
+            }
+        }
+    }
+
+    function alIdFetch(alID) {
+        const query = `
+        query ($id: Int) {
+          Media(id: $id, type: ANIME) {
+            episodes
+            status
+            title {
+              romaji
+              english
+              native
+            }
+            nextAiringEpisode {
+                airingAt
+                timeUntilAiring
+                episode
+              }
+            
+            relations {
+                    edges {
+                        node {
+                            type
+                            title {
+                                english
+                                romaji
+                            }
+                            format
+                            episodes
+                            coverImage {
+                                large
+                                extraLarge
+                            }
+                        }
+                    relationType
+                }
+            }
+          }
+        }
+        `;
+    
+        return anilistAPI.makeRequest({ query, variables: { id: parseInt(alID) }})
+            .catch(error => console.error('Error fetching data:', error));
+      
+    }
+    
+    function seasonsResolver(edges, format) {
+
+        const filter = edges.filter(edge => edge.node.format === format && (edge.relationType === "PREQUEL" || edge.relationType === "SEQUEL" ));
+        const relations = []
+        for (const edge of filter) {
+            relations.push({relationType: edge.relationType, episodeNum: edge.node.episodes, img: edge.node.coverImage.extraLarge, title: edge.node.title.english || edge.node.title.romaji})
+        }
+    
+        return relations
+    
+    }
+
     // Dynamically create video info section
     // Function to create video info section
     // Function to create video info section
@@ -329,12 +626,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Function to create related series section (formerly seasons section)
     function createRelatedSeriesSection() {
         const animeData = getAnimeData();
-        const videoPanel = document.querySelector('.video-panel');
-        if (!videoPanel) return;
+        const mainContent = document.getElementById('main-content-watch');
+        
+        // If main content doesn't exist, we can't create the section
+        if (!mainContent) return;
         
         // Get relations array from animeData
         const relations = animeData.relations || [];
         
+        console.log('Relations: ', relations.length);
         // Only create the section if there are relations
         if (relations.length === 0) return;
         
@@ -348,8 +648,26 @@ document.addEventListener('DOMContentLoaded', () => {
             relatedSection = document.createElement('div');
             relatedSection.className = 'seasons-section';
             
-            // Append to video panel
-            videoPanel.appendChild(relatedSection);
+            // Find the appropriate place to insert the related section
+            const videoPanel = document.querySelector('.video-panel');
+            const episodesPanel = document.querySelector('.episodes-panel');
+            
+            if (videoPanel) {
+                // Insert after video panel but before episodes panel
+                if (episodesPanel && episodesPanel.parentNode === mainContent) {
+                    mainContent.insertBefore(relatedSection, episodesPanel);
+                } else {
+                    // Append to video panel if episodes panel not found or not in main content
+                    videoPanel.appendChild(relatedSection);
+                }
+            } else {
+                // If no video panel, insert at beginning of main content
+                if (mainContent.firstChild) {
+                    mainContent.insertBefore(relatedSection, mainContent.firstChild);
+                } else {
+                    mainContent.appendChild(relatedSection);
+                }
+            }
         }
         
         // Create header with navigation
@@ -869,6 +1187,25 @@ document.addEventListener('DOMContentLoaded', () => {
             return grid;
         }
         
+        // Function to update episode info in the video panel
+        function updateEpisodeInfo(episodeNumber) {
+            const animeData = getAnimeData();
+            const animeTitle = animeData?.title || 'Anime';
+            
+            const watchingTitleEl = document.querySelector('.watching-title');
+            if (watchingTitleEl) {
+                watchingTitleEl.textContent = `You are watching: ${animeTitle} Episode ${episodeNumber}`;
+            }
+
+            // You could also update other elements like episode title, etc.
+            const episodeData = getEpisodeData(episodeNumber);
+            const videoTitleEl = document.querySelector('.video-title');
+            if (videoTitleEl && episodeData.title) {
+                videoTitleEl.textContent = `You are watching: ${episodeData.title}`;
+            }
+        }
+
+
         // Helper function to get episode data
         function getEpisodeData(episodeNumber) {
             if (animeData.episodeData && Array.isArray(animeData.episodeData)) {
@@ -898,23 +1235,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return `${mins}:00`;
         }
         
-        // Function to update episode info in the video panel
-        function updateEpisodeInfo(episodeNumber) {
-            const animeData = getAnimeData();
-            const animeTitle = animeData?.title || 'Anime';
-            
-            const watchingTitleEl = document.querySelector('.watching-title');
-            if (watchingTitleEl) {
-                watchingTitleEl.textContent = `You are watching: ${animeTitle} Episode ${episodeNumber}`;
-            }
-
-            // You could also update other elements like episode title, etc.
-            const episodeData = getEpisodeData(episodeNumber);
-            const videoTitleEl = document.querySelector('.video-title');
-            if (videoTitleEl && episodeData.title) {
-                videoTitleEl.textContent = `You are watching: ${episodeData.title}`;
-            }
-        }
+        
         
         // Function to generate the appropriate view based on current mode
         function generateCurrentView() {
@@ -1098,6 +1419,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+
     // Add call to createSeasonsSection after createVideoInfoSection
     // In your existing code, after createVideoInfoSection() call, add:
     // createSeasonsSection();
@@ -1106,6 +1428,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const videoContainer = document.querySelector('.video-container');
         if (!videoContainer) return;
         
+        // Check if control bar already exists to prevent duplication
+        if (videoContainer.querySelector('.video-control-bar')) {
+            console.log('Control bar already exists, skipping creation');
+            return;
+        }
+    
         // Create the control bar
         const controlBar = document.createElement('div');
         controlBar.className = 'video-control-bar';
@@ -1198,11 +1526,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.head.appendChild(style);
     }
     // Call the functions to set up the video info section
-    createVideoInfoSection();
+    /* createVideoInfoSection();
     createVideoControlBar();
     createRelatedSeriesSection();
     createEpisodesPanel(); 
-    addNotificationStyles();
+    addNotificationStyles(); */
     
     // Episode items click event
     const episodeItems = document.querySelectorAll('.episode-item');

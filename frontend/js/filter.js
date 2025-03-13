@@ -470,9 +470,31 @@ function displayAnime(animeList, append = false) {
 }
 
 
+function addAnimeItemClickHandlers() {
+    document.querySelectorAll('.anime-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Store minimal initial data
+            const initialData = {
+                id: this.dataset.id,
+                title: this.dataset.title || '',
+                status: this.dataset.status || '',
+                format: this.dataset.format || '',
+                isLoading: true // Flag to indicate data is still loading
+            };
+            
+            // Store the minimal data in sessionStorage
+            sessionStorage.setItem('currentAnimeData', JSON.stringify(initialData));
+            
+            // Redirect immediately to watch page
+            window.location.href = `watch.html?id=${initialData.id}`;
+        });
+    });
+}
 
 // Add this function to your search.js file
-function addAnimeItemClickHandlers() {
+function addAnimeItemClickHandlersDeprecated() {
     document.querySelectorAll('.anime-item').forEach(item => {
         item.addEventListener('click', async function(e) {
             e.preventDefault();
