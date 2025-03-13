@@ -1,5 +1,6 @@
 import { AniListAPI } from "./bottleneck.js";
 
+
 const anilistAPI = new AniListAPI();
 
 
@@ -330,6 +331,9 @@ function updateAnimeList(append = false) {
         Page(page:$page, perPage:$perPage) {
             media(search:$search, genre_in:$genre, season:$season, seasonYear:$seasonYear, format:$format, status:$status, sort:$sort, type:ANIME) {
                 id
+                idMal
+                episodes
+                status
                 title {
                     english
                     romaji
@@ -338,8 +342,20 @@ function updateAnimeList(append = false) {
                     medium
                     extraLarge
                 }
+                format
                 season
                 seasonYear
+                description(asHtml: false)
+                bannerImage
+                duration
+                nextAiringEpisode {
+                    airingAt
+                    timeUntilAiring
+                    episode
+                }
+                 trailer {
+                    site
+                }
             }
         }
     }`;
@@ -449,4 +465,142 @@ function displayAnime(animeList, append = false) {
 
         grid.appendChild(animeItem);
     });
+
+    addAnimeItemClickHandlers()
 }
+
+
+// Add this function to your search.js file
+function addAnimeItemClickHandlers() {
+    document.querySelectorAll('.anime-item').forEach(item => {
+        item.addEventListener('click', async function(e) {
+            e.preventDefault();
+            
+            const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + this.dataset.id);
+            const mappingsjson = await mappingsResponse.json();
+
+            const episodeCount = mappingsjson?.episodeCount;
+            
+            const episodesResponse = this.dataset.episodes || -1;
+
+            let anilistEpisodes; 
+            
+            if (this.dataset.status == 'RELEASING') {
+                if (episodeCount >= this.dataset.nextAiringEpisode) {
+                    anilistEpisodes = this.dataset.nextAiringEpisode - 1;
+                } else {
+                    anilistEpisodes = episodeCount;
+                }
+            } else {
+                if (episodesResponse !== -1) {
+                    anilistEpisodes = episodesResponse;
+                } else {
+                    anilistEpisodes = episodeCount; 
+                }
+            }
+            
+            const relationalDataFetch = await alIdFetch(this.dataset.id);
+            const relationalData = relationalDataFetch?.data?.Media?.relations?.edges || [];
+
+            const relations = seasonsResolver(relationalData, this.dataset.format); 
+
+            const episodeMetadata = [];
+            if (episodeCount) {
+                const episodes = mappingsjson?.episodes || -1;
+                if (episodes !== -1) {
+                    for (let i = 1; i <= episodeCount; i++)  {
+                        const epKey = i.toString();
+                        if (episodes[epKey]) {
+                            episodeMetadata.push(
+                                {   episodeNumber: i, 
+                                    overview: episodes[epKey].overview, 
+                                    img: episodes[epKey].image, 
+                                    title: episodes[epKey].title.en,
+                                    duration: episodes[epKey].duration
+                                }
+                            )
+                        }
+                    }   
+                }
+            }
+           
+            // Get anime data from dataset attributes
+            const animeData = {
+                id: this.dataset.id,
+                idMal: this.dataset.idMal,
+                title: this.dataset.title,
+                description: this.dataset.description,
+                idtrailer: this.dataset.idtrailer,
+                site: this.dataset.site,
+                bannerImage: this.dataset.bannerImage,
+                status: this.dataset.status,
+                format: this.dataset.format,
+                episodes: anilistEpisodes,
+                duration: parseInt(this.dataset.duration) || 0,
+                genres: this.dataset.genres ? this.dataset.genres.split(',') : [],
+                relations: relations,
+                episodeData: episodeMetadata    
+            };
+            
+            // Store the anime data in sessionStorage
+            sessionStorage.setItem('currentAnimeData', JSON.stringify(animeData));
+            
+            // Redirect to watch page
+            window.location.href = `watch.html?id=${animeData.id}`;
+        });
+    });
+}
+
+function seasonsResolver(edges, format) {
+    const filter = edges.filter(edge => edge.node.format === format && (edge.relationType === "PREQUEL" || edge.relationType === "SEQUEL" ));
+    const relations = []
+    for (const edge of filter) {
+        relations.push({relationType: edge.relationType, episodeNum: edge.node.episodes, img: edge.node.coverImage.extraLarge, title: edge.node.title.english || edge.node.title.romaji})
+    }
+    return relations
+}
+
+function alIdFetch(alID) {
+    const query = `
+    query ($id: Int) {
+      Media(id: $id, type: ANIME) {
+        episodes
+        status
+        title {
+          romaji
+          english
+          native
+        }
+        nextAiringEpisode {
+            airingAt
+            timeUntilAiring
+            episode
+          }
+        
+        relations {
+                edges {
+                    node {
+                        type
+                        title {
+                            english
+                            romaji
+                        }
+                        format
+                        episodes
+                        coverImage {
+                            large
+                            extraLarge
+                        }
+                    }
+                relationType
+            }
+        }
+      }
+    }
+    `;
+
+    return anilistAPI.makeRequest({ query, variables: { id: parseInt(alID) }})
+        .catch(error => console.error('Error fetching data:', error));
+}
+
+

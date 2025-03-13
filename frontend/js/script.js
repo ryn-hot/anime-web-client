@@ -539,6 +539,11 @@ function fetchTopAnimeBanner() {
                 seasonYear
                 status,
                 duration,
+                nextAiringEpisode {
+                    airingAt
+                    timeUntilAiring
+                    episode
+                }
             }
         }
     }`;
@@ -581,9 +586,16 @@ function createBannerCarousel(animeList) {
         bannerSlide.classList.add('banner-slide');
     
         bannerSlide.dataset.title = anime.title.english || anime.title.romaji;
-        bannerSlide.dataset.episodes = anime.episodes;
         bannerSlide.dataset.id = anime.id;
         bannerSlide.dataset.idMal = anime.idMal;
+        bannerSlide.dataset.episodes = anime.episodes;
+        bannerSlide.dataset.status = anime.status;
+        bannerSlide.dataset.format = anime.format;
+        bannerSlide.dataset.duration = anime.duration;
+        // Add additional data attributes if available
+        if (anime.nextAiringEpisode) {
+            bannerSlide.dataset.nextAiringEpisode = anime.nextAiringEpisode.episode;
+        }
 
         // Incorporate the gradient into the background image
         bannerSlide.style.backgroundImage = `linear-gradient(to right, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0) 80%), url(${anime.bannerImage})`;
@@ -629,6 +641,85 @@ function createBannerCarousel(animeList) {
         watchNowButton.textContent = 'Watch Now';
         bannerContent.appendChild(watchNowButton);
         
+
+        watchNowButton.addEventListener('click', async function() {
+            // Get the parent banner slide element to access its data
+            const bannerSlide = this.closest('.banner-slide');
+            if (!bannerSlide) return;
+            
+            const animeId = bannerSlide.dataset.id;
+            
+            // Fetch mapping data from API
+            const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + animeId);
+            const mappingsjson = await mappingsResponse.json();
+        
+            const episodeCount = mappingsjson?.episodeCount;
+            const episodesResponse = bannerSlide.dataset.episodes || -1;
+            
+            let anilistEpisodes;
+            
+            // Use the same episode count logic as the anime item click handler
+            if (bannerSlide.dataset.status === 'RELEASING') {
+                if (episodeCount >= bannerSlide.dataset.nextAiringEpisode) {
+                    anilistEpisodes = bannerSlide.dataset.nextAiringEpisode - 1;
+                } else {
+                    anilistEpisodes = episodeCount;
+                }
+            } else {
+                if (episodesResponse !== -1) {
+                    anilistEpisodes = episodesResponse;
+                } else {
+                    anilistEpisodes = episodeCount;
+                }
+            }
+            
+            // Fetch relational data
+            const relationalDataFetch = await alIdFetch(animeId);
+            const relationalData = relationalDataFetch?.data?.Media?.relations?.edges || [];
+            const relations = seasonsResolver(relationalData, bannerSlide.dataset.format);
+            
+            // Process episode metadata
+            const episodeMetadata = [];
+            if (episodeCount) {
+                const episodes = mappingsjson?.episodes || -1;
+                if (episodes !== -1) {
+                    for (let i = 1; i <= episodeCount; i++) {
+                        const epKey = i.toString();
+                        if (episodes[epKey]) {
+                            episodeMetadata.push({
+                                episodeNumber: i,
+                                overview: episodes[epKey].overview,
+                                img: episodes[epKey].image,
+                                title: episodes[epKey].title?.en,
+                                duration: episodes[epKey].duration
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // Prepare anime data for storage
+            const animeData = {
+                id: animeId,
+                idMal: bannerSlide.dataset.idMal,
+                title: bannerSlide.dataset.title,
+                description: bannerSlide.querySelector('.banner-description')?.textContent,
+                bannerImage: bannerSlide.style.backgroundImage.replace(/^.*\((.+)\).*$/, '$1').replace(/"/g, '').replace(/linear-gradient\(.*?,\s*/, '').trim(),
+                status: bannerSlide.dataset.status || 'FINISHED',
+                format: bannerSlide.dataset.format || 'TV',
+                episodes: anilistEpisodes,
+                duration: parseInt(bannerSlide.dataset.duration) || 0,
+                genres: bannerSlide.querySelector('.banner-genres')?.textContent.split(' · ') || [],
+                relations: relations,
+                episodeData: episodeMetadata
+            };
+            
+            // Store anime data and redirect
+            sessionStorage.setItem('currentAnimeData', JSON.stringify(animeData));
+            window.location.href = `watch.html?id=${animeId}`;
+        });
+
+
         bannerSlide.appendChild(bannerContent);
         bannerWrapper.appendChild(bannerSlide);
 
@@ -988,7 +1079,7 @@ function addAnimeItemClickHandlers() {
                                     overview: episodes[epKey].overview, 
                                     img: episodes[epKey].image, 
                                     title: episodes[epKey].title.en,
-                                    duration: episodes[epKey].duration
+                                    duration: episodes[epKey].duration  
                                 }
                             )
                         }

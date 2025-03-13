@@ -656,6 +656,7 @@ body::-webkit-scrollbar-thumb:hover {
     width: 150px;
     text-align: left; 
     flex-shrink: 0;
+    cursor: pointer;
     /* Remove height: 200px; and overflow: hidden; so the container can grow with content */
 }
 
