@@ -12,22 +12,6 @@ function getAnimeData() {
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    const animeData = getAnimeData();
-    
-    // If data is flagged as loading or incomplete, show skeleton UI
-    if (!animeData || animeData.isLoading) {
-        showSkeletonUI();
-        
-        // Get the ID from URL params
-        const urlParams = new URLSearchParams(window.location.search);
-        const animeId = urlParams.get('id');
-        
-        if (animeId) {
-            // Fetch complete data in the background
-            await fetchCompleteAnimeData(animeId);
-        }
-    }
-
     // Sidebar functionality
     const menuButton = document.querySelector('.menu-button');
     const sidebar = document.querySelector('.sidebar');
@@ -170,94 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
         initSourceButtons();
     }
 
-    function showSkeletonUI() {
-        // Create skeleton for video player
-        const videoContainer = document.querySelector('.video-container');
-        if (videoContainer) {
-            videoContainer.innerHTML = `
-                <div class="video-placeholder skeleton-loading">
-                    <div class="skeleton-player"></div>
-                </div>
-            `;
-        }
-        
-        // Create skeleton for video info
-        const videoInfo = document.querySelector('.video-info');
-        if (videoInfo) {
-            videoInfo.innerHTML = `
-                <div class="episode-info skeleton-loading">
-                    <div class="title-container">
-                        <div class="skeleton-text-large"></div>
-                        <div class="skeleton-text-small"></div>
-                    </div>
-                </div>
-                <div class="audio-options skeleton-loading">
-                    <div class="skeleton-button"></div>
-                    <div class="skeleton-button"></div>
-                </div>
-            `;
-        }
-        
-        // Create skeleton for episodes panel
-        const episodesPanel = document.querySelector('.episodes-panel');
-        if (episodesPanel) {
-            const episodesGrid = episodesPanel.querySelector('.episodes-grid');
-            if (episodesGrid) {
-                episodesGrid.innerHTML = '';
-                
-                // Create skeleton episode buttons or cards based on view mode
-                const viewMode = episodesPanel.classList.contains('card-mode') ? 'card' : 'grid';
-                
-                if (viewMode === 'grid') {
-                    // Create 24 skeleton grid buttons
-                    for (let i = 0; i < 24; i++) {
-                        const skeletonButton = document.createElement('div');
-                        skeletonButton.className = 'episode-button skeleton-loading';
-                        episodesGrid.appendChild(skeletonButton);
-                    }
-                } else {
-                    // Create 6 skeleton episode cards
-                    for (let i = 0; i < 6; i++) {
-                        const skeletonCard = document.createElement('div');
-                        skeletonCard.className = 'episode-card skeleton-loading';
-                        
-                        const thumbnail = document.createElement('div');
-                        thumbnail.className = 'skeleton-thumbnail';
-                        
-                        const content = document.createElement('div');
-                        content.className = 'skeleton-content';
-                        content.innerHTML = `
-                            <div class="skeleton-text-large"></div>
-                            <div class="skeleton-text-small"></div>
-                            <div class="skeleton-text-small"></div>
-                        `;
-                        
-                        skeletonCard.appendChild(thumbnail);
-                        skeletonCard.appendChild(content);
-                        episodesGrid.appendChild(skeletonCard);
-                    }
-                }
-            }
-        }
-        
-        // Create skeleton for related series section
-        const seasonsSection = document.querySelector('.seasons-section');
-        if (seasonsSection) {
-            const seasonsContainer = seasonsSection.querySelector('.seasons-container');
-            if (seasonsContainer) {
-                seasonsContainer.innerHTML = '';
-                
-                // Create 4 skeleton season cards
-                for (let i = 0; i < 4; i++) {
-                    const skeletonCard = document.createElement('div');
-                    skeletonCard.className = 'season-card skeleton-loading';
-                    seasonsContainer.appendChild(skeletonCard);
-                }
-            }
-        }
-    }
-
-    
     // Function to add CSS for the updated video info section
     // Function to add CSS for the updated video info section
     // Function to add CSS for the updated video info section

@@ -1028,32 +1028,8 @@ function initializeScrollButtons() {
     });
 }
 
-
-function addAnimeItemClickHandlers() {
-    document.querySelectorAll('.anime-item').forEach(item => {
-        item.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Store minimal initial data
-            const initialData = {
-                id: this.dataset.id,
-                title: this.dataset.title || '',
-                status: this.dataset.status || '',
-                format: this.dataset.format || '',
-                isLoading: true // Flag to indicate data is still loading
-            };
-            
-            // Store the minimal data in sessionStorage
-            sessionStorage.setItem('currentAnimeData', JSON.stringify(initialData));
-            
-            // Redirect immediately to watch page
-            window.location.href = `watch.html?id=${initialData.id}`;
-        });
-    });
-}
-
 // Function to add click handlers to anime items
-function addAnimeItemClickHandlersDep() {
+function addAnimeItemClickHandlers() {
     document.querySelectorAll('.anime-item').forEach(item => {
         item.addEventListener('click', async function(e) {
             e.preventDefault();
