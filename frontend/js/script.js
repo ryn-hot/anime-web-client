@@ -62,6 +62,7 @@ function fetchAndDisplayAnime(variables, containerId) {
 
 
 
+
 // Function to display anime data
 function displayAnime(data, containerId) {
     console.log("Display Anime Called");
