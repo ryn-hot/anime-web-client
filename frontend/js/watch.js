@@ -157,12 +157,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     
             const episodeCount = mappingsjson?.episodeCount;
             
-            // Fetch relational data
-            const relationalDataFetch = await alIdFetch(animeId);
-            const relationalData = relationalDataFetch?.data?.Media || {};
-            const relations = seasonsResolver(relationalData?.relations?.edges || [], relationalData?.format || '');
             
-            console.log(relations.length);
+            // console.log(relations.length);
             // Process episode metadata
             const episodeMetadata = [];
             if (episodeCount) {
@@ -182,7 +178,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
             }
-    
+            
+            const relationalDataFetch = await alIdFetch(animeId);
+            const relationalData = relationalDataFetch?.data?.Media || {};
+
             // Calculate episodes
             let anilistEpisodes;
             if (relationalData.status === 'RELEASING' && relationalData.nextAiringEpisode) {
@@ -198,7 +197,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     anilistEpisodes = episodeCount;
                 }
             }
-    
+            
+            // Fetch relational data
+            
+            const relations = seasonsResolver(relationalData?.relations?.edges || [], relationalData?.format || '', relationalData.coverImage.extraLarge || '/api/placeholder/160/90', anilistEpisodes, relationalData.title?.english || relationalData.title?.romaji);
+            
+
             // Prepare complete anime data
             const completeAnimeData = {
                 id: animeId,
@@ -331,6 +335,10 @@ document.addEventListener('DOMContentLoaded', async () => {
               english
               native
             }
+            coverImage {
+                large
+                extraLarge
+            }
             nextAiringEpisode {
                 airingAt
                 timeUntilAiring
@@ -341,6 +349,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     edges {
                         node {
                             type
+                            id
                             title {
                                 english
                                 romaji
@@ -364,16 +373,36 @@ document.addEventListener('DOMContentLoaded', async () => {
       
     }
     
-    function seasonsResolver(edges, format) {
+    function seasonsResolver(edges, format, img, episodes, title) {
 
         const filter = edges.filter(edge => edge.node.format === format && (edge.relationType === "PREQUEL" || edge.relationType === "SEQUEL" ));
-        const relations = []
+        let relations = []
         for (const edge of filter) {
-            relations.push({relationType: edge.relationType, episodeNum: edge.node.episodes, img: edge.node.coverImage.extraLarge, title: edge.node.title.english || edge.node.title.romaji})
+            relations.push({id: edge.node.id, relationType: edge.relationType, episodeNum: edge.node.episodes, img: edge.node.coverImage.extraLarge, title: edge.node.title.english || edge.node.title.romaji})
         }
-    
+        
+        relations.sort((a, b) => getOrder(a) - getOrder(b));
+        console.log(relations);
+        const middleIndex = Math.floor(relations.length / 2);
+        const newElement = {relationType: "SOURCE", episodeNum: episodes, img: img, title: title };
+
+        if (relations.length > 1) {
+            relations.splice(middleIndex, 0, newElement);
+        } else if (relations.length > 0 && relations[0].relationType === "PREQUEL") {
+            relations.push(newElement);
+        } else if (relations.length > 0 && relations[0].relationType === "PREQUEL") {
+            relations.unshift(newElement);
+        }
+        
+
+        console.log(relations)
         return relations
-    
+        
+        function getOrder(item) {
+            if (item.relationType === "PREQUEL") return -1;
+            if (item.relationType === "SEQUEL") return 1;
+            return 0;
+        }
     }
 
     // Dynamically create video info section
@@ -721,8 +750,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Format the title based on relation type
             if (relation.relationType === 'PREQUEL') {
                 relationTitle.textContent = relation.title || 'Prequel';
+            
             } else if (relation.relationType === 'SEQUEL') {
                 relationTitle.textContent = relation.title || 'Sequel';
+
+            } else if (relation.relationType === 'SOURCE') {
+
+                relationTitle.textContent = relation.title || 'Source';
             }
             
             const episodeCount = document.createElement('span');
@@ -747,6 +781,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
                 relationCard.classList.add('active');
                 
+                 // Don't navigate if this is a SOURCE type or if it's already the active card
+                if (relation.relationType === 'SOURCE' && relationCard.classList.contains('active')) {
+                    console.log('Already on source anime');
+                    return;
+                }
+
+                if (!relation.id) {
+                    console.error('No anime ID available for related series');
+                    return;
+                }
+
+                try {
+                    // Store minimal initial data
+                    const initialData = {
+                        id: relation.id,
+                        title: relation.title || '',
+                        status: relation.status || '',
+                        format: relation.format || '',
+                        isLoading: true // Flag to indicate data is still loading
+                    };
+                    
+                    // Store the minimal data in sessionStorage
+                    sessionStorage.setItem('currentAnimeData', JSON.stringify(initialData));
+                    
+                    // Navigate to the watch page with the related anime ID
+                    window.location.href = `watch.html?id=${relation.id}`;
+                } catch (error) {
+                    console.error('Error navigating to related series:', error);
+                }
                 // Here you would navigate to the related anime
                 // For now, just log it
                 console.log(`Navigate to related series`);
@@ -781,7 +844,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         
         // Make first relation card active by default
-        if (relations.length > 0) {
+        const sourceCard = relatedContainer.querySelector('.season-card[data-relation-type="SOURCE"]');
+    
+        if (sourceCard) {
+            // If SOURCE card exists, make it active
+            sourceCard.classList.add('active');
+        } else {
+            // Otherwise fall back to selecting the first card
             relatedContainer.querySelector('.season-card').classList.add('active');
         }
     }

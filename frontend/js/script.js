@@ -607,74 +607,21 @@ function createBannerCarousel(animeList) {
             
             const animeId = bannerSlide.dataset.id;
             
-            // Fetch mapping data from API
-            const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + animeId);
-            const mappingsjson = await mappingsResponse.json();
-        
-            const episodeCount = mappingsjson?.episodeCount;
-            const episodesResponse = bannerSlide.dataset.episodes || -1;
-            
-            let anilistEpisodes;
-            
-            // Use the same episode count logic as the anime item click handler
-            if (bannerSlide.dataset.status === 'RELEASING') {
-                if (episodeCount >= bannerSlide.dataset.nextAiringEpisode) {
-                    anilistEpisodes = bannerSlide.dataset.nextAiringEpisode - 1;
-                } else {
-                    anilistEpisodes = episodeCount;
-                }
-            } else {
-                if (episodesResponse !== -1) {
-                    anilistEpisodes = episodesResponse;
-                } else {
-                    anilistEpisodes = episodeCount;
-                }
-            }
-            
-            // Fetch relational data
-            const relationalDataFetch = await alIdFetch(animeId);
-            const relationalData = relationalDataFetch?.data?.Media?.relations?.edges || [];
-            const relations = seasonsResolver(relationalData, bannerSlide.dataset.format);
-            
-            // Process episode metadata
-            const episodeMetadata = [];
-            if (episodeCount) {
-                const episodes = mappingsjson?.episodes || -1;
-                if (episodes !== -1) {
-                    for (let i = 1; i <= episodeCount; i++) {
-                        const epKey = i.toString();
-                        if (episodes[epKey]) {
-                            episodeMetadata.push({
-                                episodeNumber: i,
-                                overview: episodes[epKey].overview,
-                                img: episodes[epKey].image,
-                                title: episodes[epKey].title?.en,
-                                duration: episodes[epKey].duration
-                            });
-                        }
-                    }
-                }
-            }
-            
-            // Prepare anime data for storage
-            const animeData = {
-                id: animeId,
-                idMal: bannerSlide.dataset.idMal,
-                title: bannerSlide.dataset.title,
-                description: bannerSlide.querySelector('.banner-description')?.textContent,
-                bannerImage: bannerSlide.style.backgroundImage.replace(/^.*\((.+)\).*$/, '$1').replace(/"/g, '').replace(/linear-gradient\(.*?,\s*/, '').trim(),
-                status: bannerSlide.dataset.status || 'FINISHED',
-                format: bannerSlide.dataset.format || 'TV',
-                episodes: anilistEpisodes,
-                duration: parseInt(bannerSlide.dataset.duration) || 0,
-                genres: bannerSlide.querySelector('.banner-genres')?.textContent.split(' · ') || [],
-                relations: relations,
-                episodeData: episodeMetadata
+            // Store minimal initial data
+            const initialData = {
+                id: bannerSlide.dataset.id,
+                title: bannerSlide.dataset.title || '',
+                status: bannerSlide.dataset.status || '',
+                format: bannerSlide.dataset.format || '',
+                isLoading: true // Flag to indicate data is still loading
             };
             
+            
             // Store anime data and redirect
-            sessionStorage.setItem('currentAnimeData', JSON.stringify(animeData));
-            window.location.href = `watch.html?id=${animeId}`;
+            sessionStorage.setItem('currentAnimeData', JSON.stringify(initialData));
+            
+            // Redirect immediately to watch page
+            window.location.href = `watch.html?id=${initialData.id}`;
         });
 
 
@@ -1010,102 +957,6 @@ function addAnimeItemClickHandlers() {
 }
 
 // Function to add click handlers to anime items
-function addAnimeItemClickHandlersDeprecated() {
-    document.querySelectorAll('.anime-item').forEach(item => {
-        item.addEventListener('click', async function(e) {
-            e.preventDefault();
-            
-            const mappingsResponse = await fetch('https://api.ani.zip/mappings?anilist_id=' + this.dataset.id);
-            const mappingsjson = await mappingsResponse.json();
-
-            const episodeCount = mappingsjson?.episodeCount;
-            
-            const episodesResponse = this.dataset.episodes || -1;
-
-            let anilistEpisodes; 
-            
-            if (this.dataset.status == 'RELEASING') {
-                // console.log('releasing branch')
-                if (episodeCount >= this.dataset.nextAiringEpisode) {
-                    anilistEpisodes = this.dataset.nextAiringEpisode - 1;
-                } else {
-                    anilistEpisodes = episodeCount;
-                }
-
-            } else {
-
-                if (episodesResponse !== -1) {
-                    anilistEpisodes = episodesResponse;
-                } else {
-                    anilistEpisodes = episodeCount; 
-                }
-                
-            }
-            
-            const relationalDataFetch = await alIdFetch(this.dataset.id);
-            const relationalData = relationalDataFetch?.data?.Media?.relations?.edges || [];
-
-
-            const relations = seasonsResolver(relationalData, this.dataset.format); 
-
-            const episodeMetadata = []
-            if (episodeCount) {
-                const episodes = mappingsjson?.episodes || -1;
-                if (episodes !== -1) {
-                    for (let i = 1; i <= episodeCount; i++)  {
-                        const epKey = i.toString();
-                        if (episodes[epKey]) {
-                            episodeMetadata.push(
-                                {   episodeNumber: i, 
-                                    overview: episodes[epKey].overview, 
-                                    img: episodes[epKey].image, 
-                                    title: episodes[epKey].title.en,
-                                    duration: episodes[epKey].duration  
-                                }
-                            )
-                        }
-                    }   
-                }
-            }
-           
-            // Get anime data from dataset attributes
-            const animeData = {
-                id: this.dataset.id,
-                idMal: this.dataset.idMal,
-                title: this.dataset.title,
-                description: this.dataset.description,
-                idtrailer: this.dataset.idtrailer,
-                site: this.dataset.site,
-                bannerImage: this.dataset.bannerImage,
-                status: this.dataset.status,
-                format: this.dataset.format,
-                episodes: anilistEpisodes, /* add dynamic fetch episode num from db */
-                duration: parseInt(this.dataset.duration) || 0,
-                genres: this.dataset.genres ? this.dataset.genres.split(',') : [],
-                relations: relations,
-                episodeData: episodeMetadata    
-            };
-            
-            // Store the anime data in sessionStorage
-            sessionStorage.setItem('currentAnimeData', JSON.stringify(animeData));
-            
-            // Redirect to watch page
-            window.location.href = `watch.html?id=${animeData.id}`;
-        });
-    });
-}
-
-function seasonsResolver(edges, format) {
-
-    const filter = edges.filter(edge => edge.node.format === format && (edge.relationType === "PREQUEL" || edge.relationType === "SEQUEL" ));
-    const relations = []
-    for (const edge of filter) {
-        relations.push({relationType: edge.relationType, episodeNum: edge.node.episodes, img: edge.node.coverImage.extraLarge, title: edge.node.title.english || edge.node.title.romaji})
-    }
-
-    return relations
-
-}
 
 // Initial highlight
 highlightActiveLink();
