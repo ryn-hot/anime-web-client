@@ -161,7 +161,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const relationalDataFetch = await alIdFetch(animeId);
             const relationalData = relationalDataFetch?.data?.Media || {};
             const relations = seasonsResolver(relationalData?.relations?.edges || [], relationalData?.format || '');
-    
+            
+            console.log(relations.length);
             // Process episode metadata
             const episodeMetadata = [];
             if (episodeCount) {
@@ -335,7 +336,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 timeUntilAiring
                 episode
               }
-            
+            format
             relations {
                     edges {
                         node {
