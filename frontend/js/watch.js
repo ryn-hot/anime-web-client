@@ -390,8 +390,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             relations.splice(middleIndex, 0, newElement);
         } else if (relations.length > 0 && relations[0].relationType === "PREQUEL") {
             relations.push(newElement);
-        } else if (relations.length > 0 && relations[0].relationType === "PREQUEL") {
+        } else if (relations.length > 0 && relations[0].relationType === "SEQUEL") {
             relations.unshift(newElement);
+        } else {
+            // console.log('Did not add source')
+            // console.log('Relation 0 index', relations[0]);
         }
         
 
