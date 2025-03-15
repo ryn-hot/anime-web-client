@@ -1,10 +1,11 @@
 {
   "name": "anime-streaming-webc",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "electronapp.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "electron-dev": "electron electronapp.js",
+    "test": "node main.js"
   },
   "keywords": [],
   "author": "",
@@ -35,7 +36,7 @@
     "wrtc": "^0.4.7"
   },
   "devDependencies": {
-    "electron": "^34.3.0",
+    "electron": "^34.3.3",
     "electron-builder": "^25.1.8"
   }
 }
