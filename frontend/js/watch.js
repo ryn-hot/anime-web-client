@@ -1,4 +1,6 @@
 import { AniListAPI } from "./bottleneck.js";
+import { VideoPlayerManager } from './video-player.js';
+
 
 const anilistAPI = new AniListAPI();
 
@@ -79,6 +81,110 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     
+    /*
+    *
+    *
+    * 
+    * VIDEO PLAYER
+    * 
+    * 
+    * 
+    * 
+    */
+
+
+    
+    
+     // Create the video player manager
+    window.videoPlayerManager = new VideoPlayerManager();
+    
+     // Load scripts for player enhancement
+    await loadExternalScript('https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.min.js');
+     
+     // Get query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const animeId = urlParams.get('id');
+     
+     // Attach episode selection handlers to existing episode UI
+    function attachEpisodeSelectionHandlers() {
+       // For grid view buttons
+       const episodeButtons = document.querySelectorAll('.episode-button');
+       episodeButtons.forEach(button => {
+         button.addEventListener('click', () => {
+           const episodeNumber = parseInt(button.textContent);
+           window.videoPlayerManager.loadEpisode(animeId, episodeNumber, getCurrentAudioType());
+         });
+       });
+       
+       // For card view
+       const episodeCards = document.querySelectorAll('.episode-card');
+       episodeCards.forEach(card => {
+         card.addEventListener('click', () => {
+           const episodeNumberEl = card.querySelector('.episode-number-overlay');
+           if (episodeNumberEl) {
+             const episodeNumber = parseInt(episodeNumberEl.textContent.replace('EP ', ''));
+             window.videoPlayerManager.loadEpisode(animeId, episodeNumber, getCurrentAudioType());
+           }
+         });
+       });
+    }
+     
+     // Get current audio type (sub/dub)
+    function getCurrentAudioType() {
+       const activeButton = document.querySelector('.source-button.active');
+       return activeButton ? activeButton.dataset.type : 'sub';
+    }
+     
+     // Helper to load external scripts
+    function loadExternalScript(src) {
+       return new Promise((resolve, reject) => {
+         if (document.querySelector(`script[src="${src}"]`)) {
+           resolve();
+           return;
+        }
+         
+         const script = document.createElement('script');
+         script.src = src;
+         script.onload = resolve;
+         script.onerror = reject;
+         document.head.appendChild(script);
+       });
+    }
+     
+     // Attach handlers after UI is created
+    const observer = new MutationObserver(mutations => {
+       for (const mutation of mutations) {
+         if (mutation.addedNodes.length) {
+           const episodePanel = document.querySelector('.episodes-panel');
+           if (episodePanel) {
+             attachEpisodeSelectionHandlers();
+             observer.disconnect();
+             break;
+           }
+         }
+       }
+    });
+     
+     observer.observe(document.body, { childList: true, subtree: true });
+     
+     // If episode panel already exists, attach handlers now
+    if (document.querySelector('.episodes-panel')) {
+       attachEpisodeSelectionHandlers();
+    }
+
+
+
+    /*
+    *
+    *
+    * 
+    * VIDEO PLAYER
+    * 
+    * 
+    * 
+    * 
+    */
+
     // Toggle sidebar expand/collapse
     function toggleSidebar() {
         if (sidebar.classList.contains('expanded')) {

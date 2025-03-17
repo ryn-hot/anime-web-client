@@ -7,60 +7,65 @@ import fetch from 'node-fetch';
 import { parse_title_reserve } from "./anime-finder-funcs.js";
 import path from "path"; 
 
-const results = await dynamicFinder(151807, 2, 'sub'); 
-console.log('results: ', results);
 
 
-async function streamTorrent(alID, episodeNum, audio) {
-    const result = await dynamicFinder(alID, episodeNum, audio);
+//test function
+// await dynamic_manager();
 
-    const videoFileFormat = extractFileSuffix(result.fileName); 
-  
-    const client = getGlobalClient();
 
-    client.add(result.magnetLink, { sequential: true }, torrent => {
-        console.log(`Torrent ${torrent.infoHash} added.`);
-        
-        // Get the specific file using fileIndex.
-        const file = torrent.files[result.fileIndex];
-        if (!file) {
-          res.status(404).send("File not found in torrent");
-          return;
+
+
+//this function is untested I have no idea if it will work. So if you see a problem or need to change something for the integration to work do it
+export async function streamTorrent(req, res, alID, episodeNum, audio) {
+    try {
+        const result = await dynamicFinder(alID, episodeNum, audio);
+        if (!result) {
+            return res.status(404).send("No torrents found for the requested episode");
         }
-        
-        // Set appropriate headers based on your file type.
-        // Here we assume a video file (e.g., mp4 or mkv). Adjust accordingly.
-        res.writeHead(200, {
-          "Content-Type": `video/${videoFileFormat}`, // Change if needed based on file extension.
-          "Content-Disposition": `inline; filename="${result.fileName}"`
-        });
-        
-        // Create a read stream for the file.
-        const stream = file.createReadStream();
-        
-        // Optionally, listen to stream events.
-        stream.on("error", err => {
-          console.error("Stream error:", err);
-          res.end();
-        });
-        
-        // Pipe the file stream directly to the HTTP response.
-        stream.pipe(res);
-        
-        // Once streaming finishes, you might want to clean up the torrent.
-        stream.on("end", () => {
-          console.log("Streaming finished.");
-          // Optionally, you can destroy the torrent if you don't need it anymore.
-          torrent.destroy();
-        });
-    });
-    console.log('results:')
-    console.log(results)
 
+        const videoFileFormat = extractFileSuffix(result.fileName);
+        const client = getGlobalClient();
+
+        client.add(result.magnetLink, { sequential: true }, torrent => {
+            console.log(`Torrent ${torrent.infoHash} added for streaming.`);
+            
+            // Get the specific file using fileIndex
+            const file = torrent.files[result.fileIndex];
+            if (!file) {
+                res.status(404).send("File not found in torrent");
+                return;
+            }
+            
+            // Set appropriate headers for streaming
+            res.writeHead(200, {
+                "Content-Type": `video/${videoFileFormat}`,
+                "Content-Disposition": `inline; filename="${result.fileName}"`
+            });
+            
+            // Create and pipe the read stream
+            const stream = file.createReadStream();
+            
+            stream.on("error", err => {
+                console.error("Stream error:", err);
+                res.end();
+            });
+            
+            stream.pipe(res);
+            
+            // Clean up when streaming finishes
+            stream.on("end", () => {
+                console.log("Streaming finished.");
+                torrent.destroy();
+            });
+        });
+    } catch (error) {
+        console.error("Error streaming torrent:", error);
+        res.status(500).send("Error streaming the requested episode");
+    }
 }
 
 
-async function dynamicFinder(alID, episodeNum, audio) { 
+export async function dynamicFinder(alID, episodeNum, audio) { 
     const db = new AnimeDatabase('./anime.db');
 
     const mode = 'fetch'

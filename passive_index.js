@@ -108,7 +108,7 @@ class AnimeDatabase {
                     anidb_id,
                     english_title,
                     romanji_title,
-                    episode_number,
+                    episode_list,
                     format
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
             `);
