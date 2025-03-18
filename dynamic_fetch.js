@@ -11,7 +11,10 @@ import path from "path";
 
 //test function
 // await dynamic_manager();
-
+async function dynamic_manager() {
+    const results = await dynamicFinder(151807, 2, 'sub'); 
+    console.log('results: ', results);
+}
 
 
 

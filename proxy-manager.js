@@ -1,8 +1,7 @@
 // proxy-manager.js
 class ProxyManager {
     constructor(proxyList) {
-        this.indexBuffer = new SharedArrayBuffer(4);
-        this.indexArray = new Int32Array(this.indexBuffer);
+        this.currentIndex = 0;
         this.proxies = [...proxyList]; // Make a copy
         
         // Track proxy health with a Map
@@ -16,8 +15,8 @@ class ProxyManager {
             throw new Error('No proxies available');
         }
         
-        // Get next index atomically
-        const index = Atomics.add(this.indexArray, 0, 1);
+        // Simple non-atomic counter increment
+        const index = this.currentIndex++;
         
         // Try up to proxies.length times to find a healthy proxy
         for (let i = 0; i < this.proxies.length; i++) {

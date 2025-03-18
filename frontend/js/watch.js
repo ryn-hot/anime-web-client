@@ -1,5 +1,6 @@
 import { AniListAPI } from "./bottleneck.js";
-import { VideoPlayerManager } from './video-player.js';
+// import { startFfmpegPlayer } from '../../ffmpeg-player.js';
+// import { dynamicFinder } from "../../dynamic_fetch.js";
 
 
 const anilistAPI = new AniListAPI();
@@ -81,109 +82,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     
-    /*
-    *
-    *
-    * 
-    * VIDEO PLAYER
-    * 
-    * 
-    * 
-    * 
-    */
-
-
-    
-    
-     // Create the video player manager
-    window.videoPlayerManager = new VideoPlayerManager();
-    
-     // Load scripts for player enhancement
-    await loadExternalScript('https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.min.js');
-     
-     // Get query parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const animeId = urlParams.get('id');
-     
-     // Attach episode selection handlers to existing episode UI
-    function attachEpisodeSelectionHandlers() {
-       // For grid view buttons
-       const episodeButtons = document.querySelectorAll('.episode-button');
-       episodeButtons.forEach(button => {
-         button.addEventListener('click', () => {
-           const episodeNumber = parseInt(button.textContent);
-           window.videoPlayerManager.loadEpisode(animeId, episodeNumber, getCurrentAudioType());
-         });
-       });
-       
-       // For card view
-       const episodeCards = document.querySelectorAll('.episode-card');
-       episodeCards.forEach(card => {
-         card.addEventListener('click', () => {
-           const episodeNumberEl = card.querySelector('.episode-number-overlay');
-           if (episodeNumberEl) {
-             const episodeNumber = parseInt(episodeNumberEl.textContent.replace('EP ', ''));
-             window.videoPlayerManager.loadEpisode(animeId, episodeNumber, getCurrentAudioType());
-           }
-         });
-       });
-    }
-     
-     // Get current audio type (sub/dub)
-    function getCurrentAudioType() {
-       const activeButton = document.querySelector('.source-button.active');
-       return activeButton ? activeButton.dataset.type : 'sub';
-    }
-     
-     // Helper to load external scripts
-    function loadExternalScript(src) {
-       return new Promise((resolve, reject) => {
-         if (document.querySelector(`script[src="${src}"]`)) {
-           resolve();
-           return;
-        }
-         
-         const script = document.createElement('script');
-         script.src = src;
-         script.onload = resolve;
-         script.onerror = reject;
-         document.head.appendChild(script);
-       });
-    }
-     
-     // Attach handlers after UI is created
-    const observer = new MutationObserver(mutations => {
-       for (const mutation of mutations) {
-         if (mutation.addedNodes.length) {
-           const episodePanel = document.querySelector('.episodes-panel');
-           if (episodePanel) {
-             attachEpisodeSelectionHandlers();
-             observer.disconnect();
-             break;
-           }
-         }
-       }
-    });
-     
-     observer.observe(document.body, { childList: true, subtree: true });
-     
-     // If episode panel already exists, attach handlers now
-    if (document.querySelector('.episodes-panel')) {
-       attachEpisodeSelectionHandlers();
-    }
-
-
-
-    /*
-    *
-    *
-    * 
-    * VIDEO PLAYER
-    * 
-    * 
-    * 
-    * 
-    */
 
     // Toggle sidebar expand/collapse
     function toggleSidebar() {
@@ -1254,9 +1152,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 
                 // Add click event
-                episodeButton.addEventListener('click', () => {
+                episodeButton.addEventListener('click', async () => {
                     const episodeNumber = parseInt(episodeButton.textContent);
                     
+
                     // Remove active class from all buttons
                     document.querySelectorAll('.episode-button').forEach(btn => {
                         btn.classList.remove('active');
@@ -1271,7 +1170,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Update the currently selected episode
                     currentlySelectedEpisode = episodeNumber;
                     
-                    console.log(`Switching to episode ${episodeNumber}`);
+                    await loadEpisodeStream(episodeNumber);
                 });
                 
                 grid.appendChild(episodeButton);
@@ -1280,6 +1179,43 @@ document.addEventListener('DOMContentLoaded', async () => {
             return grid;
         }
         
+        // Helper function to load and start streaming an episode.
+        async function loadEpisodeStream(episodeNumber) {
+            try {
+                console.log('Load Episode Stream Called')
+                const urlParams = new URLSearchParams(window.location.search);
+                const animeId = urlParams.get('id');
+                // Assume `animeId` and `getCurrentAudioType` are available in your scope.
+                const audioType = document.querySelector('.source-button.active')?.dataset?.type || 'sub';
+
+
+                const { magnetLink, fileIndex } = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
+                
+                // Invoke the IPC call to start the stream.
+                const streamUrl = await window.electronAPI.startStream(magnetLink, fileIndex);
+                console.log("Stream URL:", streamUrl);
+                
+                // Get or create a canvas element to render the video.
+                let canvas = document.getElementById('video-canvas');
+                if (!canvas) {
+                    canvas = document.createElement('canvas');
+                    canvas.id = 'video-canvas';
+                    // Set desired dimensions (you can also use CSS to style it)
+                    canvas.width = 640;
+                    canvas.height = 360;
+                    const videoContainer = document.querySelector('.video-container');
+                    videoContainer.innerHTML = ""; // Clear previous content
+                    videoContainer.appendChild(canvas);
+                }
+                
+                // Dynamically import the ffmpeg player and start it.
+                window.electronAPI.startFfmpeg(streamUrl, 'video-canvas', 640, 360);
+            
+            } catch (err) {
+                console.error("Error starting stream:", err);
+            }
+        }
+  
         // Function to generate episode cards (detailed view)
         function generateEpisodeCards() {
             const grid = document.createElement('div');
@@ -1340,7 +1276,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 episodeCard.appendChild(content);
                 
                 // Add click event
-                episodeCard.addEventListener('click', () => {
+                episodeCard.addEventListener('click', async () => {
                     const episodeNumber = parseInt(episodeCard.querySelector('.episode-number-overlay').textContent.replace('EP ', ''));
                     
                     // Remove active class from all cards
@@ -1357,6 +1293,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Update the currently selected episode
                     currentlySelectedEpisode = episodeNumber;
                     
+                    await loadEpisodeStream(episodeNumber);
+
                     console.log(`Switching to episode ${episodeNumber}`);
                 });
                 
