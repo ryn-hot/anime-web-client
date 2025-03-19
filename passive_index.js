@@ -169,9 +169,9 @@ class AnimeDatabase {
             episode_number,
             audio_type,
             category,
-            magnet_link,
+            magnetLink,
             info_hash,
-            file_index,
+            fileIndex,
             file_name,
             seeders,
             video_url,
@@ -360,7 +360,21 @@ class AnimeDatabase {
 
 // const tasksQueue = [];
 
-// await main()
+export async function dbInit() {
+    const db = new AnimeDatabase('./anime.db');
+    try {
+        // Reset database (optional)
+        await db.reset();
+        
+        // Initialize with schema
+        await db.initializeFromSchema('./node.sql');
+
+    }  catch (error) {
+        console.error('Database operation failed:', error);
+    }
+}
+
+//await main()
 async function main() {
     const db = new AnimeDatabase('./anime.db');
     

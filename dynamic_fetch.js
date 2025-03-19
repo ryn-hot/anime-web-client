@@ -71,12 +71,13 @@ export async function streamTorrent(req, res, alID, episodeNum, audio) {
 export async function dynamicFinder(alID, episodeNum, audio) { 
     const db = new AnimeDatabase('./anime.db');
 
+    console.log(alID, episodeNum, audio);
     const mode = 'fetch'
     const source = db.getTorrentSource(alID, episodeNum, audio);
 
     if (source) {
-        // console.log('database hit');
-        // console.log('source: ', source);
+        console.log('database hit');
+        console.log('source: ', source);
 
         return source
     } else {

@@ -1181,38 +1181,128 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Helper function to load and start streaming an episode.
         async function loadEpisodeStream(episodeNumber) {
+            // Clear previous player if exists
+            const videoContainer = document.querySelector('.video-container');
+            const existingVideo = document.getElementById('video-player-element');
+            if (existingVideo) {
+                existingVideo.pause();
+                existingVideo.src = '';
+                existingVideo.load();
+            }
+            
             try {
-                console.log('Load Episode Stream Called')
-                const urlParams = new URLSearchParams(window.location.search);
-                const animeId = urlParams.get('id');
-                // Assume `animeId` and `getCurrentAudioType` are available in your scope.
-                const audioType = document.querySelector('.source-button.active')?.dataset?.type || 'sub';
-
-
-                const { magnetLink, fileIndex } = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
-                
-                // Invoke the IPC call to start the stream.
-                const streamUrl = await window.electronAPI.startStream(magnetLink, fileIndex);
-                console.log("Stream URL:", streamUrl);
-                
-                // Get or create a canvas element to render the video.
-                let canvas = document.getElementById('video-canvas');
-                if (!canvas) {
-                    canvas = document.createElement('canvas');
-                    canvas.id = 'video-canvas';
-                    // Set desired dimensions (you can also use CSS to style it)
-                    canvas.width = 640;
-                    canvas.height = 360;
-                    const videoContainer = document.querySelector('.video-container');
-                    videoContainer.innerHTML = ""; // Clear previous content
-                    videoContainer.appendChild(canvas);
+                // Show loading indicator in the video container
+                if (videoContainer) {
+                    videoContainer.innerHTML = `
+                        <div class="loading-indicator">
+                            <div class="spinner"></div>
+                            <p>Loading episode ${episodeNumber}...</p>
+                        </div>
+                    `;
                 }
                 
-                // Dynamically import the ffmpeg player and start it.
-                window.electronAPI.startFfmpeg(streamUrl, 'video-canvas', 640, 360);
-            
+                const urlParams = new URLSearchParams(window.location.search);
+                const animeId = urlParams.get('id');
+                if (!animeId) {
+                    throw new Error("Missing anime ID in URL");
+                }
+                
+                // Get current audio type (sub or dub)
+                const audioType = document.querySelector('.source-button.active')?.dataset?.type || 'sub';
+                
+                // Call the IPC method to get the torrent info from the main process
+                console.log(`Finding torrent for anime ${animeId}, episode ${episodeNumber}, audio ${audioType}`);
+                const result = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
+                
+                if (!result) {
+                    if (videoContainer) {
+                        videoContainer.innerHTML = `
+                            <div class="error-message">
+                                <p>No torrent found for this episode</p>
+                                <button id="retry-button">Retry</button>
+                            </div>
+                        `;
+                        document.getElementById('retry-button')?.addEventListener('click', () => {
+                            loadEpisodeStream(episodeNumber);
+                        });
+                    }
+                    return;
+                }
+                
+                console.log(`Torrent found, starting stream with magnetLink: ${result.magnetLink}... and fileIndex: ${result.fileIndex}`);
+                
+                // Start the stream using the magnetLink and fileIndex from the result
+                const streamResult = await window.electronAPI.startStream(result.magnetLink, result.fileIndex);
+                console.log("Stream URL:", streamResult.url);
+                
+                // Create an HTML5 video player
+                if (videoContainer) {
+                    // Create video controls container
+                    const videoElement = document.createElement('video');
+                    videoElement.id = 'video-player-element';
+                    videoElement.className = 'video-player-html5';
+                    videoElement.controls = true;
+                    videoElement.autoplay = true;
+                    videoElement.src = streamResult.url;
+                    videoElement.type = streamResult.mimeType;
+                    
+                    // Add styling
+                    videoElement.style.width = '100%';
+                    videoElement.style.maxHeight = '100%';
+                    videoElement.style.borderRadius = '8px';
+                    
+                    // Clear container and add video element
+                    videoContainer.innerHTML = '';
+                    videoContainer.appendChild(videoElement);
+                    
+                    // Error handling
+                    videoElement.addEventListener('error', (e) => {
+                        console.error('Video playback error:', videoElement.error);
+                        videoContainer.innerHTML = `
+                            <div class="error-message">
+                                <p>Error playing this episode: ${videoElement.error ? videoElement.error.message : 'Unknown error'}</p>
+                                <button id="retry-button">Retry</button>
+                            </div>
+                        `;
+                        document.getElementById('retry-button')?.addEventListener('click', () => {
+                            loadEpisodeStream(episodeNumber);
+                        });
+                    });
+                    
+                    // Add additional video events for debugging/logging
+                    videoElement.addEventListener('loadstart', () => console.log('Video: loadstart'));
+                    videoElement.addEventListener('loadedmetadata', () => console.log('Video: loadedmetadata'));
+                    videoElement.addEventListener('loadeddata', () => console.log('Video: loadeddata'));
+                    videoElement.addEventListener('canplay', () => console.log('Video: canplay'));
+                    videoElement.addEventListener('play', () => console.log('Video: playback started'));
+                    videoElement.addEventListener('pause', () => console.log('Video: paused'));
+                    videoElement.addEventListener('seeking', () => console.log('Video: seeking'));
+                    videoElement.addEventListener('seeked', () => console.log('Video: seeked'));
+                }
+                
+                // Update episode info in the UI
+                const watchingTitleEl = document.querySelector('.watching-title');
+                if (watchingTitleEl) {
+                    const animeData = getAnimeData();
+                    const animeTitle = animeData?.title || 'Anime';
+                    watchingTitleEl.textContent = `You are watching: ${animeTitle} Episode ${episodeNumber}`;
+                }
+                
             } catch (err) {
                 console.error("Error starting stream:", err);
+                
+                // Show error message in video container
+                if (videoContainer) {
+                    videoContainer.innerHTML = `
+                        <div class="error-message">
+                            <p>Error playing this episode: ${err.message}</p>
+                            <button id="retry-button">Retry</button>
+                        </div>
+                    `;
+                    document.getElementById('retry-button')?.addEventListener('click', () => {
+                        loadEpisodeStream(episodeNumber);
+                    });
+                }
             }
         }
   

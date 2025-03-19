@@ -1,6 +1,6 @@
 // preload.js
 import  { contextBridge, ipcRenderer } from 'electron'
-import { startFfmpegPlayer } from './ffmpegHandler.js';
+import { startFfmpegPlayer, cleanupFfmpeg, cleanupAllFfmpeg } from './ffmpegHandler.js';
 
 
 
@@ -8,8 +8,9 @@ import { startFfmpegPlayer } from './ffmpegHandler.js';
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
     startStream: (magnetLink, fileIndex) => ipcRenderer.invoke('start-stream', magnetLink, fileIndex),
-    startFfmpeg: (streamUrl, canvasId, width, height) => startFfmpegPlayer(streamUrl, canvasId, width, height),
     dynamicFinder: (alID, episodeNum, audio) => ipcRenderer.invoke('dynamic-finder', alID, episodeNum, audio)
 });
 
-
+window.addEventListener('beforeunload', () => {
+    cleanupAllFfmpeg();
+});

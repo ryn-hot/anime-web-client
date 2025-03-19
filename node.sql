@@ -40,9 +40,9 @@ CREATE TABLE IF NOT EXISTS sources (
     category        TEXT NOT NULL,
 
     -- For torrent category
-    magnet_link  TEXT,  -- if category = 'torrent'
+    magnetLink  TEXT,  -- if category = 'torrent'
     info_hash    TEXT,  -- optional
-    file_index   INTEGER,  -- optional
+    fileIndex   INTEGER,  -- optional
     file_name    TEXT,  -- optional
     seeders      INTEGER, -- add a health field
 
@@ -61,7 +61,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_sources ON sources (
     episode_number,
     audio_type,
     category,
-    COALESCE(magnet_link, ''),
+    COALESCE(magnetLink, ''),
     COALESCE(video_url, ''),
     COALESCE(nzb_data, '')
 );
