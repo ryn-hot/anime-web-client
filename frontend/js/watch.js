@@ -1180,45 +1180,248 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         // Helper function to load and start streaming an episode.
-        async function loadEpisodeStream(episodeNumber) {
-            // Clear previous player if exists
-            const videoContainer = document.querySelector('.video-container');
-            const existingVideo = document.getElementById('video-player-element');
-            if (existingVideo) {
-                existingVideo.pause();
-                existingVideo.src = '';
-                existingVideo.load();
-            }
-            
-            try {
-                // Show loading indicator in the video container
-                if (videoContainer) {
-                    videoContainer.innerHTML = `
-                        <div class="loading-indicator">
-                            <div class="spinner"></div>
-                            <p>Loading episode ${episodeNumber}...</p>
-                        </div>
-                    `;
+            async function loadEpisodeStream(episodeNumber) {
+                // Clear previous player if exists
+                const videoContainer = document.querySelector('.video-container');
+                const existingVideo = document.getElementById('video-player-element');
+                if (existingVideo) {
+                    existingVideo.pause();
+                    existingVideo.src = '';
+                    existingVideo.load();
                 }
                 
-                const urlParams = new URLSearchParams(window.location.search);
-                const animeId = urlParams.get('id');
-                if (!animeId) {
-                    throw new Error("Missing anime ID in URL");
-                }
-                
-                // Get current audio type (sub or dub)
-                const audioType = document.querySelector('.source-button.active')?.dataset?.type || 'sub';
-                
-                // Call the IPC method to get the torrent info from the main process
-                console.log(`Finding torrent for anime ${animeId}, episode ${episodeNumber}, audio ${audioType}`);
-                const result = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
-                
-                if (!result) {
+                try {
+                    // Show loading indicator in the video container
+                    if (videoContainer) {
+                        videoContainer.innerHTML = `
+                            <div class="loading-indicator">
+                                <div class="spinner"></div>
+                                <p>Loading episode ${episodeNumber}...</p>
+                            </div>
+                        `;
+                    }
+                    
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const animeId = urlParams.get('id');
+                    if (!animeId) {
+                        throw new Error("Missing anime ID in URL");
+                    }
+                    
+                    // Get current audio type (sub or dub)
+                    const audioType = document.querySelector('.source-button.active')?.dataset?.type || 'sub';
+                    
+                    // Call the IPC method to get the torrent info from the main process
+                    console.log(`Finding torrent for anime ${animeId}, episode ${episodeNumber}, audio ${audioType}`);
+                    const result = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
+                    
+                    if (!result) {
+                        if (videoContainer) {
+                            videoContainer.innerHTML = `
+                                <div class="error-message">
+                                    <p>No torrent found for this episode</p>
+                                    <button id="retry-button">Retry</button>
+                                </div>
+                            `;
+                            document.getElementById('retry-button')?.addEventListener('click', () => {
+                                loadEpisodeStream(episodeNumber);
+                            });
+                        }
+                        return;
+                    }
+                    
+                    console.log(`Torrent found, starting stream with magnetLink: ${result.magnetLink}... and fileIndex: ${result.fileIndex}`);
+                    
+                    // Start the stream using the magnetLink and fileIndex from the result
+                    const streamResult = await window.electronAPI.startStream(result.magnetLink, result.fileIndex);
+                    console.log("Stream URL:", streamResult.url);
+                    
+                    // Create an HTML5 video player
+                    if (videoContainer) {
+                        const videoWrapper = document.createElement('div');
+                        videoWrapper.className = 'video-wrapper';
+
+
+                        // Create video controls container
+                        const videoElement = document.createElement('video');
+                        videoElement.id = 'video-player-element';
+                        videoElement.className = 'video-player-html5';
+                        videoElement.controls = true;
+                        videoElement.autoplay = true;
+                        videoElement.src = streamResult.url;
+                        videoElement.type = streamResult.mimeType;
+                        videoElement.crossOrigin = "anonymous";
+                        
+
+
+                        // Add subtitle tracks if available
+                        if (streamResult.subtitles && streamResult.subtitles.length > 0) {
+                            // Create a default "Off" track
+                            const offTrack = document.createElement('track');
+                            offTrack.kind = 'subtitles';
+                            offTrack.label = 'Off';
+                            offTrack.default = false;
+                            videoElement.appendChild(offTrack);
+                            
+                            // Add each subtitle track
+                            streamResult.subtitles.forEach((subtitle, index) => {
+                                const track = document.createElement('track');
+                                track.kind = 'subtitles';
+                                track.label = subtitle.title || subtitle.language || `Track ${index+1}`;
+                                track.srclang = subtitle.language || 'en';
+                                track.src = subtitle.url;
+                                
+                                // Make the first track default if we're in sub mode
+                                if (index === 0 && audioType === 'sub') {
+                                    track.default = true;
+                                }
+                                
+                                videoElement.appendChild(track);
+                            });
+                            
+                            // Add subtitle selection UI
+                            const subtitleControls = document.createElement('div');
+                            subtitleControls.className = 'subtitle-controls';
+                            
+                            const subtitleLabel = document.createElement('span');
+                            subtitleLabel.className = 'subtitle-label';
+                            subtitleLabel.textContent = 'Subtitles:';
+                            
+                            const subtitleSelect = document.createElement('select');
+                            subtitleSelect.className = 'subtitle-select';
+                            
+                            // Add "Off" option
+                            const offOption = document.createElement('option');
+                            offOption.value = '-1';
+                            offOption.textContent = 'Off';
+                            subtitleSelect.appendChild(offOption);
+                            
+                            // Add options for each subtitle track
+                            streamResult.subtitles.forEach((subtitle, index) => {
+                                const option = document.createElement('option');
+                                option.value = index.toString();
+                                option.textContent = subtitle.title || subtitle.language || `Track ${index+1}`;
+                                
+                                // Select the first track if in sub mode
+                                if (index === 0 && audioType === 'sub') {
+                                    option.selected = true;
+                                }
+                                
+                                subtitleSelect.appendChild(option);
+                            });
+                            
+                            // Handle subtitle selection change
+                            subtitleSelect.addEventListener('change', (e) => {
+                                const selectedIndex = parseInt(e.target.value);
+                                
+                                // Disable all tracks
+                                for (let i = 0; i < videoElement.textTracks.length; i++) {
+                                    videoElement.textTracks[i].mode = 'disabled';
+                                }
+                                
+                                // Enable selected track if not "Off"
+                                if (selectedIndex >= 0 && selectedIndex < videoElement.textTracks.length) {
+                                    videoElement.textTracks[selectedIndex + 1].mode = 'showing'; // +1 because first track is "Off"
+                                }
+                            });
+                            
+                            subtitleControls.appendChild(subtitleLabel);
+                            subtitleControls.appendChild(subtitleSelect);
+                            
+                            // Put subtitle controls after video
+                            videoWrapper.appendChild(videoElement);
+                            videoWrapper.appendChild(subtitleControls);
+                        } else {
+                            // Just add the video element if no subtitles
+                            videoWrapper.appendChild(videoElement);
+                        }
+
+                        // Add styling
+                        videoElement.style.width = '100%';
+                        videoElement.style.maxHeight = '100%';
+                        videoElement.style.borderRadius = '8px';
+                        
+                        // Clear container and add video element
+                        videoContainer.innerHTML = '';
+                        videoContainer.appendChild(videoWrapper);
+                        
+
+                        // Add CSS for subtitle controls
+                        const style = document.createElement('style');
+                        style.textContent = `
+                            .video-wrapper {
+                                position: relative;
+                                width: 100%;
+                            }
+                            
+                            .subtitle-controls {
+                                display: flex;
+                                align-items: center;
+                                background-color: rgba(0, 0, 0, 0.7);
+                                padding: 8px 12px;
+                                border-radius: 0 0 8px 8px;
+                                margin-top: -5px;
+                            }
+                            
+                            .subtitle-label {
+                                color: white;
+                                margin-right: 10px;
+                                font-size: 14px;
+                            }
+                            
+                            .subtitle-select {
+                                background-color: #333;
+                                color: white;
+                                border: 1px solid #555;
+                                padding: 4px 8px;
+                                border-radius: 4px;
+                                font-size: 14px;
+                            }
+                        `;
+
+                        
+                        document.head.appendChild(style);
+
+                        // Error handling
+                        videoElement.addEventListener('error', (e) => {
+                            console.error('Video playback error:', videoElement.error);
+                            videoContainer.innerHTML = `
+                                <div class="error-message">
+                                    <p>Error playing this episode: ${videoElement.error ? videoElement.error.message : 'Unknown error'}</p>
+                                    <button id="retry-button">Retry</button>
+                                </div>
+                            `;
+                            document.getElementById('retry-button')?.addEventListener('click', () => {
+                                loadEpisodeStream(episodeNumber);
+                            });
+                        });
+                        
+                        // Add additional video events for debugging/logging
+                        videoElement.addEventListener('loadstart', () => console.log('Video: loadstart'));
+                        videoElement.addEventListener('loadedmetadata', () => console.log('Video: loadedmetadata'));
+                        videoElement.addEventListener('loadeddata', () => console.log('Video: loadeddata'));
+                        videoElement.addEventListener('canplay', () => console.log('Video: canplay'));
+                        videoElement.addEventListener('play', () => console.log('Video: playback started'));
+                        videoElement.addEventListener('pause', () => console.log('Video: paused'));
+                        videoElement.addEventListener('seeking', () => console.log('Video: seeking'));
+                        videoElement.addEventListener('seeked', () => console.log('Video: seeked'));
+                    }
+                    
+                    // Update episode info in the UI
+                    const watchingTitleEl = document.querySelector('.watching-title');
+                    if (watchingTitleEl) {
+                        const animeData = getAnimeData();
+                        const animeTitle = animeData?.title || 'Anime';
+                        watchingTitleEl.textContent = `You are watching: ${animeTitle} Episode ${episodeNumber}`;
+                    }
+                    
+                } catch (err) {
+                    console.error("Error starting stream:", err);
+                    
+                    // Show error message in video container
                     if (videoContainer) {
                         videoContainer.innerHTML = `
                             <div class="error-message">
-                                <p>No torrent found for this episode</p>
+                                <p>Error playing this episode: ${err.message}</p>
                                 <button id="retry-button">Retry</button>
                             </div>
                         `;
@@ -1226,85 +1429,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             loadEpisodeStream(episodeNumber);
                         });
                     }
-                    return;
-                }
-                
-                console.log(`Torrent found, starting stream with magnetLink: ${result.magnetLink}... and fileIndex: ${result.fileIndex}`);
-                
-                // Start the stream using the magnetLink and fileIndex from the result
-                const streamResult = await window.electronAPI.startStream(result.magnetLink, result.fileIndex);
-                console.log("Stream URL:", streamResult.url);
-                
-                // Create an HTML5 video player
-                if (videoContainer) {
-                    // Create video controls container
-                    const videoElement = document.createElement('video');
-                    videoElement.id = 'video-player-element';
-                    videoElement.className = 'video-player-html5';
-                    videoElement.controls = true;
-                    videoElement.autoplay = true;
-                    videoElement.src = streamResult.url;
-                    videoElement.type = streamResult.mimeType;
-                    
-                    // Add styling
-                    videoElement.style.width = '100%';
-                    videoElement.style.maxHeight = '100%';
-                    videoElement.style.borderRadius = '8px';
-                    
-                    // Clear container and add video element
-                    videoContainer.innerHTML = '';
-                    videoContainer.appendChild(videoElement);
-                    
-                    // Error handling
-                    videoElement.addEventListener('error', (e) => {
-                        console.error('Video playback error:', videoElement.error);
-                        videoContainer.innerHTML = `
-                            <div class="error-message">
-                                <p>Error playing this episode: ${videoElement.error ? videoElement.error.message : 'Unknown error'}</p>
-                                <button id="retry-button">Retry</button>
-                            </div>
-                        `;
-                        document.getElementById('retry-button')?.addEventListener('click', () => {
-                            loadEpisodeStream(episodeNumber);
-                        });
-                    });
-                    
-                    // Add additional video events for debugging/logging
-                    videoElement.addEventListener('loadstart', () => console.log('Video: loadstart'));
-                    videoElement.addEventListener('loadedmetadata', () => console.log('Video: loadedmetadata'));
-                    videoElement.addEventListener('loadeddata', () => console.log('Video: loadeddata'));
-                    videoElement.addEventListener('canplay', () => console.log('Video: canplay'));
-                    videoElement.addEventListener('play', () => console.log('Video: playback started'));
-                    videoElement.addEventListener('pause', () => console.log('Video: paused'));
-                    videoElement.addEventListener('seeking', () => console.log('Video: seeking'));
-                    videoElement.addEventListener('seeked', () => console.log('Video: seeked'));
-                }
-                
-                // Update episode info in the UI
-                const watchingTitleEl = document.querySelector('.watching-title');
-                if (watchingTitleEl) {
-                    const animeData = getAnimeData();
-                    const animeTitle = animeData?.title || 'Anime';
-                    watchingTitleEl.textContent = `You are watching: ${animeTitle} Episode ${episodeNumber}`;
-                }
-                
-            } catch (err) {
-                console.error("Error starting stream:", err);
-                
-                // Show error message in video container
-                if (videoContainer) {
-                    videoContainer.innerHTML = `
-                        <div class="error-message">
-                            <p>Error playing this episode: ${err.message}</p>
-                            <button id="retry-button">Retry</button>
-                        </div>
-                    `;
-                    document.getElementById('retry-button')?.addEventListener('click', () => {
-                        loadEpisodeStream(episodeNumber);
-                    });
                 }
             }
-        }
   
         // Function to generate episode cards (detailed view)
         function generateEpisodeCards() {
