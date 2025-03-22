@@ -366,6 +366,8 @@ async function torrentResolve(magnetURI, episode_number, seeders, audio_type, al
             return reject(new Error("Aborted before starting"));
         }
 
+
+
         const client = getGlobalClient();
         const torrent = client.add(magnetURI)
 
@@ -379,6 +381,12 @@ async function torrentResolve(magnetURI, episode_number, seeders, audio_type, al
           if (abortSignal) {
             abortSignal.addEventListener("abort", onAbort);
         }
+
+        const cleanup = () => {
+            if (abortSignal) {
+              abortSignal.removeEventListener("abort", onAbort);
+            }
+        };
 
         torrent.on('metadata', async () => {
             console.log('Metadata event fired!')
@@ -401,7 +409,7 @@ async function torrentResolve(magnetURI, episode_number, seeders, audio_type, al
                     let desiredFileName = null;
                     const potential_files = [];
                     const episode_set = new Set();
-                    const season_tracker = [];
+                    let season_tracker = [];
             
 
                     for (let i = 0; i < torrent.files.length; i++) {
@@ -420,7 +428,7 @@ async function torrentResolve(magnetURI, episode_number, seeders, audio_type, al
                                 const seasonNum = parseInt(file_title_data.anime_season);
                     
                                 season_tracker.push({seasonNum: seasonNum, episodeNum: episodeNum});
-                                season_tracker.filter(n => !Number.isNaN(n.seasonNum) && !Number.isNaN(n.episodeNum));
+                                season_tracker = season_tracker.filter(n => !Number.isNaN(n.seasonNum) && !Number.isNaN(n.episodeNum));
 
                                 
                             } 
@@ -527,24 +535,25 @@ async function torrentResolve(magnetURI, episode_number, seeders, audio_type, al
                         console.log('Storing episode file info:' + `\n`, fileInfo);
                         console.log('\n');
 
+                        torrent.destroy();
+                        cleanup();
+                        resolve(fileInfo);
                     } else {
                         console.log(`No file matching episode ${episode_number} was found in this torrent.\n`);
-                        console.log('\n');
+                        cleanup();
+                        torrent.destroy()
+                        return reject(new Error("No matching file found in torrent"));
                     
                     }
                 } else {
                     console.log('Checking for movie file...');
-                    const mkvFiles = torrent.files.filter(file => file.name.toLowerCase().endsWith('.mkv'));
+                    const mkvFiles = torrent.files.filter(file => file.name.toLowerCase().endsWith('.mkv') || file.name.toLowerCase().endsWith('.mp4') || file.name.toLowerCase().endsWith('.avi'));
                     if (mkvFiles.length === 0) {
                         console.log('No MKV files found. Could not identify a movie file.');
-                        torrent.destroy(() => {
-                            console.log('Torrent destroyed. No valid movie file found.' + `\n`);
-                            // resolve the main promise here so caller can continue
-                            console.log('Resolved fetchTorrentMetadata');
-                            console.log('\n');
-                            resolve(null);
-                        });
-                        return;
+                        cleanup();
+                        torrent.destroy();
+                        console.log('Torrent destroyed. No valid movie file found.' + `\n`);
+                        return reject(new Error("No matching file found in torrent"));;
                     }
 
                     mkvFiles.sort((a, b) => b.length - a.length);
@@ -575,11 +584,13 @@ async function torrentResolve(magnetURI, episode_number, seeders, audio_type, al
 
                 console.log('Destorying Torrent')
                 // await destroyTorrentSafely(torrent)
+                cleanup();
                 torrent.destroy()
                 console.log('Torrent Destoryed')
                 console.log('Resolved fetchTorrentMetadata \n');
                 resolve(fileInfo);
             } catch (err) {
+                cleanup();
                 torrent.destroy()
                 // await destroyTorrentSafely(torrent);
                 console.error('Error in metadata handler:', err);
@@ -592,6 +603,7 @@ async function torrentResolve(magnetURI, episode_number, seeders, audio_type, al
         torrent.on('error', async (err) => {  
             torrent.destroy()
             // await destroyTorrentSafely(torrent);
+            cleanup();
             console.error('Error in torrent on handler:', err);
             reject(err);
         });

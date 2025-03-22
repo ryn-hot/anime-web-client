@@ -37,18 +37,33 @@ ipcMain.handle('dynamic-finder', async (event, alID, episodeNum, audio) => {
 });
 
 
+let activeTorrent = null;
 ipcMain.handle('start-stream', async (event, magnetLink, fileIndex) => {
   const client = getGlobalClient();
+
+  if (streamServer) {
+    console.log("Closing existing stream server");
+    streamServer.close();
+    streamServer = null;
+  }
+
+
   return new Promise((resolve, reject) => {
     try {
-      let activeTorrent = null;
 
-      client.add(magnetLink, { destroyStoreOnDestroy: true }, async (torrent) => {
+        // First, destroy any previous active torrent
+        if (activeTorrent) {
+            console.log('Destroying previous active torrent');
+            activeTorrent.destroy();
+            activeTorrent = null;
+        }
+
+        client.add(magnetLink, { destroyStoreOnDestroy: true }, async (torrent) => {
         activeTorrent = torrent;
 
         if (!torrent.files[fileIndex]) {
-          torrent.destroy();
-          return reject(new Error("Invalid file index"));
+            torrent.destroy();
+            return reject(new Error("Invalid file index"));
         }
 
        
@@ -59,16 +74,22 @@ ipcMain.handle('start-stream', async (event, magnetLink, fileIndex) => {
         let subtitleTracks = [];
 
         // Dynamically determine the MIME type based on the file extension
+        console.log('getting file names')
         const ext = path.extname(file.name).toLowerCase();
+        console.log('path exctraction');
 
         const tempFilePath = path.join(app.getPath('temp'), `torrent-${torrent.infoHash}-${fileIndex}${ext}`);
+        console.log('tempFile Path Created')
         // Function to extract subtitle info
         const extractSubtitleInfo = () => {
             return new Promise(async (resolve, reject) => {
                 try {
+                    console.log("extractSubtitleInfo called");
                     const fileStream = file.createReadStream();
                     const writeStream = fs.createWriteStream(tempFilePath);
                     
+                    console.log("file stream created for sub");
+
                     await new Promise((resolveStream, rejectStream) => {
                         fileStream.pipe(writeStream);
                         writeStream.on('finish', resolveStream);
@@ -131,6 +152,7 @@ ipcMain.handle('start-stream', async (event, magnetLink, fileIndex) => {
 
         // Create a new HTTP server to serve the file stream
         streamServer = http.createServer((req, res) => {
+            console.log("Creating HTTP Stream Server");
             const url = new URL(req.url, `http://${req.headers.host}`);
             const pathname = url.pathname;
             

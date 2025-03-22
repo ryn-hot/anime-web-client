@@ -1234,6 +1234,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Start the stream using the magnetLink and fileIndex from the result
                     const streamResult = await window.electronAPI.startStream(result.magnetLink, result.fileIndex);
                     console.log("Stream URL:", streamResult.url);
+                    await waitForStreamReady(streamResult.url);
                     
                     // Create an HTML5 video player
                     if (videoContainer) {
@@ -1246,7 +1247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         videoElement.id = 'video-player-element';
                         videoElement.className = 'video-player-html5';
                         videoElement.controls = true;
-                        videoElement.autoplay = true;
+                        // videoElement.autoplay = true;
                         videoElement.src = streamResult.url;
                         videoElement.type = streamResult.mimeType;
                         videoElement.crossOrigin = "anonymous";
@@ -1431,6 +1432,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
             }
+
+            async function waitForStreamReady(url, timeout = 10000, interval = 500) {
+                const startTime = Date.now();
+                while (Date.now() - startTime < timeout) {
+                  try {
+                    const response = await fetch(url, { method: 'HEAD' });
+                    if (response.ok) {
+                      console.log("Stream server is ready");
+                      return;
+                    }
+                  } catch (e) {
+                    console.log('Stream is not ready error: ', e);
+                    // The server may not be ready yet, so ignore errors and try again.
+                  }
+                  await new Promise(resolve => setTimeout(resolve, interval));
+                }
+                throw new Error("Stream server did not become ready in time");
+            }
+
   
         // Function to generate episode cards (detailed view)
         function generateEpisodeCards() {
