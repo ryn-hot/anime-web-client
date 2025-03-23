@@ -7,6 +7,7 @@ import { dynamicFinder } from './dynamic_fetch.js';
 import { dbInit } from './passive_index.js';
 import fluentFfmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
+import { spawn } from 'child_process';
 // import ffprobeStatic from 'ffprobe-static';
 // import ffprobeLib from 'ffprobe';
 
@@ -81,50 +82,31 @@ ipcMain.handle('start-stream', async (event, magnetLink, fileIndex) => {
         const tempFilePath = path.join(app.getPath('temp'), `torrent-${torrent.infoHash}-${fileIndex}${ext}`);
         console.log('tempFile Path Created')
         // Function to extract subtitle info
-        const extractSubtitleInfo = () => {
-            return new Promise(async (resolve, reject) => {
-                try {
-                    console.log("extractSubtitleInfo called");
-                    const fileStream = file.createReadStream();
-                    const writeStream = fs.createWriteStream(tempFilePath);
-                    
-                    console.log("file stream created for sub");
-
-                    await new Promise((resolveStream, rejectStream) => {
-                        fileStream.pipe(writeStream);
-                        writeStream.on('finish', resolveStream);
-                        writeStream.on('error', rejectStream);
-                    });
-                    
-                    const info = await new Promise((resolveProbe, rejectProbe) => {
-                        ffprobe(tempFilePath, (err, metadata) => {
-                            if (err) rejectProbe(err);
-                            else resolveProbe(metadata);
-                        });
-                    });
-                    
-                    // Extract subtitle tracks
-                    if (info && info.streams) {
-                        subtitleTracks = info.streams
-                            .filter(stream => stream.codec_type === 'subtitle')
-                            .map((stream, index) => ({
-                                id: stream.index,
-                                language: stream.tags && stream.tags.language ? stream.tags.language : `Subtitle ${index+1}`,
-                                title: stream.tags && stream.tags.title ? stream.tags.title : `Subtitle ${index+1}`,
-                                codec: stream.codec_name
-                            }));
-                        
-                        console.log("Found subtitle tracks:", subtitleTracks);
-                    }
-                    
-                    resolve(subtitleTracks);
-                } catch (err) {
-                    console.error("Error extracting subtitle info:", err);
-                    // Continue even if subtitle extraction fails
-                    resolve([]);
-                }
-            });
+       // Replace the old extractSubtitleInfo function with a direct probe
+        const extractSubtitleInfo = async () => {
+            try {
+            console.log("extractSubtitleInfo called");
+            // Directly probe the header without writing to disk
+            const info = await probeHeader(file);
+            if (info && info.streams) {
+                subtitleTracks = info.streams
+                .filter(stream => stream.codec_type === 'subtitle')
+                .map((stream, index) => ({
+                    id: stream.index,
+                    language: stream.tags && stream.tags.language ? stream.tags.language : `Subtitle ${index+1}`,
+                    title: stream.tags && stream.tags.title ? stream.tags.title : `Subtitle ${index+1}`,
+                    codec: stream.codec_name
+                }));
+                console.log("Found subtitle tracks:", subtitleTracks);
+            }
+            return subtitleTracks;
+            } catch (err) {
+            console.error("Error extracting subtitle info:", err);
+            // Continue even if subtitle extraction fails
+            return [];
+            }
         };
+
 
         await extractSubtitleInfo();
 
@@ -219,12 +201,16 @@ ipcMain.handle('start-stream', async (event, magnetLink, fileIndex) => {
                     "Connection": "keep-alive"
                 });
                 } else {
-                res.writeHead(200, {
-                    "Content-Length": fileSize,
-                    "Content-Type": mimeType,
-                    "Connection": "keep-alive"
-                });
-            }
+                    // No Range header: serve only the first 1MB
+                    end = Math.min(1024 * 1024 - 1, fileSize - 1);
+                    res.writeHead(206, {
+                      "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+                      "Accept-Ranges": "bytes",
+                      "Content-Length": end - start + 1,
+                      "Content-Type": mimeType,
+                      "Connection": "keep-alive"
+                    });
+                }
 
             // Create a read stream from the file
             const fileStream = file.createReadStream({ start, end });
@@ -350,6 +336,62 @@ async function createWindow() {
   // Handle window being closed
   mainWindow.on('closed', () => {
     mainWindow = null;  
+  });
+}
+
+// Define a helper function that pipes the file stream directly to ffprobe
+function probeHeader(file) {
+  return new Promise((resolve, reject) => {
+    const ffprobeProcess = spawn('ffprobe', [
+      '-v', 'error',
+      '-print_format', 'json',
+      '-show_streams',
+      '-i', 'pipe:0'
+    ]);
+
+    let dataBuffer = '';
+    ffprobeProcess.stdout.on('data', (data) => {
+      dataBuffer += data.toString();
+    });
+
+    ffprobeProcess.stderr.on('data', (data) => {
+      console.error('ffprobe stderr:', data.toString());
+    });
+
+    ffprobeProcess.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(`ffprobe exited with code ${code}`));
+      }
+      try {
+        const metadata = JSON.parse(dataBuffer);
+        resolve(metadata);
+      } catch (err) {
+        reject(err);
+      }
+    });
+
+    // Pipe the torrent file stream directly into ffprobe’s stdin
+    const probeStream = file.createReadStream();
+        // Listen for errors on ffprobe's stdin and ignore EPIPE
+    ffprobeProcess.stdin.on('error', (err) => {
+        if (err.code === 'EPIPE') {
+            probeStream.destroy();
+        } else {
+            reject(err);
+        }
+    });
+
+    probeStream.on('error', (err) => {
+        if (err.code !== 'EPIPE') {
+          reject(err);
+        }
+    });
+
+    probeStream.on('end', () => {
+        probeStream.destroy();
+    });
+
+    probeStream.pipe(ffprobeProcess.stdin);
   });
 }
 

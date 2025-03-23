@@ -1248,6 +1248,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         videoElement.className = 'video-player-html5';
                         videoElement.controls = true;
                         // videoElement.autoplay = true;
+
+                        if (!streamResult.url) {
+                            throw new Error("Stream URL is empty");
+                        }
+                        
                         videoElement.src = streamResult.url;
                         videoElement.type = streamResult.mimeType;
                         videoElement.crossOrigin = "anonymous";
