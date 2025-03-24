@@ -1178,18 +1178,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             return grid;
         }
-        
-        // Helper function to load and start streaming an episode.
+
+            let currentLoadToken = 0;
+            // Helper function to load and start streaming an episode.
             async function loadEpisodeStream(episodeNumber) {
+
+                const myToken = ++currentLoadToken;
+
+
                 // Clear previous player if exists
                 const videoContainer = document.querySelector('.video-container');
+
                 const existingVideo = document.getElementById('video-player-element');
                 if (existingVideo) {
                     existingVideo.pause();
-                    existingVideo.src = '';
-                    existingVideo.load();
+                    existingVideo.parentNode.removeChild(existingVideo);
                 }
-                
+
+
+                function isCancelled() {
+                    return myToken !== currentLoadToken;
+                }
+
                 try {
                     // Show loading indicator in the video container
                     if (videoContainer) {
@@ -1213,6 +1223,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Call the IPC method to get the torrent info from the main process
                     console.log(`Finding torrent for anime ${animeId}, episode ${episodeNumber}, audio ${audioType}`);
                     const result = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
+                    if (isCancelled()) return; // abort if another load started
                     
                     if (!result) {
                         if (videoContainer) {
@@ -1233,8 +1244,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     
                     // Start the stream using the magnetLink and fileIndex from the result
                     const streamResult = await window.electronAPI.startStream(result.magnetLink, result.fileIndex);
+                    if (isCancelled()) return;
                     console.log("Stream URL:", streamResult.url);
+
                     await waitForStreamReady(streamResult.url);
+                    if (isCancelled()) return;
                     
                     // Create an HTML5 video player
                     if (videoContainer) {
@@ -1252,12 +1266,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         if (!streamResult.url) {
                             throw new Error("Stream URL is empty");
                         }
-                        
+
                         videoElement.src = streamResult.url;
                         videoElement.type = streamResult.mimeType;
                         videoElement.crossOrigin = "anonymous";
                         
-
+                        videoElement.load();
 
                         // Add subtitle tracks if available
                         if (streamResult.subtitles && streamResult.subtitles.length > 0) {

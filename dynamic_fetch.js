@@ -9,65 +9,6 @@ import path from "path";
 
 
 
-//test function
-// await dynamic_manager();
-async function dynamic_manager() {
-    const results = await dynamicFinder(151807, 2, 'sub'); 
-    console.log('results: ', results);
-}
-
-
-
-//this function is untested I have no idea if it will work. So if you see a problem or need to change something for the integration to work do it
-export async function streamTorrent(req, res, alID, episodeNum, audio) {
-    try {
-        const result = await dynamicFinder(alID, episodeNum, audio);
-        if (!result) {
-            return res.status(404).send("No torrents found for the requested episode");
-        }
-
-        const videoFileFormat = extractFileSuffix(result.fileName);
-        const client = getGlobalClient();
-
-        client.add(result.magnetLink, { sequential: true }, torrent => {
-            console.log(`Torrent ${torrent.infoHash} added for streaming.`);
-            
-            // Get the specific file using fileIndex
-            const file = torrent.files[result.fileIndex];
-            if (!file) {
-                res.status(404).send("File not found in torrent");
-                return;
-            }
-            
-            // Set appropriate headers for streaming
-            res.writeHead(200, {
-                "Content-Type": `video/${videoFileFormat}`,
-                "Content-Disposition": `inline; filename="${result.fileName}"`
-            });
-            
-            // Create and pipe the read stream
-            const stream = file.createReadStream();
-            
-            stream.on("error", err => {
-                console.error("Stream error:", err);
-                res.end();
-            });
-            
-            stream.pipe(res);
-            
-            // Clean up when streaming finishes
-            stream.on("end", () => {
-                console.log("Streaming finished.");
-                torrent.destroy();
-            });
-        });
-    } catch (error) {
-        console.error("Error streaming torrent:", error);
-        res.status(500).send("Error streaming the requested episode");
-    }
-}
-
-
 export async function dynamicFinder(alID, episodeNum, audio) { 
     const db = new AnimeDatabase('./anime.db');
 

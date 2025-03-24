@@ -23,9 +23,16 @@ const ffprobe = (filePath, callback) => {
     return fluentFfmpeg.ffprobe(filePath, callback);
 }; 
 // await dbInit();
+let activeTorrent = null;
 
 ipcMain.handle('dynamic-finder', async (event, alID, episodeNum, audio) => {
     try {
+        if (activeTorrent) {
+            console.log('Destroying previous active torrent');
+            activeTorrent.destroy();
+            activeTorrent = null;
+        }
+        
         console.log("Dynamic Finder Called");
         const result = await dynamicFinder(alID, episodeNum, audio);
         console.log("Magnet Link in ipc:",result.magnetLink);
@@ -38,9 +45,12 @@ ipcMain.handle('dynamic-finder', async (event, alID, episodeNum, audio) => {
 });
 
 
-let activeTorrent = null;
+
+
+
 ipcMain.handle('start-stream', async (event, magnetLink, fileIndex) => {
   const client = getGlobalClient();
+
 
   if (streamServer) {
     console.log("Closing existing stream server");
