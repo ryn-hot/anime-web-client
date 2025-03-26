@@ -1261,105 +1261,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                         videoElement.id = 'video-player-element';
                         videoElement.className = 'video-player-html5';
                         videoElement.controls = true;
-                        // videoElement.autoplay = true;
-
-                        if (!streamResult.url) {
-                            throw new Error("Stream URL is empty");
-                        }
-
                         videoElement.src = streamResult.url;
                         videoElement.type = streamResult.mimeType;
                         videoElement.crossOrigin = "anonymous";
-                        
-                        videoElement.load();
-
-                        // Add subtitle tracks if available
-                        if (streamResult.subtitles && streamResult.subtitles.length > 0) {
-                            // Create a default "Off" track
-                            const offTrack = document.createElement('track');
-                            offTrack.kind = 'subtitles';
-                            offTrack.label = 'Off';
-                            offTrack.default = false;
-                            videoElement.appendChild(offTrack);
-                            
-                            // Add each subtitle track
-                            streamResult.subtitles.forEach((subtitle, index) => {
-                                const track = document.createElement('track');
-                                track.kind = 'subtitles';
-                                track.label = subtitle.title || subtitle.language || `Track ${index+1}`;
-                                track.srclang = subtitle.language || 'en';
-                                track.src = subtitle.url;
-                                
-                                // Make the first track default if we're in sub mode
-                                if (index === 0 && audioType === 'sub') {
-                                    track.default = true;
-                                }
-                                
-                                videoElement.appendChild(track);
-                            });
-                            
-                            // Add subtitle selection UI
-                            const subtitleControls = document.createElement('div');
-                            subtitleControls.className = 'subtitle-controls';
-                            
-                            const subtitleLabel = document.createElement('span');
-                            subtitleLabel.className = 'subtitle-label';
-                            subtitleLabel.textContent = 'Subtitles:';
-                            
-                            const subtitleSelect = document.createElement('select');
-                            subtitleSelect.className = 'subtitle-select';
-                            
-                            // Add "Off" option
-                            const offOption = document.createElement('option');
-                            offOption.value = '-1';
-                            offOption.textContent = 'Off';
-                            subtitleSelect.appendChild(offOption);
-                            
-                            // Add options for each subtitle track
-                            streamResult.subtitles.forEach((subtitle, index) => {
-                                const option = document.createElement('option');
-                                option.value = index.toString();
-                                option.textContent = subtitle.title || subtitle.language || `Track ${index+1}`;
-                                
-                                // Select the first track if in sub mode
-                                if (index === 0 && audioType === 'sub') {
-                                    option.selected = true;
-                                }
-                                
-                                subtitleSelect.appendChild(option);
-                            });
-                            
-                            // Handle subtitle selection change
-                            subtitleSelect.addEventListener('change', (e) => {
-                                const selectedIndex = parseInt(e.target.value);
-                                
-                                // Disable all tracks
-                                for (let i = 0; i < videoElement.textTracks.length; i++) {
-                                    videoElement.textTracks[i].mode = 'disabled';
-                                }
-                                
-                                // Enable selected track if not "Off"
-                                if (selectedIndex >= 0 && selectedIndex < videoElement.textTracks.length) {
-                                    videoElement.textTracks[selectedIndex + 1].mode = 'showing'; // +1 because first track is "Off"
-                                }
-                            });
-                            
-                            subtitleControls.appendChild(subtitleLabel);
-                            subtitleControls.appendChild(subtitleSelect);
-                            
-                            // Put subtitle controls after video
-                            videoWrapper.appendChild(videoElement);
-                            videoWrapper.appendChild(subtitleControls);
-                        } else {
-                            // Just add the video element if no subtitles
-                            videoWrapper.appendChild(videoElement);
-                        }
-
                         // Add styling
                         videoElement.style.width = '100%';
                         videoElement.style.maxHeight = '100%';
                         videoElement.style.borderRadius = '8px';
+                          
+                        if (!streamResult.url) {
+                            throw new Error("Stream URL is empty");
+                        }
+
+                            
+                            
+                        videoWrapper.appendChild(videoElement);
                         
+                        
+
+                      
                         // Clear container and add video element
                         videoContainer.innerHTML = '';
                         videoContainer.appendChild(videoWrapper);
