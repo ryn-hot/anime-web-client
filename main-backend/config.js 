@@ -1,0 +1,13 @@
+
+
+
+
+
+
+
+export default {
+  // Port on which the GStreamer pipeline HTTP server will serve the remuxed stream.
+  gstPort: 8000,
+  // You can add additional configuration parameters here, e.g.:
+  // gstFragmentDuration: 1000,
+};
