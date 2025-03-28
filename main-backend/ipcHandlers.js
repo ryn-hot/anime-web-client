@@ -29,27 +29,38 @@ export function registerIpcHandlers() {
       }
     });
 
-    ipcMain.handle('dynamic-finder', async (event, alID, episodeNum, audio) => {
-        try {
-            if (activeTorrent) {
-                console.log('Destroying previous active torrent');
-                activeTorrent.destroy();
-                activeTorrent = null;
-            }
-            
-            console.log("Dynamic Finder Called");
-            const result = await dynamicFinder(alID, episodeNum, audio);
-            console.log("Magnet Link in ipc:",result.magnetLink);
-            console.log("File Index in ipc:", result.fileIndex)
-            return result;
-        } catch (error) {
-            console.error("Error in dynamicFinder:", error);
-            throw error; // Re-throw to send the error back to renderer
-        }
+    ipcMain.handle('stop-gstreamer-pipeline', async (event) => {
+      try {
+        const outputUrl = GStreamerPipeline.stop();
+        return outputUrl;
+      } catch (err) {
+        console.error('Error starting GStreamer pipeline:', err);
+        throw err;
+      }
+    });
+
+    ipcMain.handle('change-subtitle', async (event, subtitleTrack) => {
+      try {
+        console.log("Changing subtitle track to:", subtitleTrack);
+        // TODO: Implement track switching in your GStreamer pipeline (or related module)
+        // For example: await GStreamerPipeline.changeSubtitle(subtitleTrack);
+        return { success: true };
+      } catch (err) {
+        console.error("Error changing subtitle:", err);
+        throw err;
+      }
+    });
+  
+    ipcMain.handle('change-audio', async (event, audioTrack) => {
+      try {
+        console.log("Changing audio track to:", audioTrack);
+        // TODO: Implement track switching in your GStreamer pipeline (or related module)
+        // For example: await GStreamerPipeline.changeAudio(audioTrack);
+        return { success: true };
+      } catch (err) {
+        console.error("Error changing audio:", err);
+        throw err;
+      }
     });
     
-    
-  
-    // Additional IPC handlers for controlling playback (subtitle switching, audio track changes, etc.)
-    // can be added here following a similar pattern.
 }

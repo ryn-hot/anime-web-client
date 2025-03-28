@@ -1,11 +1,6 @@
 import { dynamicFinder } from "../dynamic_fetch";
 import { getGlobalClient } from "../webtorrent-client";
 
-
-// src/main/torrentManager.js
-import { dynamicFinder } from '../dynamic_fetch.js';
-import { getGlobalClient } from './webtorrent-client.js';
-
 let activeTorrent = null;
 
 /**

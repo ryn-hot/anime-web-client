@@ -1,6 +1,7 @@
 import { AniListAPI } from "./bottleneck.js";
 import { VideoPlayer } from "./video-player/videoPlayer.js";
 import { UIController } from "./video-player/uiController.js";
+import {  showLoadingOverlay, hideLoadingOverlay, showErrorMessage, disableEpisodeControls, enableEpisodeControls, populateTrackOptions } from "./video-player/uiUtils.js";
 // import { startFfmpegPlayer } from '../../ffmpeg-player.js';
 // import { dynamicFinder } from "../../dynamic_fetch.js";
 
@@ -84,6 +85,89 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     
+
+    const videoElement = document.getElementById('video-player');
+    if (!videoElement) {
+        console.error("Video element not found!");
+        return;
+    }
+    // Example: Use IPC to start the GStreamer pipeline and get the stream URL.
+    // (This uses the IPC channel 'start-gstreamer-pipeline' you defined in ipcHandlers.js.)
+    try {
+        // For example, you might pass torrent stream data obtained earlier.
+        // Here, we assume 'torrentStreamData' is available.
+        const urlParams = new URLSearchParams(window.location.search);
+        const animeId = urlParams.get('id');
+        const audioType = document.querySelector('.source-button.active')?.dataset?.type || 'sub';
+
+        const torrentStreamData = await window.electronAPI.startTorrentStream(animeId, 1, audioType);
+        const streamUrl = await window.electronAPI.startGstreamerPipeline(torrentStreamData);
+        await videoPlayer.loadStream(streamUrl);
+    } catch (err) {
+        console.error("Error starting stream:", err);
+    }
+
+    // Initialize UI controls for the video player.
+    // Assumes you have control elements with the following IDs in your HTML.
+    const playPauseButton = document.getElementById('playPauseButton'); // e.g., a button for play/pause
+    const subtitleSelect = document.getElementById('subtitleSelect');     // a <select> element for subtitles
+    const audioSelect = document.getElementById('audioSelect');           // a <select> element for audio tracks
+
+    const uiController = new UIController(videoPlayer, {
+        playPauseButton,
+        subtitleSelect,
+        audioSelect,
+    });
+    uiController.init();
+
+    // Create and initialize the VideoPlayer instance.
+    const videoPlayer = new VideoPlayer(videoElement);
+    videoPlayer.init();
+
+    async function changeEpisode(episodeNumber) {
+        // 1. Stop the current stream if active.
+        showLoadingOverlay();
+        disableEpisodeControls();
+
+        try {
+            
+            // Stop the GStreamer pipeline in the backend.
+            await window.electronAPI.stopGstreamerPipeline();
+            // Optionally, call a stop method on your VideoPlayer to reset MSE.
+            if (videoPlayer && typeof videoPlayer.stop === 'function') {
+                videoPlayer.stop();
+            } else {
+            // Alternatively, clear the video source.
+                videoPlayer.videoElement.src = "";
+            }
+        } catch (err) {
+            console.warn("Error stopping current stream:", err);
+        }
+      
+        // 2. Start the new torrent stream for the selected episode.
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const animeId = urlParams.get('id');
+            const audioType = document.querySelector('.source-button.active')?.dataset?.type || 'sub';
+
+            // For example, pass parameters like animeId, episodeNumber, and audio type.
+            const torrentStreamData = await window.electronAPI.startTorrentStream(animeId, episodeNumber, audioType);
+            // 3. Start the GStreamer pipeline to remux the torrent stream.
+            const streamUrl = await window.electronAPI.startGstreamerPipeline(torrentStreamData);
+            // 4. Load the new stream into the VideoPlayer.
+            await videoPlayer.loadStream(streamUrl);
+            populateTrackOptions(results.audioTracks, results.subtitleTracks);
+            
+        } catch (err) {
+            console.error("Error starting new stream for episode " + episodeNumber + ":", err);
+            showErrorMessage("Failed to load stream. Please try again.");
+        } finally {
+            // 4. Hide loading overlay and re-enable controls regardless of success or failure.
+            hideLoadingOverlay();
+            enableEpisodeControls();
+        }
+    }
+
 
     // Toggle sidebar expand/collapse
     function toggleSidebar() {
@@ -1172,7 +1256,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Update the currently selected episode
                     currentlySelectedEpisode = episodeNumber;
                     
-                    await loadEpisodeStream(episodeNumber);
+                    await changeEpisode(episodeNumber);
                 });
                 
                 grid.appendChild(episodeButton);
@@ -1266,7 +1350,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Update the currently selected episode
                     currentlySelectedEpisode = episodeNumber;
                     
-                    await loadEpisodeStream(episodeNumber);
+                    await changeEpisode(episodeNumber);
 
                     console.log(`Switching to episode ${episodeNumber}`);
                 });

@@ -2,6 +2,7 @@
 import { spawn } from 'child_process';
 import http from 'http';
 import config from './config.js'; // Expects at least config.gstPort defined, e.g. { gstPort: 8000 }
+import probeHeader from './probeHeader.js';
 
 let activePipeline = null;
 let activeServer = null;
@@ -15,72 +16,100 @@ let activeServer = null;
  * @returns {Promise<string>} - A URL (e.g., "http://localhost:8000/stream") that the front end can use.
  */
 export function start(streamData) {
-  return new Promise((resolve, reject) => {
-    // Clean up any previous pipeline/server.
-    if (activePipeline) {
-      activePipeline.kill();
-      activePipeline = null;
-    }
-    if (activeServer) {
-      activeServer.close();
-      activeServer = null;
-    }
+  return new Promise(async (resolve, reject) => {
+    try {
+      const metadata = await probeHeader(streamData.file);
+        
+      // Extract audio and subtitle track information from the metadata.
+      const audioTracks = (metadata.streams || [])
+        .filter(s => s.codec_type === 'audio')
+        .map((s, idx) => ({
+          id: s.index,
+          label: s.tags && s.tags.language ? s.tags.language.toUpperCase() : `Audio ${idx + 1}`,
+          language: (s.tags && s.tags.language) || ''
+        }));
+      
+      const subtitleTracks = (metadata.streams || [])
+        .filter(s => s.codec_type === 'subtitle')
+        .map((s, idx) => ({
+          id: s.index,
+          label: s.tags && s.tags.language ? s.tags.language.toUpperCase() : `Subtitle ${idx + 1}`,
+          language: (s.tags && s.tags.language) || ''
+        }));
+      
 
-    // Build the GStreamer pipeline.
-    // This sample pipeline reads from STDIN (using fdsrc), automatically demuxes
-    // using decodebin (for a generic approach), and then remuxes into fragmented MP4.
-    // Note: Adjust the pipeline as needed for your formats and track handling.
-    const gstArgs = [
-      'fdsrc', 'fd=0',
-      '!', 'decodebin',
-      '!', 'queue',
-      // Here we use mp4mux with fragment-duration set to 1000ms.
-      '!', 'mp4mux', 'fragment-duration=1000', 'streamable=true',
-      '!', 'fdsink', 'fd=1'
-    ];
-
-    // Spawn the GStreamer process.
-    const gstProcess = spawn('gst-launch-1.0', gstArgs, { stdio: ['pipe', 'pipe', 'inherit'] });
-    activePipeline = gstProcess;
-
-    gstProcess.on('error', (err) => {
-      console.error('GStreamer process error:', err);
-      reject(err);
-    });
-
-    // Pipe the torrent stream into the GStreamer process’s STDIN.
-    streamData.stream.pipe(gstProcess.stdin);
-
-    // Set up an HTTP server to serve the output from GStreamer.
-    const server = http.createServer((req, res) => {
-      if (req.url === '/stream') {
-        // Set appropriate headers for fragmented MP4.
-        res.writeHead(200, {
-          'Content-Type': 'video/mp4',
-          'Transfer-Encoding': 'chunked',
-        });
-        gstProcess.stdout.pipe(res);
-        req.on('close', () => {
-          // You could add logic here to detect when no clients are connected.
-        });
-      } else {
-        res.writeHead(404);
-        res.end();
+      // Clean up any previous pipeline/server.
+      if (activePipeline) {
+        activePipeline.kill();
+        activePipeline = null;
       }
-    });
+      if (activeServer) {
+        activeServer.close();
+        activeServer = null;
+      }
 
-    server.on('error', (err) => {
-      console.error('HTTP server error in GStreamerPipeline:', err);
+      // Build the GStreamer pipeline.
+      // This sample pipeline reads from STDIN (using fdsrc), automatically demuxes
+      // using decodebin (for a generic approach), and then remuxes into fragmented MP4.
+      // Note: Adjust the pipeline as needed for your formats and track handling.
+      const gstArgs = [
+        'fdsrc', 'fd=0',
+        '!', 'decodebin',
+        '!', 'queue',
+        // Here we use mp4mux with fragment-duration set to 1000ms.
+        '!', 'mp4mux', 'fragment-duration=1000', 'streamable=true',
+        '!', 'fdsink', 'fd=1'
+      ];
+
+      // Spawn the GStreamer process.
+      const gstProcess = spawn('gst-launch-1.0', gstArgs, { stdio: ['pipe', 'pipe', 'inherit'] });
+      activePipeline = gstProcess;
+
+      gstProcess.on('error', (err) => {
+        console.error('GStreamer process error:', err);
+        reject(err);
+      });
+
+      // Pipe the torrent stream into the GStreamer process’s STDIN.
+      streamData.stream.pipe(gstProcess.stdin);
+
+      // Set up an HTTP server to serve the output from GStreamer.
+      const server = http.createServer((req, res) => {
+        if (req.url === '/stream') {
+          // Set appropriate headers for fragmented MP4.
+          res.writeHead(200, {
+            'Content-Type': 'video/mp4',
+            'Transfer-Encoding': 'chunked',
+          });
+          gstProcess.stdout.pipe(res);
+          req.on('close', () => {
+            // You could add logic here to detect when no clients are connected.
+          });
+        } else {
+          res.writeHead(404);
+          res.end();
+        }
+      });
+
+      server.on('error', (err) => {
+        console.error('HTTP server error in GStreamerPipeline:', err);
+        reject(err);
+      });
+
+      // Start listening on the configured port.
+      server.listen(config.gstPort, () => {
+        activeServer = server;
+        const outputUrl = `http://localhost:${config.gstPort}/stream`;
+        console.log(`GStreamer pipeline serving at ${outputUrl}`);
+        resolve({
+          streamUrl: outputUrl,
+          audioTracks,
+          subtitleTracks
+        });
+      });
+    } catch {
       reject(err);
-    });
-
-    // Start listening on the configured port.
-    server.listen(config.gstPort, () => {
-      activeServer = server;
-      const outputUrl = `http://localhost:${config.gstPort}/stream`;
-      console.log(`GStreamer pipeline serving at ${outputUrl}`);
-      resolve(outputUrl);
-    });
+    }
   });
 }
 

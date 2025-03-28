@@ -108,12 +108,26 @@
                         <i class="fas fa-play-circle"></i>
                         <p>Video player will be embedded here</p>
                     </div>
-                </div>
-                
-                
+
+                     <!-- Video Controls Bar -->
+                    <div id="video-controls" class="video-controls">
+                        <!-- Play/Pause Button -->
+                        <button id="playPauseButton" class="control-button">
+                        <i class="fas fa-play"></i>
+                        </button>
+                        <!-- Subtitle Selection -->
+                        <select id="subtitleSelect" class="control-select">
+                        <option value="">No Subtitles</option>
+                        <!-- Subtitle options will be populated dynamically -->
+                        </select>
+                        <!-- Audio Track Selection -->
+                        <select id="audioSelect" class="control-select">
+                        <option value="">Default Audio</option>
+                        <!-- Audio track options will be populated dynamically -->
+                        </select>
+                    </div>
+                </div> 
             </div>
-
-
         </div>
     </main>
 
