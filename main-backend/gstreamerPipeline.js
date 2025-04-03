@@ -15,7 +15,7 @@ let activeServer = null;
  *                              { stream: Readable, fileName: string, length: number, extension: string }
  * @returns {Promise<string>} - A URL (e.g., "http://localhost:8000/stream") that the front end can use.
  */
-export function start(streamData) {
+export function start(streamData, userPreferedSubtitle, userPreferedAudioTrack, userType) {
   return new Promise(async (resolve, reject) => {
     try {
       const metadata = await probeHeader(streamData.file);
@@ -37,6 +37,52 @@ export function start(streamData) {
           language: (s.tags && s.tags.language) || ''
         }));
       
+      
+
+      let selectedSubtitleTrack;
+      // For both sub and dub, select subtitles as follows:
+      selectedSubtitleTrack = subtitleTracks.find(track =>
+        track.language.toLowerCase() === userPreferedSubtitle.toLowerCase()
+      );
+      if (!selectedSubtitleTrack) {
+        // Default to English if preferred language not found.
+        selectedSubtitleTrack = subtitleTracks.find(track =>
+          track.language.toLowerCase() === 'eng'
+        );
+      }
+      if (!selectedSubtitleTrack && subtitleTracks.length > 0) {
+        selectedSubtitleTrack = subtitleTracks[0];
+      } else if (!selectedSubtitleTrack) {
+        // set to empty/no subtitles available to select. 
+      }
+
+      
+      // Select desired audio track.
+      let selectedAudioTrack;
+      if (userType === 'dub') {
+        // For dub, choose the audio track matching the user's preference.
+        selectedAudioTrack = audioTracks.find(track =>
+          track.language.toLowerCase() === userPreferedAudioTrack.toLowerCase()
+        );
+        if (!selectedAudioTrack) {
+          // Fallback: try English first.
+          selectedAudioTrack = audioTracks.find(track =>
+            track.language.toLowerCase() === 'eng'
+          );
+        }
+        if (!selectedAudioTrack) {
+          // Then try Japanese.
+          selectedAudioTrack = audioTracks.find(track =>
+            track.language.toLowerCase() === 'jpn'
+          );
+        }
+        if (!selectedAudioTrack && audioTracks.length > 0) {
+          selectedAudioTrack = audioTracks[0];
+        }
+      } else {
+        // For sub, simply use the first available audio track.
+        selectedAudioTrack = audioTracks[0];
+      }
 
       // Clean up any previous pipeline/server.
       if (activePipeline) {

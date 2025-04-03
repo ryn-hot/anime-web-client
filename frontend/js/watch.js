@@ -101,8 +101,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const audioType = document.querySelector('.source-button.active')?.dataset?.type || 'sub';
 
         const torrentStreamData = await window.electronAPI.startTorrentStream(animeId, 1, audioType);
-        const streamUrl = await window.electronAPI.startGstreamerPipeline(torrentStreamData);
-        await videoPlayer.loadStream(streamUrl);
+        const result = await window.electronAPI.startGstreamerPipeline(torrentStreamData);
+        await videoPlayer.loadStream(result.streamUrl);
+        populateTrackOptions(result.audioTracks, result.subtitleTracks);
     } catch (err) {
         console.error("Error starting stream:", err);
     }
@@ -153,10 +154,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             // For example, pass parameters like animeId, episodeNumber, and audio type.
             const torrentStreamData = await window.electronAPI.startTorrentStream(animeId, episodeNumber, audioType);
             // 3. Start the GStreamer pipeline to remux the torrent stream.
-            const streamUrl = await window.electronAPI.startGstreamerPipeline(torrentStreamData);
+            const result = await window.electronAPI.startGstreamerPipeline(torrentStreamData);
             // 4. Load the new stream into the VideoPlayer.
-            await videoPlayer.loadStream(streamUrl);
-            populateTrackOptions(results.audioTracks, results.subtitleTracks);
+            await videoPlayer.loadStream(result.streamUrl);
+            populateTrackOptions(result.audioTracks, result.subtitleTracks);
             
         } catch (err) {
             console.error("Error starting new stream for episode " + episodeNumber + ":", err);

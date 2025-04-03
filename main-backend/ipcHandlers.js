@@ -42,8 +42,20 @@ export function registerIpcHandlers() {
     ipcMain.handle('change-subtitle', async (event, subtitleTrack) => {
       try {
         console.log("Changing subtitle track to:", subtitleTrack);
-        // TODO: Implement track switching in your GStreamer pipeline (or related module)
-        // For example: await GStreamerPipeline.changeSubtitle(subtitleTrack);
+
+            // Stop the current pipeline.
+        GStreamerPipeline.stop();
+        // Restart the pipeline with the new subtitle selection.
+        // Here we assume our GStreamerPipeline.start can take extra options.
+        const result = await GStreamerPipeline.start({
+          ...currentStreamData,
+          selectedSubtitle: newSubtitle,
+        });
+
+        // Optionally, update currentStreamData with the new parameters.
+        currentStreamData.selectedSubtitle = newSubtitle;
+        currentStreamData.selectedSubtitle = newSubtitle;
+
         return { success: true };
       } catch (err) {
         console.error("Error changing subtitle:", err);
@@ -53,9 +65,16 @@ export function registerIpcHandlers() {
   
     ipcMain.handle('change-audio', async (event, audioTrack) => {
       try {
-        console.log("Changing audio track to:", audioTrack);
-        // TODO: Implement track switching in your GStreamer pipeline (or related module)
-        // For example: await GStreamerPipeline.changeAudio(audioTrack);
+        console.log("Changing audio to:", newAudio);
+        // Stop the current pipeline.
+        await GStreamerPipeline.stop();
+        // Restart the pipeline with the new audio selection.
+        const result = await GStreamerPipeline.start({
+          ...currentStreamData,
+          selectedAudio: newAudio,
+        });
+        // Update currentStreamData accordingly.
+        currentStreamData.selectedAudio = newAudio;
         return { success: true };
       } catch (err) {
         console.error("Error changing audio:", err);
