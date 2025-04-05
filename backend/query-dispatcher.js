@@ -1,4 +1,4 @@
-import { nyaa_html_finder, nyaa_reserve_extract, delay } from "./anime-finder-funcs.js";
+import { nyaa_html_finder, nyaa_reserve_extract, delay } from "../anime-finder-funcs.js";
 import chalk from "chalk";
 import pLimit from "p-limit";
 
