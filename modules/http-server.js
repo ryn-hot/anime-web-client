@@ -30,7 +30,7 @@ export default class StreamServer {
         reject(error);
       }
     });
-  }
+  } 
   
   setTorrent(torrent) {
     this.torrent = torrent;
