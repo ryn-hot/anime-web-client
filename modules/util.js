@@ -7,3 +7,26 @@ export const subRx = new RegExp(`.(${subtitleExtensions.join('|')})$`, 'i');
     
 export const fontExtensions = ['ttf', 'ttc', 'woff', 'woff2', 'otf', 'cff', 'otc', 'pfa', 'pfb', 'pcf', 'fnt', 'bdf', 'pfr', 'eot'];
 export const fontRx = new RegExp(`.(${fontExtensions.join('|')})$`, 'i');
+
+export function toTS (sec, full) {
+  if (isNaN(sec) || sec < 0) {
+    switch (full) {
+      case 1:
+        return '0:00:00.00'
+      case 2:
+        return '0:00:00'
+      case 3:
+        return '00:00'
+      default:
+        return '0:00'
+    }
+  }
+  const hours = Math.floor(sec / 3600)
+  /** @type {any} */
+  let minutes = Math.floor(sec / 60) - hours * 60
+  /** @type {any} */
+  let seconds = full === 1 ? (sec % 60).toFixed(2) : Math.floor(sec % 60)
+  if (minutes < 10 && (hours > 0 || full)) minutes = '0' + minutes
+  if (seconds < 10) seconds = '0' + seconds
+  return (hours > 0 || full === 1 || full === 2) ? hours + ':' + minutes + ':' + seconds : minutes + ':' + seconds
+}

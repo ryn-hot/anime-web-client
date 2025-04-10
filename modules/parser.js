@@ -2,21 +2,21 @@ import Metadata from 'matroska-metadata'
 import Debug from 'debug'
 import { arr2hex, hex2bin } from 'uint8-util'
 import { fontRx } from './util.js'
-import { SUPPORTS } from '@/modules/support.js'
+import { EventEmitter } from 'events'
+import { SUPPORTS } from './support.js'
 
 const debug = Debug('torrent:parser')
 
-export default class Parser {
+export default class Parser extends EventEmitter  {
   parsed = false
   /** @type {Metadata} */
   metadata = null
-  client = null
   file = null
   destroyed = false
 
-  constructor (client, file) {
+  constructor (file) {
     debug('Initializing parser for file: ' + file.name)
-    this.client = client
+    // this.client = client
     this.file = file
     this.metadata = new Metadata(file)
 
@@ -27,14 +27,14 @@ export default class Parser {
         this.parsed = true
         this.destroy()
       } else {
-        this.client.dispatch('tracks', tracks)
+        this.emit('tracks', tracks)
       }
     })
 
     this.metadata.getChapters().then(chapters => {
       if (this.destroyed) return
       debug(`Found ${chapters.length} chapters`)
-      this.client.dispatch('chapters', chapters)
+      this.emit('chapters', chapters)
     })
 
     this.metadata.getAttachments().then(files => {
@@ -47,7 +47,7 @@ export default class Parser {
             debug('Skipping large font file on Android: ' + file.filename)
             continue
           }
-          this.client.dispatch('file', data)
+          this.emit('file', data)
         }
       }
     })
@@ -55,7 +55,7 @@ export default class Parser {
     this.metadata.on('subtitle', (subtitle, trackNumber) => {
       if (this.destroyed) return
       debug(`Found subtitle for track: ${trackNumber}: ${subtitle.text}`)
-      this.client.dispatch('subtitle', { subtitle, trackNumber })
+      this.emit('subtitle', { subtitle, trackNumber })
     })
 
     if (this.file.name.endsWith('.mkv') || this.file.name.endsWith('.webm')) {

@@ -1,16 +1,31 @@
 import { createServer } from 'http';
-import { debug } from './util.js';
+import { getGlobalClient } from '../backend/webtorrent-client.js';
+import Parser from './parser.js';
+import debug from "debug";
+import { videoRx } from './util.js';
 
 const log = debug('http-server');
 
 export default class StreamServer {
+  mainWindow = null;
+
   constructor(port = 0) {
     this.port = port;
     this.server = null;
     this.torrent = null;
     this.files = new Map();
+    this.client = getGlobalClient();
+
+    this.subtitleTracks = new Map();
+    this.subtitleCues = new Map();
+    this.fonts = new Map();
   }
-  
+
+  setWindow(windowInstance) {
+    this.mainWindow = windowInstance;
+    log("Main window reference set for IPC.");
+  }
+
   start() {
     return new Promise((resolve, reject) => {
       try {
@@ -31,7 +46,89 @@ export default class StreamServer {
       }
     });
   } 
-  
+
+  loadTorrentAndServe(magnetURI, fileIndex) {
+    return new Promise((resolve, reject) => {
+      log(`Attempting to load torrent: ${magnetURI}, fileIndex: ${fileIndex}`);
+
+      // Remove previous torrent if one exists
+      if (this.torrent && !this.torrent.destroyed) {
+          log(`Destroying previous torrent: ${this.torrent.infoHash}`);
+          // Clear stored file/parsed data for the old torrent
+          this.files.clear();
+          this.subtitleTracks.clear();
+          this.subtitleCues.clear();
+          this.fonts.clear();
+          this.torrent.destroy((err) => {
+              if (err) log(`Error destroying previous torrent: ${err.message}`);
+              this.torrent = null;
+              this._addAndPrepareTorrent(magnetURI, fileIndex, resolve, reject);
+          });
+      } else {
+          this._addAndPrepareTorrent(magnetURI, fileIndex, resolve, reject);
+      }
+    });
+  }
+
+  _addAndPrepareTorrent(magnetURI, fileIndex, resolve, reject) {
+    log(`Adding torrent: ${magnetURI}`);
+    this.client.add(magnetURI, (torrent) => {
+      log(`Torrent metadata ready: ${torrent.infoHash}, Name: ${torrent.name}`);
+      this.setTorrent(torrent); // Store the torrent object
+
+      if (fileIndex < 0 || fileIndex >= torrent.files.length) {
+        log(`Error: Invalid fileIndex ${fileIndex} for torrent ${torrent.name}`);
+        return reject(new Error(`Invalid fileIndex ${fileIndex}`));
+      }
+
+      const file = torrent.files[fileIndex];
+      log(`Selected file: ${file.name} (Index: ${fileIndex}, Length: ${file.length})`);
+
+      // Make the file available for streaming requests
+      this.addFile(fileIndex, file);
+
+      // Check if it's MKV/WebM and initiate parsing
+      const isMKVOrWebM = videoRx.test(file.name);
+      if (isMKVOrWebM) {
+        this.initiateParsing(fileIndex, file);
+      } else {
+          log(`Skipping parser for non-MKV/WebM file: ${file.name}`);
+      }
+
+      // Resolve with the stream URL for the frontend
+      resolve(this.getStreamUrl(fileIndex));
+
+      // Optional: Handle torrent errors
+      torrent.on('error', (err) => {
+        log(`Torrent error (${torrent.infoHash}): ${err.message}`);
+        // Maybe notify the frontend?
+      });
+      torrent.on('done', () => {
+          log(`Torrent done downloading: ${torrent.infoHash}`);
+      });
+
+    });
+
+      // Handle client-level errors (e.g., invalid magnet URI)
+      // Note: The 'error' event on the client might be harder to associate
+      // with a specific 'add' call if multiple happen concurrently.
+      // This basic handler logs any client error.
+      /*const clientErrorHandler = (err) => {
+          log(`WebTorrent client error: ${err.message}`);
+          // It's hard to know if this error belongs to *this* specific add attempt
+          // without more sophisticated tracking. We might reject the current promise
+          // but it could be misleading.
+          // reject(err); // Use with caution
+      };
+      this.client.once('error', clientErrorHandler);
+      // Clean up the listener if the torrent loads successfully or if the promise rejects otherwise
+      const cleanup = () => this.client.removeListener('error', clientErrorHandler);
+      Promise.resolve.finally(cleanup); // Requires Node 12.9+ for Promise.finally
+      Promise.reject.finally(cleanup); // Requires Node 12.9+ for Promise.finally */
+
+  }
+
+
   setTorrent(torrent) {
     this.torrent = torrent;
   }
@@ -50,9 +147,10 @@ export default class StreamServer {
     return `http://localhost:${address.port}/subtitle/${subtitleIndex}`;
   }
   
-  getFontUrl(fontIndex) {
+  getFontUrl(fileIndex, fontId) {
     const address = this.server.address();
-    return `http://localhost:${address.port}/font/${fontIndex}`;
+    if (!address) return ''; // Handle server not ready
+    return `http://localhost:${address.port}/font/${fileIndex}/${encodeURIComponent(fontId)}`;
   }
   
   handleRequest(req, res) {
@@ -134,6 +232,123 @@ export default class StreamServer {
     stream.pipe(res);
   }
   
+  initiateParsing(fileIndex, file) {
+    const fileIndexStr = fileIndex.toString();
+    if (file.parsingInitiated) {
+       log(`Parsing already initiated for index ${fileIndexStr}`);
+       return;
+    }
+    file.parsingInitiated = true; // Mark the file object itself
+    log(`Initiating parsing for MKV/WebM: ${file.name} (Index: ${fileIndexStr})`);
+
+    const parser = new Parser(file); // 'this' refers to StreamServer
+
+    // Attach listeners to capture parsed data
+    parser.on('tracks', (tracks) => this.handleParsedTracks(fileIndexStr, tracks));
+    parser.on('subtitle', ({ subtitle, trackNumber }) => this.handleParsedSubtitle(fileIndexStr, trackNumber, subtitle));
+    parser.on('file', (fontData) => this.handleParsedFont(fileIndexStr, fontData));
+    parser.on('chapters', (chapters) => this.handleParsedChapters(fileIndexStr, chapters)); // Assuming parser emits chapters
+
+    // *** Stream Consumption for Parsing ***
+    // We need the parser to process the stream. Since `handleStreamRequest`
+    // serves the stream on demand, we might need to *separately* consume
+    // the stream just for parsing if the parser requires data flow.
+    // This consumes bandwidth but ensures parsing happens.
+    log(`Starting background stream consumption for parsing index ${fileIndexStr}`);
+    const parseStream = file.createReadStream();
+
+    // If the copied Parser uses the iterator method like Miru's original:
+     if (typeof file.on === 'function') { // Check if it's an EventEmitter-like object
+         file.on('iterator', ({ iterator }, cb) => {
+             log(`Parser hooked into iterator for index ${fileIndexStr}`);
+             cb(parser.metadata.parseStream(iterator)); // Assuming parser.metadata exists
+         });
+     } else {
+         // Fallback: Consume the stream directly if iterator event isn't available
+         // This might not work perfectly with matroska-metadata's parseStream
+         // if it relies on the specific iterator implementation.
+          log(`Consuming stream directly for parsing index ${fileIndexStr} (may be less efficient)`);
+         parseStream.on('data', (chunk) => {
+             // If parser needs manual feeding (unlikely for matroska-metadata)
+             // parser.feed(chunk);
+         });
+     }
+
+
+    parseStream.on('end', () => log(`Parsing stream ended for ${fileIndexStr}`));
+    parseStream.on('error', (err) => log(`Parsing stream error for ${fileIndexStr}: ${err.message}`));
+    parseStream.resume(); // Ensure the stream flows even if not piped anywhere else initially
+  }
+
+  handleParsedTracks(fileIndexStr, tracks) {
+    log(`Received tracks for ${fileIndexStr}:`, tracks.map(t => `Track ${t.number}: ${t.codec} Lang: ${t.language}`));
+    // Store tracks relevant for subtitles/audio selection
+    // Example: Storing only subtitle tracks with language info
+    const subTracks = tracks
+        .filter(t => t.type === 'subtitle' && (t.codec === 'SubStationAlpha' || t.codec === 'SubRip' || t.codec === 'VobSub' || t.codec === 'WEBVTT'))
+        .map(t => ({ number: t.number, language: t.language, name: t.name, codec: t.codec })); // Extract needed info
+    this.subtitleTracks.set(fileIndexStr, subTracks);
+
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      log(`Sending 'subtitle-tracks' to renderer for ${fileIndexStr}`);
+      this.mainWindow.webContents.send('subtitle-tracks', {
+          fileIndex: fileIndexStr,
+          tracks: subTracks
+      });
+    } else { log("IPC Error: Cannot send tracks, mainWindow invalid."); }
+  }
+
+  handleParsedSubtitle(fileIndexStr, trackNumber, subtitle) {
+    // Store cues, grouped by track number
+    // log(`Received cue for ${fileIndexStr}, track ${trackNumber}: ${subtitle.text.substring(0, 50)}...`);
+    if (!this.subtitleCues.has(fileIndexStr)) {
+      this.subtitleCues.set(fileIndexStr, new Map());
+    }
+    const fileCuesMap = this.subtitleCues.get(fileIndexStr);
+    if (!fileCuesMap.has(trackNumber)) {
+      fileCuesMap.set(trackNumber, []);
+    }
+    fileCuesMap.get(trackNumber).push(subtitle);
+
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('subtitle-cue', {
+          fileIndex: fileIndexStr,
+          trackNumber: trackNumber,
+          subtitle: subtitle
+      });
+    }
+  }
+
+  handleParsedFont(fileIndexStr, fontData) {
+    log(`Received font for ${fileIndexStr}, size: ${fontData.length}`);
+    const fontId = `font_${this.fonts.get(fileIndexStr)?.size || 0}`; // Use map size for a simple unique enough ID
+    log(`Received font for ${fileIndexStr}, id ${fontId}, size: ${fontData.length}`); // Use fontData.length directly
+
+    if (!this.fonts.has(fileIndexStr)) {
+        this.fonts.set(fileIndexStr, new Map()); // Store fonts in a Map per file
+    }
+    // Store the buffer using the ID
+    this.fonts.get(fileIndexStr).set(fontId, fontData); // Assuming fontData is the buffer
+
+    // --- FIX: Add the missing webContents.send call ---
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        log(`Sending 'subtitle-font' info to renderer for ${fileIndexStr}, id ${fontId}`);
+        this.mainWindow.webContents.send('subtitle-font', {
+            fileIndex: fileIndexStr,
+            fontId: fontId, // Send the ID
+            fontUrl: this.getFontUrl(fileIndexStr, fontId) // Send the URL
+        });
+    } else {
+        log("IPC Error: Cannot send font info, mainWindow invalid.");
+    }
+
+  }
+
+  handleParsedChapters(fileIndexStr, chapters) {
+      log(`Received chapters for ${fileIndexStr}:`, chapters);
+      // TODO: Store chapters and make them available to frontend if needed
+  }
+
   handleSubtitleRequest(req, res, pathname) {
     const subtitleIndex = pathname.split('/')[2];
     // Implementation depends on how subtitles are stored
@@ -143,11 +358,21 @@ export default class StreamServer {
   }
   
   handleFontRequest(req, res, pathname) {
-    const fontIndex = pathname.split('/')[2];
-    // Implementation depends on how fonts are stored
-    // For now, just return a 404
-    res.statusCode = 404;
-    res.end('Font not found');
+    const parts = pathname.split('/');
+    const fileIndexStr = parts[2];
+    const fontId = decodeURIComponent(parts[3] || '');
+
+    if (!fileIndexStr || !fontId) { /* ... bad request ... */ return; }
+
+    const fileFontsMap = this.fonts.get(fileIndexStr);
+    const fontBuffer = fileFontsMap ? fileFontsMap.get(fontId) : null;
+
+    if (!fontBuffer) { /* ... not found ... */ return; }
+
+    log(`Serving font id ${fontId} for file ${fileIndexStr}`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Length', fontBuffer.length);
+    res.end(fontBuffer);
   }
   
   getMimeType(filename) {
