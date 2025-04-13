@@ -87,6 +87,9 @@ export default class StreamServer {
       // Make the file available for streaming requests
       this.addFile(fileIndex, file);
 
+      log(`Selecting file for priority download: ${file.name}`);
+      file.select();
+
       // Check if it's MKV/WebM and initiate parsing
       const isMKVOrWebM = videoRx.test(file.name);
       if (isMKVOrWebM) {
@@ -108,23 +111,6 @@ export default class StreamServer {
       });
 
     });
-
-      // Handle client-level errors (e.g., invalid magnet URI)
-      // Note: The 'error' event on the client might be harder to associate
-      // with a specific 'add' call if multiple happen concurrently.
-      // This basic handler logs any client error.
-      /*const clientErrorHandler = (err) => {
-          log(`WebTorrent client error: ${err.message}`);
-          // It's hard to know if this error belongs to *this* specific add attempt
-          // without more sophisticated tracking. We might reject the current promise
-          // but it could be misleading.
-          // reject(err); // Use with caution
-      };
-      this.client.once('error', clientErrorHandler);
-      // Clean up the listener if the torrent loads successfully or if the promise rejects otherwise
-      const cleanup = () => this.client.removeListener('error', clientErrorHandler);
-      Promise.resolve.finally(cleanup); // Requires Node 12.9+ for Promise.finally
-      Promise.reject.finally(cleanup); // Requires Node 12.9+ for Promise.finally */
 
   }
 
@@ -220,6 +206,9 @@ export default class StreamServer {
       return;
     }
     
+    // Stream the range
+    const stream = file.createReadStream({ start, end });
+
     // Set headers for partial content
     res.statusCode = 206; // Partial Content
     res.setHeader('Content-Range', `bytes ${start}-${end}/${file.length}`);
@@ -227,8 +216,18 @@ export default class StreamServer {
     res.setHeader('Content-Type', this.getMimeType(file.name));
     res.setHeader('Accept-Ranges', 'bytes');
     
-    // Stream the range
-    const stream = file.createReadStream({ start, end });
+    stream.on('error', (err) => {
+      console.error("Error in file read stream: ", err);
+      // End the response if not already ended.
+      if (!res.writableEnded) res.end();
+    });
+
+    res.on('close', () => {
+      stream.destroy();
+    });
+
+  
+   
     stream.pipe(res);
   }
   
@@ -248,36 +247,6 @@ export default class StreamServer {
     parser.on('subtitle', ({ subtitle, trackNumber }) => this.handleParsedSubtitle(fileIndexStr, trackNumber, subtitle));
     parser.on('file', (fontData) => this.handleParsedFont(fileIndexStr, fontData));
     parser.on('chapters', (chapters) => this.handleParsedChapters(fileIndexStr, chapters)); // Assuming parser emits chapters
-
-    // *** Stream Consumption for Parsing ***
-    // We need the parser to process the stream. Since `handleStreamRequest`
-    // serves the stream on demand, we might need to *separately* consume
-    // the stream just for parsing if the parser requires data flow.
-    // This consumes bandwidth but ensures parsing happens.
-    log(`Starting background stream consumption for parsing index ${fileIndexStr}`);
-    const parseStream = file.createReadStream();
-
-    // If the copied Parser uses the iterator method like Miru's original:
-     if (typeof file.on === 'function') { // Check if it's an EventEmitter-like object
-         file.on('iterator', ({ iterator }, cb) => {
-             log(`Parser hooked into iterator for index ${fileIndexStr}`);
-             cb(parser.metadata.parseStream(iterator)); // Assuming parser.metadata exists
-         });
-     } else {
-         // Fallback: Consume the stream directly if iterator event isn't available
-         // This might not work perfectly with matroska-metadata's parseStream
-         // if it relies on the specific iterator implementation.
-          log(`Consuming stream directly for parsing index ${fileIndexStr} (may be less efficient)`);
-         parseStream.on('data', (chunk) => {
-             // If parser needs manual feeding (unlikely for matroska-metadata)
-             // parser.feed(chunk);
-         });
-     }
-
-
-    parseStream.on('end', () => log(`Parsing stream ended for ${fileIndexStr}`));
-    parseStream.on('error', (err) => log(`Parsing stream error for ${fileIndexStr}: ${err.message}`));
-    parseStream.resume(); // Ensure the stream flows even if not piped anywhere else initially
   }
 
   handleParsedTracks(fileIndexStr, tracks) {

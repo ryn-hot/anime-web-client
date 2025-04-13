@@ -3,6 +3,11 @@
 import JASSUB from 'jassub';
 import { toTS, subRx } from './util.js'; // Assuming util.js is in the same directory
 
+// Helper for logging
+const log = (message, ...args) => {
+    console.debug(`[SubtitleManager] ${message}`, ...args);
+};
+
 // Placeholder for getting settings from your app's settings module
 const getSetting = (key, defaultValue) => {
     // Replace with your actual settings logic
@@ -61,6 +66,8 @@ export default class SubtitleManager {
         this.fonts = [getSetting('font', { url: '/Roboto.ttf' }).url];
 
         this.currentTrack = -1; // -1 means subtitles off
+
+        this.ipcCleanupFunctions = [];
 
         // --- Setup Listeners ---
         this.setupIPCListeners(); // Placeholder for WebSocket or other communication
@@ -532,7 +539,3 @@ export default class SubtitleManager {
     }
 }
 
-// Helper for logging
-const log = (message, ...args) => {
-    console.debug(`[SubtitleManager] ${message}`, ...args);
-};

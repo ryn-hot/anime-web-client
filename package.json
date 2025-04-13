@@ -4,7 +4,8 @@
   "main": "electronapp.js",
   "type": "module",
   "scripts": {
-    "electron-dev": "electron electronapp.js",
+    "build": "node esbuild.config.js",
+    "electron-dev": "npm run build && DEBUG=http-server,torrent:parser electron electronapp.js",
     "test": "node main.js"
   },
   "keywords": [],
@@ -40,12 +41,12 @@
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
     "uint8-util": "^2.2.5",
-    "webtorrent": "^2.5.10",
-    "wrtc": "^0.4.7"
+    "webtorrent": "^2.6.0"
   },
   "devDependencies": {
     "electron": "^34.3.3",
     "electron-builder": "^25.1.8",
-    "electron-rebuild": "^3.2.9"
+    "electron-rebuild": "^3.2.9",
+    "esbuild": "^0.25.2"
   }
 }

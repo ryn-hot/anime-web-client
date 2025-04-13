@@ -1,7 +1,5 @@
-// preload.js
-import { contextBridge, ipcRenderer } from 'electron';
+const { contextBridge, ipcRenderer } = require('electron');
 
-// Expose a controlled way for the renderer to receive messages
 contextBridge.exposeInMainWorld('electronIPC', {
   /**
    * Listen for messages from the main process on specific channels.
@@ -13,20 +11,23 @@ contextBridge.exposeInMainWorld('electronIPC', {
     // List of channels allowed to be listened to from the main process
     const validChannels = ['subtitle-tracks', 'subtitle-cue', 'subtitle-font'];
     if (validChannels.includes(channel)) {
-      // Create the listener function
-      // Deliberately strip the 'event' argument from ipcRenderer.on as it includes potentially sensitive sender details
+      // Create the listener function, deliberately stripping the event object
       const subscription = (event, ...args) => func(...args);
-      // Add the listener
       ipcRenderer.on(channel, subscription);
-      // Return a cleanup function to remove the listener
       return () => {
         ipcRenderer.removeListener(channel, subscription);
       };
     } else {
       console.warn(`Attempted to listen on invalid channel: ${channel}`);
-      return () => {}; // Return empty cleanup function for invalid channels
+      return () => {}; // Return an empty function
     }
   }
+
+
+});
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  dynamicFinder: (alID, episodeNum, audio) => ipcRenderer.invoke('dynamic-finder', alID, episodeNum, audio)
 });
 
 console.log("Minimal preload script executed, electronIPC exposed.");

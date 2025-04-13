@@ -15,9 +15,14 @@ export default class Parser extends EventEmitter  {
   destroyed = false
 
   constructor (file) {
+    super();
     debug('Initializing parser for file: ' + file.name)
     // this.client = client
     this.file = file
+
+    debug(`Inspecting file object: typeof file.on = ${typeof file.on}`);
+    debug(`Inspecting file object: file.constructor.name = ${file.constructor?.name}`);
+    
     this.metadata = new Metadata(file)
 
     this.metadata.getTracks().then(tracks => {
@@ -60,6 +65,7 @@ export default class Parser extends EventEmitter  {
 
     if (this.file.name.endsWith('.mkv') || this.file.name.endsWith('.webm')) {
       this.file.on('iterator', ({ iterator }, cb) => {
+        debug(`Parser hooked into iterator for index ${file.name}}`)
         if (this.destroyed) return cb(iterator)
         cb(this.metadata.parseStream(iterator))
       })

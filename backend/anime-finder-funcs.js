@@ -5,9 +5,9 @@ import fetch from 'node-fetch';
 import levenshtein from 'fast-levenshtein';
 import { load } from 'cheerio';
 import { globalTorrentCache, cacheTorrentRange } from './cache.js';
-import { miruToshoEpisode } from "./miru-sources/tosho-test.js";
-import { miruToshoMovie } from "./miru-sources/tosho-test.js";
-import { miruToshoBatchAnime } from './miru-sources/tosho-test.js';
+import { miruToshoEpisode } from "../miru-sources/tosho-test.js";
+import { miruToshoMovie } from "../miru-sources/tosho-test.js";
+import { miruToshoBatchAnime } from '../miru-sources/tosho-test.js';
 import { cleanLeadingZeroes, extractInfoHash, addSpacesAroundHyphens } from './crawler_dispatch.js';
 
 

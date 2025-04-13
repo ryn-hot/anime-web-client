@@ -1,9 +1,11 @@
 import { AniListAPI } from "./bottleneck.js";
-// import { startFfmpegPlayer } from '../../ffmpeg-player.js';
-// import { dynamicFinder } from "../../dynamic_fetch.js";
+import VideoPlayer from "./video-player.js";
+import SubtitleManager from "../../modules/subtitles.js";
 
 
 const anilistAPI = new AniListAPI();
+
+let subtitleManager = null;
 
 function getAnimeData() {
     const animeDataStr = sessionStorage.getItem('currentAnimeData');
@@ -1179,10 +1181,104 @@ document.addEventListener('DOMContentLoaded', async () => {
             return grid;
         }
         
-        // Helper function to load and start streaming an episode.
-            async function loadEpisodeStream(episodeNumber) {
-               // Video Player html5 should go here
+
+        function handleTrackListUpdate(tracks) {
+            console.log("Subtitle tracks available for UI:", tracks);
+            const selectEl = document.getElementById('subtitle-select'); // Assuming you have <select id="subtitle-select">
+            if (!selectEl) return;
+        
+            // Clear previous options
+            selectEl.innerHTML = '<option value="-1">Subtitles Off</option>'; // Off option
+        
+            // Add new options
+            tracks.forEach(track => {
+                const option = document.createElement('option');
+                option.value = track.number;
+                // Add language code if available, otherwise just label
+                const langPart = track.language && track.language !== 'und' ? ` (${track.language})` : '';
+                option.textContent = `<span class="math-inline">\{track\.label\}</span>{langPart}`;
+                option.selected = track.selected; // Reflect current selection
+                selectEl.appendChild(option);
+            });
+        
+            // Ensure the event listener is only added once or is updated correctly
+            selectEl.onchange = (event) => {
+                const selectedTrackNumber = parseInt(event.target.value, 10);
+                if (subtitleManager) {
+                    subtitleManager.selectTrack(selectedTrackNumber);
+                }
+            };
+        }
+
+
+        async function ensureVideoElement() {
+            let videoElem = document.getElementById('video-player');
+            if (!videoElem) {
+              videoElem = document.createElement('video');
+              videoElem.id = 'video-player';
+              videoElem.className = 'video-player';
+              videoElem.controls = true;
+              document.querySelector('.video-container').appendChild(videoElem);
             }
+          }
+          
+
+        async function loadEpisodeStream(episodeNumber) {
+            try {
+
+                await ensureVideoElement()
+                // Use your IPC 'dynamic-finder' (or another method) to get the stream URL.
+                // The dynamic-finder should return the URL such as "http://localhost:<port>/stream/0"
+                const urlParams = new URLSearchParams(window.location.search);
+                const animeId = urlParams.get('id');
+                if (!animeId) {
+                    throw new Error("Missing anime ID in URL");
+                }
+                
+                // Get current audio type (sub or dub)
+                const audioType = document.querySelector('.source-button.active')?.dataset?.type || 'sub';
+
+                const streamUrl = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
+                console.log('Stream URL received:', streamUrl);
+                
+                const videoElem = document.getElementById('video-player');
+                if (!videoElem) {
+                  throw new Error("Video element not found after ensuring its existence.");
+                }
+
+                // Instantiate your video player on the video element (assume id "video-player")
+                const player = new VideoPlayer('video-player');
+                
+                // Set the video source; update the MIME type if necessary (e.g., 'video/webm' or 'video/mp4')
+                // You can determine the mime type from the file extension or metadata if you like.
+                player.setSource(streamUrl, 'video/webm');
+                
+                // Optionally, if you have subtitle data parsed from your torrent,
+                // build an array of subtitle objects with properties like label, lang, and url.
+                // For example:
+                if (subtitleManager) {
+                    subtitleManager.destroy(); // Clean up previous instance if any
+                }
+                const fileIndexFromUrl = '0'; // Or derive from streamUrl/dynamicFinder result if needed
+                subtitleManager = new SubtitleManager(
+                    videoElem,
+                    handleTrackListUpdate, // Pass the UI update function
+                    fileIndexFromUrl // Pass the correct file index
+                );
+                // const subtitles = [
+                //   { label: "English", lang: "en", url: `http://localhost:<port>/subtitle/0` },
+                //   { label: "Japanese", lang: "ja", url: `http://localhost:<port>/subtitle/1` },
+                // ];
+                // player.addSubtitles(subtitles);  // This uses the addSubtitles method from VideoPlayer.
+                
+                // Finally, begin playback.
+                player.play();
+
+            } catch (error) {
+                console.error('Error while loading episode stream:', error);
+            }
+        }
+            
 
   
         // Function to generate episode cards (detailed view)

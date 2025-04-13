@@ -4,7 +4,7 @@ import { torrentEmitter } from './torrentEmitter.js';
 import { getGlobalClient } from "./webtorrent-client.js";
 import { cacheTorrentRange, storeTorrentMetadata, isInfoHashInCache } from "./cache.js";
 import fetch from 'node-fetch';
-import { parse_title_reserve } from "../anime-finder-funcs.js";
+import { parse_title_reserve } from "./anime-finder-funcs.js";
 import path from "path"; 
 
 
