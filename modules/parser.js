@@ -1,82 +1,160 @@
-import Metadata from 'matroska-metadata'
-import Debug from 'debug'
-import { arr2hex, hex2bin } from 'uint8-util'
-import { fontRx } from './util.js'
-import { EventEmitter } from 'events'
-import { SUPPORTS } from './support.js'
+// simple-parser.js
+import { EventEmitter } from 'events';
+import Metadata from 'matroska-metadata';
+import Debug from 'debug';
+import { hex2bin, arr2hex } from 'uint8-util';
+import { SUPPORTS } from './support.js';
+import { fontRx } from './util.js';
 
-const debug = Debug('torrent:parser')
 
-export default class Parser extends EventEmitter  {
-  parsed = false
-  /** @type {Metadata} */
-  metadata = null
-  file = null
-  destroyed = false
+const debug = Debug('torrent:parser');
 
-  constructor (file) {
-    super();
-    debug('Initializing parser for file: ' + file.name)
-    // this.client = client
-    this.file = file
+export default class Parser extends EventEmitter {
+    metadata = null;
+    file = null;
+    destroyed = false;
+    eventEmitter = null;
+    streamPiper = null; // To manage the stream passed to parseStream
 
-    debug(`Inspecting file object: typeof file.on = ${typeof file.on}`);
-    debug(`Inspecting file object: file.constructor.name = ${file.constructor?.name}`);
-    
-    this.metadata = new Metadata(file)
-
-    this.metadata.getTracks().then(tracks => {
-      if (this.destroyed) return
-      debug('Tracks received: ' + tracks)
-      if (!tracks.length) {
-        this.parsed = true
-        this.destroy()
-      } else {
-        this.emit('tracks', tracks)
-      }
-    })
-
-    this.metadata.getChapters().then(chapters => {
-      if (this.destroyed) return
-      debug(`Found ${chapters.length} chapters`)
-      this.emit('chapters', chapters)
-    })
-
-    this.metadata.getAttachments().then(files => {
-      if (this.destroyed) return
-      debug(`Found ${files.length} attachments`)
-      for (const file of files) {
-        if (fontRx.test(file.filename) || file.mimetype?.toLowerCase().includes('font')) {
-          const data = hex2bin(arr2hex(file.data))
-          if (SUPPORTS.isAndroid && data.length > 15_000_000) {
-            debug('Skipping large font file on Android: ' + file.filename)
-            continue
-          }
-          this.emit('file', data)
+    constructor(file, eventEmitter) {
+        super(); // Call super() for EventEmitter
+        debug(`Initializing parser for file: ${file?.name}`);
+        if (!file || !eventEmitter) {
+            throw new Error("Parser requires 'file' and 'eventEmitter' arguments.");
         }
-      }
-    })
+        this.file = file;
+        this.eventEmitter = eventEmitter;
 
-    this.metadata.on('subtitle', (subtitle, trackNumber) => {
-      if (this.destroyed) return
-      debug(`Found subtitle for track: ${trackNumber}: ${subtitle.text}`)
-      this.emit('subtitle', { subtitle, trackNumber })
-    })
+        try {
+            // *** CORRECT: Initialize with the file object ***
+            this.metadata = new Metadata(this.file);
+            debug('matroska-metadata initialized successfully.');
+        } catch (error) {
+            debug(`Error initializing Metadata: ${error.message}`);
+            this.eventEmitter.emit('parser-error', new Error(`Metadata initialization failed: ${error.message}`));
+            this.destroy();
+            return;
+        }
 
-    if (this.file.name.endsWith('.mkv') || this.file.name.endsWith('.webm')) {
-      this.file.on('iterator', ({ iterator }, cb) => {
-        debug(`Parser hooked into iterator for index ${file.name}}`)
-        if (this.destroyed) return cb(iterator)
-        cb(this.metadata.parseStream(iterator))
-      })
-    } else {
-      debug('Unsupported file format: ' + this.file.name)
+        // Listener for subtitles emitted FROM the metadata instance
+        this.metadata.on('subtitle', (subtitle, trackNumber) => {
+            if (this.destroyed) return;
+            // Use a more prominent log for actual subtitle data emission
+            debug(`***** Parser emitting subtitle for track ${trackNumber} *****`);
+            this.eventEmitter.emit('subtitle-cue', {
+                trackNumber: trackNumber,
+                subtitle: subtitle
+            });
+        });
+
+        // Promises for initial metadata (Tracks, Attachments, Chapters)
+        this.metadata.getTracks().then(tracks => {
+            if (this.destroyed) return;
+            debug(`Parser found ${tracks?.length || 0} tracks via getTracks()`);
+            this.eventEmitter.emit('subtitle-tracks', tracks);
+        }).catch(err => debug("Parser error getting tracks:", err));
+
+        this.metadata.getChapters().then(chapters => {
+            if (this.destroyed) return;
+            debug(`Parser found ${chapters?.length || 0} chapters via getChapters()`);
+            this.eventEmitter.emit('subtitle-chapters', chapters);
+        }).catch(err => debug("Parser error getting chapters:", err));
+
+        this.metadata.getAttachments().then(attachments => {
+            if (this.destroyed) return;
+            debug(`Parser found ${attachments?.length || 0} attachments via getAttachments()`);
+            attachments.forEach(attachment => {
+                 if (fontRx.test(attachment.filename) || attachment.mimetype?.toLowerCase().includes('font')) {
+                     try {
+                         const data = hex2bin(arr2hex(attachment.data));
+                         if (SUPPORTS.isAndroid && data.length > 15_000_000) {
+                             debug('Skipping large font file on Android: ' + attachment.filename);
+                             return;
+                         }
+                         debug(`Parser found font: ${attachment.filename}`);
+                         this.eventEmitter.emit('subtitle-font-data', {
+                             filename: attachment.filename,
+                             mimetype: attachment.mimetype,
+                             data: data
+                         });
+                     } catch (bufferError) {
+                          debug(`Error processing attachment ${attachment.filename}: ${bufferError.message}`);
+                     }
+                 }
+            });
+        }).catch(err => debug("Error getting attachments:", err));
+
+        this.metadata.on('error', (err) => {
+            debug(`matroska-metadata error: ${err.message}`);
+            this.eventEmitter.emit('parser-error', err);
+         });
+
+         // *** NO file.on('iterator', ...) listener here ***
+         debug(`Parser instance created for ${this.file.name}. Waiting for startParsingFromStream.`);
     }
-  }
 
-  destroy () {
-    debug('Destroying Parser')
-    this.destroyed = true
-    // Add any additional cleanup code here
-  }
+    // Method to start parsing from an EXTERNALLY provided stream
+    async startParsingFromStream(stream) { // Make async
+        if (this.destroyed) {
+             debug('Parser destroyed. Aborting startParsingFromStream.');
+             if (stream && typeof stream.destroy === 'function') { stream.destroy(); }
+             return;
+        }
+        if (!stream || (typeof stream[Symbol.asyncIterator] !== 'function' && typeof stream.pipe !== 'function')) { // Check if it's stream-like or async iterable
+            debug('Error: Invalid stream provided (not async iterable or pipeable).');
+            this.eventEmitter.emit('parser-error', new Error('Invalid stream provided to parser'));
+            return;
+        }
+        debug(`>>> Consuming stream via parseStream for ${this.file?.name}...`);
+        try {
+            // Call parseStream and consume the async generator it returns.
+            // This drives the internal parsing and event emission.
+            // We don't need to assign the result or pipe manually.
+            // eslint-disable-next-line no-unused-vars
+            for await (const _chunk of this.metadata.parseStream(stream)) {
+                // Loop MUST be consumed. Body can be empty.
+                if (this.destroyed) {
+                     debug('Parser destroyed during stream consumption.');
+                     if (stream && typeof stream.destroy === 'function') {
+                         stream.destroy(); // Ensure source stream is closed
+                     }
+                     break;
+                }
+            }
+            // If loop finishes without being destroyed:
+            if (!this.destroyed) {
+                debug(`Parsing stream finished naturally for ${this.file?.name}.`);
+                this.parsed = true;
+                this.eventEmitter.emit('parsing-finished');
+            }
+
+        } catch (error) {
+             debug(`Error during stream consumption/parsing for ${this.file?.name}: ${error.stack || error.message}`); // Log stack
+             this.eventEmitter.emit('parser-error', error);
+             if (stream && typeof stream.destroy === 'function') {
+                  stream.destroy(); // Ensure source stream is closed on error
+             }
+        } finally {
+             debug(`Exiting startParsingFromStream async generator loop/try-catch for ${this.file?.name}.`);
+        }
+    }
+
+    destroy() {
+        if (this.destroyed) return;
+        debug(`Destroying Parser for ${this.file?.name}`);
+        this.destroyed = true; // Set flag early to stop ongoing operations
+        // No streamPiper to destroy, the stream is managed by the caller (test-subtitles.js)
+        if (this.metadata) {
+            // It's crucial to remove listeners to prevent memory leaks
+            // and stop processing if parseStream is still somehow running
+            this.metadata.removeAllListeners();
+            // Check if matroska-metadata itself has a destroy method
+             if (typeof this.metadata.destroy === 'function') {
+                 this.metadata.destroy();
+             }
+            this.metadata = null;
+        }
+        this.eventEmitter = null;
+        this.removeAllListeners(); // Remove listeners from this Parser instance
+    }
 }

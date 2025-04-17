@@ -12,11 +12,16 @@ contextBridge.exposeInMainWorld('electronIPC', {
     const validChannels = ['subtitle-tracks', 'subtitle-cue', 'subtitle-font'];
     if (validChannels.includes(channel)) {
       // Create the listener function, deliberately stripping the event object
-      const subscription = (event, ...args) => func(...args);
+      const subscription = (event, data) => {
+        // console.log(`[preload.js] Received IPC on channel '${channel}'. Forwarding data:`, data);
+        func(channel, data);
+      }
+
       ipcRenderer.on(channel, subscription);
       return () => {
         ipcRenderer.removeListener(channel, subscription);
       };
+      
     } else {
       console.warn(`Attempted to listen on invalid channel: ${channel}`);
       return () => {}; // Return an empty function

@@ -1229,6 +1229,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await ensureVideoElement()
                 // Use your IPC 'dynamic-finder' (or another method) to get the stream URL.
                 // The dynamic-finder should return the URL such as "http://localhost:<port>/stream/0"
+
+                const videoElem = document.getElementById('video-player');
+                if (!videoElem) {
+                  throw new Error("Video element not found after ensuring its existence.");
+                }
+                
+                if (subtitleManager) {
+                    subtitleManager.destroy(); // Clean up previous instance if any
+                }
+
+                subtitleManager = new SubtitleManager(
+                    videoElem,
+                    handleTrackListUpdate, // Pass the UI update function
+                );
+
                 const urlParams = new URLSearchParams(window.location.search);
                 const animeId = urlParams.get('id');
                 if (!animeId) {
@@ -1241,30 +1256,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const streamUrl = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
                 console.log('Stream URL received:', streamUrl);
                 
-                const videoElem = document.getElementById('video-player');
-                if (!videoElem) {
-                  throw new Error("Video element not found after ensuring its existence.");
-                }
+
 
                 // Instantiate your video player on the video element (assume id "video-player")
                 const player = new VideoPlayer('video-player');
                 
                 // Set the video source; update the MIME type if necessary (e.g., 'video/webm' or 'video/mp4')
                 // You can determine the mime type from the file extension or metadata if you like.
-                player.setSource(streamUrl, 'video/webm');
+                player.setSource(streamUrl, 'video/x-matroska');
                 
                 // Optionally, if you have subtitle data parsed from your torrent,
                 // build an array of subtitle objects with properties like label, lang, and url.
                 // For example:
-                if (subtitleManager) {
-                    subtitleManager.destroy(); // Clean up previous instance if any
-                }
-                const fileIndexFromUrl = '0'; // Or derive from streamUrl/dynamicFinder result if needed
-                subtitleManager = new SubtitleManager(
-                    videoElem,
-                    handleTrackListUpdate, // Pass the UI update function
-                    fileIndexFromUrl // Pass the correct file index
-                );
+
                 // const subtitles = [
                 //   { label: "English", lang: "en", url: `http://localhost:<port>/subtitle/0` },
                 //   { label: "Japanese", lang: "ja", url: `http://localhost:<port>/subtitle/1` },

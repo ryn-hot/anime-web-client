@@ -44,15 +44,13 @@ export default class SubtitleManager {
     /**
      * @param {HTMLVideoElement} videoElement - The video element to attach subtitles to.
      * @param {Function} onTrackListUpdate - Callback function when track list changes `(tracks) => {}`.
-     * @param {string} fileIndex - Identifier for the current video file being played.
      */
-    constructor(videoElement, onTrackListUpdate, fileIndex) {
+    constructor(videoElement, onTrackListUpdate) {
         if (!videoElement) {
             throw new Error("Video element must be provided to SubtitleManager");
         }
         this.video = videoElement;
         this.onTrackListUpdate = onTrackListUpdate || (() => {}); // Callback to update UI
-        this.fileIndex = fileIndex || 'default'; // Identify the current video file
 
         this.renderer = null;
         this.isDestroyed = false;
@@ -98,8 +96,8 @@ export default class SubtitleManager {
     handleIPCMessage = (channel, data) => {
         if (this.isDestroyed) return;
 
-        if (data && data.fileIndex === this.fileIndex) {
-            // log(`Received IPC message on channel '${channel}' for current file`); // Can be verbose
+        if (data) {
+            console.log(`Received IPC message on channel '${channel}' for current file`); // Can be verbose
             switch (channel) {
                 case 'subtitle-tracks':
                     this.handleTracks(data.tracks);
@@ -111,8 +109,8 @@ export default class SubtitleManager {
                     this.handleFontInfo(data); // data = { fontId, fontUrl }
                     break;
             }
-        } else if (data && data.fileIndex !== this.fileIndex) {
-             // log(`Ignoring IPC message on ${channel} for different fileIndex: ${data.fileIndex}`);
+        } else {
+             console.log(`Ignoring IPC message on ${channel}`);
         }
     }
 
@@ -337,7 +335,7 @@ export default class SubtitleManager {
      * Cleans up resources used by the subtitle manager.
      */
     destroy() {
-        log(`Destroying SubtitleManager for fileIndex: ${this.fileIndex}`);
+        log(`Destroying SubtitleManager`);
         this.isDestroyed = true;
         if (this.renderer) {
             this.renderer.destroy();

@@ -1029,12 +1029,12 @@
     /**
      * @param {HTMLVideoElement} videoElement - The video element to attach subtitles to.
      * @param {Function} onTrackListUpdate - Callback function when track list changes `(tracks) => {}`.
-     * @param {string} fileIndex - Identifier for the current video file being played.
      */
-    constructor(videoElement, onTrackListUpdate, fileIndex) {
+    constructor(videoElement, onTrackListUpdate) {
       __publicField(this, "handleIPCMessage", (channel, data) => {
         if (this.isDestroyed) return;
-        if (data && data.fileIndex === this.fileIndex) {
+        if (data) {
+          console.log("Received IPC message on channel '".concat(channel, "' for current file"));
           switch (channel) {
             case "subtitle-tracks":
               this.handleTracks(data.tracks);
@@ -1046,7 +1046,8 @@
               this.handleFontInfo(data);
               break;
           }
-        } else if (data && data.fileIndex !== this.fileIndex) {
+        } else {
+          console.log("Ignoring IPC message on ".concat(channel));
         }
       });
       __publicField(this, "handleFontInfo", ({ fontUrl }) => {
@@ -1156,7 +1157,6 @@
       this.video = videoElement;
       this.onTrackListUpdate = onTrackListUpdate || (() => {
       });
-      this.fileIndex = fileIndex || "default";
       this.renderer = null;
       this.isDestroyed = false;
       this.headers = [];
@@ -1278,7 +1278,7 @@
      * Cleans up resources used by the subtitle manager.
      */
     destroy() {
-      log("Destroying SubtitleManager for fileIndex: ".concat(this.fileIndex));
+      log("Destroying SubtitleManager");
       this.isDestroyed = true;
       if (this.renderer) {
         this.renderer.destroy();
@@ -2059,6 +2059,18 @@
         var _a, _b;
         try {
           await ensureVideoElement();
+          const videoElem = document.getElementById("video-player");
+          if (!videoElem) {
+            throw new Error("Video element not found after ensuring its existence.");
+          }
+          if (subtitleManager) {
+            subtitleManager.destroy();
+          }
+          subtitleManager = new SubtitleManager(
+            videoElem,
+            handleTrackListUpdate
+            // Pass the UI update function
+          );
           const urlParams = new URLSearchParams(window.location.search);
           const animeId = urlParams.get("id");
           if (!animeId) {
@@ -2067,23 +2079,8 @@
           const audioType = ((_b = (_a = document.querySelector(".source-button.active")) == null ? void 0 : _a.dataset) == null ? void 0 : _b.type) || "sub";
           const streamUrl = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
           console.log("Stream URL received:", streamUrl);
-          const videoElem = document.getElementById("video-player");
-          if (!videoElem) {
-            throw new Error("Video element not found after ensuring its existence.");
-          }
           const player = new VideoPlayer("video-player");
-          player.setSource(streamUrl, "video/webm");
-          if (subtitleManager) {
-            subtitleManager.destroy();
-          }
-          const fileIndexFromUrl = "0";
-          subtitleManager = new SubtitleManager(
-            videoElem,
-            handleTrackListUpdate,
-            // Pass the UI update function
-            fileIndexFromUrl
-            // Pass the correct file index
-          );
+          player.setSource(streamUrl, "video/x-matroska");
           player.play();
         } catch (error) {
           console.error("Error while loading episode stream:", error);
