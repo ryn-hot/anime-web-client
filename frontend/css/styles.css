@@ -1753,6 +1753,24 @@ body::-webkit-scrollbar-thumb:hover {
     padding: 12px;
 }
 
+.video-container {          /* the element that already wraps <video> */
+    position: relative;       /* lets the overlay go “absolute:0” inside */
+  }
+  
+.JASSUB {                    /* wrapper JASSUB injects */
+    position: absolute !important;
+    inset: 0;                 /* shorthand for top/right/bottom/left:0 */
+    pointer-events: none;
+}
+
+.JASSUB canvas {
+    position: absolute !important; /* override JASSUB’s auto offset */
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
 @keyframes skeletonLoading {
     0% { left: -100%; }
     100% { left: 100%; }

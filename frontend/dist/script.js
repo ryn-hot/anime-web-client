@@ -684,4 +684,4 @@
   }
   highlightActiveLink();
 })();
-//# sourceMappingURL=script.js.map
+//# sourceMappingURL=dist/script.js.map

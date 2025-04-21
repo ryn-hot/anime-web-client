@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, session } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dynamicFinder } from './backend/dynamic_fetch.js';
@@ -106,6 +106,7 @@ function cleanupResources() {
 }
 
 app.whenReady().then(async () => {
+  // await session.defaultSession.clearStorageData();
   await createWindow(); // Create the UI window first
   await initializeServer(); // Then initialize the server
 

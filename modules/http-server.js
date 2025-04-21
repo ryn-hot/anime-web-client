@@ -333,14 +333,15 @@ export default class StreamServer {
     this.subtitleTracks.clear();
     const trackMap = new Map(); // Temp map for processing
 
+
     const subTracks = tracks
-        .filter(t => t.codec === 'SubStationAlpha' || t.codec === 'SubRip' || t.codec === 'VobSub' || t.codec === 'WEBVTT' || t.type === 'ass') // Check type 'ass' too
-        .map(t => ({ number: t.number, language: t.language, name: t.name, codec: t.codec, header: t.header }));
+        .filter(t => t.type === 'WEBVTT' || t.type === 'ass') // Check type 'ass' too
+        .map(t => ({ number: t.number, language: t.language, type: t.type, header: t.header }));
 
     log(`Received ${subTracks.length} subtitle tracks for active file`);
     subTracks.forEach(t => {
-        log(`  Track ${t.number}: Codec=${t.codec}, Lang=${t.language}, Name=${t.name}, Header=${t.header ? '[Yes]' : '[No]'}`);
-        trackMap.set(t.number, t); // Store processed track info
+        log(`  Track ${t.number}: Lang=${t.language}, Type=${t.type}, Header=${t.header ? '[Yes]' : '[No]'}`);
+        trackMap.set(t.number, t.language, t.type, t.header); // Store processed track info
     });
     this.subtitleTracks = trackMap; // Replace the class member map
 

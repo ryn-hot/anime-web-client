@@ -1,6 +1,10 @@
 // subtitle.js
 
 import JASSUB from 'jassub';
+import workerUrl from 'jassub/dist/jassub-worker.js';
+import wasmUrl   from 'jassub/dist/jassub-worker.wasm';
+import robotoURL from "../frontend/assets/fonts/Roboto-Medium.ttf";
+
 import { toTS, subRx } from './util.js'; // Assuming util.js is in the same directory
 
 // Helper for logging
@@ -12,7 +16,7 @@ const log = (message, ...args) => {
 const getSetting = (key, defaultValue) => {
     // Replace with your actual settings logic
     const settings = {
-        font: { name: 'Roboto Medium', url: '/Roboto.ttf' }, // Example default font setting
+        font: { name: 'Roboto Medium', url: robotoURL}, // Example default font setting
         subtitleRenderHeight: '0', // Example: '720' for Android, '0' for desktop default
         subtitleLanguage: 'eng', // Example default language
         missingFont: true,
@@ -61,7 +65,7 @@ export default class SubtitleManager {
         this._stylesMap = []; // Maps style names to indices for ASS conversion { [styleName]: index }
 
         // Assuming a default font is served from the root, adjust as necessary
-        this.fonts = [getSetting('font', { url: '/Roboto.ttf' }).url];
+        this.fonts = [robotoURL];
 
         this.currentTrack = -1; // -1 means subtitles off
 
@@ -132,12 +136,12 @@ export default class SubtitleManager {
      */
     handleTracks = (tracksData) => {
         if (this.isDestroyed) return;
-        log(`Processing ${tracksData.length} tracks`);
+        console.log(`Processing ${tracksData.length} tracks`);
 
         let trackListChanged = false;
         for (const track of tracksData) {
-            // Process only subtitle tracks for now
-            if (track.type !== 'subtitle') continue; // Or handle audio tracks if needed
+            console.log(`track type: ${track.type}`);
+            console.log(track);
 
             const trackNumber = track.number;
             if (!this.tracks[trackNumber]) {
@@ -165,7 +169,7 @@ export default class SubtitleManager {
                     }
                 }
                 trackListChanged = true;
-                 log(`Added track ${trackNumber}: Lang=${this.headers[trackNumber].language}, Name=${this.headers[trackNumber].name}, Type=${this.headers[trackNumber].type}`);
+                console.log(`Added track ${trackNumber}: Lang=${this.headers[trackNumber].language}, Name=${this.headers[trackNumber].name}, Type=${this.headers[trackNumber].type}`);
             }
         }
 
@@ -242,15 +246,19 @@ export default class SubtitleManager {
 
     initRenderer() {
         if (!this.renderer && !this.isDestroyed && this.video) {
-             log("Initializing JASSUB renderer");
+             console.log("Initializing JASSUB renderer");
+             // console.log('workerUrl =', workerUrl);      // should print something like ".../dist/jassub-worker-XYZ.js"
+             // console.log('wasmUrl   =', wasmUrl);        // ditto for the wasm file
+             //fetch(wasmUrl).then(r => console.log('WASM response', r.status, r.url))
+             // .catch(err => console.error('WASM fetch failed', err));
             const options = {
                 video: this.video,
                 subContent: defaultHeader, // Initial header
                 fonts: this.fonts, // Array of font URLs/buffers
                 // IMPORTANT: Update these paths to where you serve JASSUB files
-                workerUrl: '/jassub/jassub-worker.js',
-                wasmUrl: '/jassub/jassub-worker.wasm',
-                legacyWasmUrl: '/jassub/jassub-worker.wasm.js', // Fallback
+                workerUrl,                 // ✅ bundler‑generated URL
+                wasmUrl,                   // ✅ bundler‑generated URL
+                legacyWasmUrl : wasmUrl + '.js',
                 // modernWasmUrl: '/jassub/jassub-worker-modern.wasm', // If using modern build
 
                 // Settings based placeholders
@@ -261,9 +269,6 @@ export default class SubtitleManager {
                 fallbackFont: getSetting('font', { name: 'Roboto Medium' }).name,
                 useLocalFonts: getSetting('missingFont', true), // Use system fonts if needed
                 dropAllBlur: getSetting('disableSubtitleBlur', false), // Performance optimization
-
-                // Example: Hardcode default font path (adjust as needed)
-                // availableFonts: { [defaultFontName]: getSetting('font', {url: '/Roboto.ttf'}).url },
             };
              try {
                 this.renderer = new JASSUB(options);

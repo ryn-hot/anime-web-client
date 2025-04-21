@@ -1234,10 +1234,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (!videoElem) {
                   throw new Error("Video element not found after ensuring its existence.");
                 }
-                
+
                 if (subtitleManager) {
                     subtitleManager.destroy(); // Clean up previous instance if any
                 }
+                
 
                 subtitleManager = new SubtitleManager(
                     videoElem,
