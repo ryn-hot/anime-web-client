@@ -73,6 +73,7 @@ export default class SubtitleManager {
 
         // --- Setup Listeners ---
         this.setupIPCListeners(); // Placeholder for WebSocket or other communication
+        this.pendingCues = {};  
     }
 
     /**
@@ -138,14 +139,14 @@ export default class SubtitleManager {
         if (this.isDestroyed) return;
         console.log(`Processing ${tracksData.length} tracks`);
 
-        let trackListChanged = false;
+        let trackListChanged = true;
         for (const track of tracksData) {
             console.log(`track type: ${track.type}`);
-            console.log(track);
-
+            //console.log(track);
+    
             const trackNumber = track.number;
             if (!this.tracks[trackNumber]) {
-                const isASS = track.codec === 'SubStationAlpha';
+                const isASS = track.type === 'ass';
                 const header = isASS ? (track.header || defaultHeader) : defaultHeader; // Use parsed header for ASS, default otherwise
 
                 this.tracks[trackNumber] = []; // Initialize cue array
@@ -153,10 +154,8 @@ export default class SubtitleManager {
                 this.headers[trackNumber] = { // Store header info
                     number: trackNumber,
                     language: track.language || 'und',
-                    name: track.name || `Track ${trackNumber}`,
                     header: header,
-                    type: isASS ? 'ass' : (track.codec || 'unknown').toLowerCase(), // Store original type
-                    codec: track.codec
+                    type: isASS ? 'ass' : (track.type || 'unknown').toLowerCase(), // Store original type
                 };
 
                 // Create style map for ASS conversion
@@ -169,7 +168,8 @@ export default class SubtitleManager {
                     }
                 }
                 trackListChanged = true;
-                console.log(`Added track ${trackNumber}: Lang=${this.headers[trackNumber].language}, Name=${this.headers[trackNumber].name}, Type=${this.headers[trackNumber].type}`);
+                console.log(`Added track ${trackNumber}: Lang=${this.headers[trackNumber].language}, Type=${this.headers[trackNumber].type}`);
+
             }
         }
 
@@ -192,6 +192,13 @@ export default class SubtitleManager {
                     if (trackToSelect) {
                          this.selectTrack(trackToSelect.number);
                     }
+
+                    if (this.pendingCues[trackToSelect.number]) {
+                        this.pendingCues[trackToSelect.number].forEach(cue =>
+                            this._addCue(trackToSelect.number, cue)
+                        );
+                        delete this.pendingCues[trackToSelect.number];
+                    }
                 }
             }
         }
@@ -202,7 +209,16 @@ export default class SubtitleManager {
      * @param {{trackNumber: number, subtitle: object}} data
      */
     handleSubtitleCue = ({ trackNumber, subtitle }) => {
-        if (this.isDestroyed || !this.tracks[trackNumber]) return;
+        /* if (trackNumber === 3) {
+            console.log(subtitle)
+        } */
+
+        if (this.isDestroyed) return;
+
+        if (!this.tracks[trackNumber]) {
+            (this.pendingCues[trackNumber] ??= []).push(subtitle);
+            return;
+        }
 
         const stringifiedCue = JSON.stringify(subtitle); // For duplicate check
         if (this._tracksString[trackNumber].has(stringifiedCue)) {
@@ -220,6 +236,20 @@ export default class SubtitleManager {
         }
     }
 
+    _addCue(trackNumber, subtitle) {
+        console.log(`Adding sub from pending cue. Track Number: ${trackNumber}, Subtitle: ${subtitle}`);
+        const isASS  = this.headers[trackNumber]?.type === 'ass';
+        const assCue = this.constructSub(
+            subtitle, !isASS,
+                this.tracks[trackNumber].length + 1,   // keep unique _index
+                trackNumber
+            );
+
+        this.tracks[trackNumber].push(assCue);
+        if (this.currentTrack === trackNumber && this.renderer) {
+            this.renderer.createEvent(assCue);
+        }
+    }
     /**
      * Processes font data received from the backend.
      * @param {Uint8Array | ArrayBuffer} fontData - The font file data.
@@ -304,7 +334,7 @@ export default class SubtitleManager {
              const trackCues = this.tracks[this.currentTrack] || [];
 
             // Format cues back into ASS Dialogue lines for setTrack
-             let assContent = header;
+            let assContent = header;
             for (const cue of trackCues) {
                 // Reuse formatting logic from addSingleSubtitleFile's cue parsing
                  const startStr = toTS(cue.Start, 1); // Use util function with centiseconds
@@ -332,7 +362,6 @@ export default class SubtitleManager {
                 label: header.name || `Track ${header.number}`,
                 language: header.language || 'und',
                 selected: header.number === this.currentTrack,
-                codec: header.codec
             }));
     }
 
@@ -537,7 +566,7 @@ export default class SubtitleManager {
             Text: text,
             ReadOrder: 1, // Default read ordere
             Layer: Number(subtitle.layer) || 0,
-            _index: subtitleIndex // JASSUB uses this internally sometimes
+            _index: subtitleIndex + 1 // JASSUB uses this internally sometimes
         };
     }
 }

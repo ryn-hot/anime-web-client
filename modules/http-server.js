@@ -341,15 +341,12 @@ export default class StreamServer {
     log(`Received ${subTracks.length} subtitle tracks for active file`);
     subTracks.forEach(t => {
         log(`  Track ${t.number}: Lang=${t.language}, Type=${t.type}, Header=${t.header ? '[Yes]' : '[No]'}`);
-        trackMap.set(t.number, t.language, t.type, t.header); // Store processed track info
+        trackMap.set(t, t.number); // Store processed track info
     });
     this.subtitleTracks = trackMap; // Replace the class member map
 
     // Send all processed subtitle tracks at once
-    this.sendToRenderer('subtitle-tracks', {
-         // No need to send fileIndex if renderer tracks the active file
-         tracks: Array.from(this.subtitleTracks.values()) // Send array of track objects
-    });
+    this.sendToRenderer('subtitle-tracks', { tracks: subTracks });
   }
 
   handleParsedSubtitle(subtitle, trackNumber) {

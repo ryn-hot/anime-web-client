@@ -1075,13 +1075,12 @@
       __publicField(this, "handleTracks", (tracksData) => {
         if (this.isDestroyed) return;
         console.log("Processing ".concat(tracksData.length, " tracks"));
-        let trackListChanged = false;
+        let trackListChanged = true;
         for (const track of tracksData) {
           console.log("track type: ".concat(track.type));
-          console.log(track);
           const trackNumber = track.number;
           if (!this.tracks[trackNumber]) {
-            const isASS = track.codec === "SubStationAlpha";
+            const isASS = track.type === "ass";
             const header = isASS ? track.header || defaultHeader : defaultHeader;
             this.tracks[trackNumber] = [];
             this._tracksString[trackNumber] = /* @__PURE__ */ new Set();
@@ -1089,11 +1088,9 @@
               // Store header info
               number: trackNumber,
               language: track.language || "und",
-              name: track.name || "Track ".concat(trackNumber),
               header,
-              type: isASS ? "ass" : (track.codec || "unknown").toLowerCase(),
+              type: isASS ? "ass" : (track.type || "unknown").toLowerCase()
               // Store original type
-              codec: track.codec
             };
             this._stylesMap[trackNumber] = { Default: 0 };
             const styleMatches = header.match(stylesRx);
@@ -1104,7 +1101,7 @@
               }
             }
             trackListChanged = true;
-            console.log("Added track ".concat(trackNumber, ": Lang=").concat(this.headers[trackNumber].language, ", Name=").concat(this.headers[trackNumber].name, ", Type=").concat(this.headers[trackNumber].type));
+            console.log("Added track ".concat(trackNumber, ": Lang=").concat(this.headers[trackNumber].language, ", Type=").concat(this.headers[trackNumber].type));
           }
         }
         if (trackListChanged) {
@@ -1124,6 +1121,12 @@
               if (trackToSelect) {
                 this.selectTrack(trackToSelect.number);
               }
+              if (this.pendingCues[trackToSelect.number]) {
+                this.pendingCues[trackToSelect.number].forEach(
+                  (cue) => this._addCue(trackToSelect.number, cue)
+                );
+                delete this.pendingCues[trackToSelect.number];
+              }
             }
           }
         }
@@ -1133,14 +1136,18 @@
        * @param {{trackNumber: number, subtitle: object}} data
        */
       __publicField(this, "handleSubtitleCue", ({ trackNumber, subtitle }) => {
-        var _a;
-        if (this.isDestroyed || !this.tracks[trackNumber]) return;
+        var _a, _b, _c;
+        if (this.isDestroyed) return;
+        if (!this.tracks[trackNumber]) {
+          ((_b = (_a = this.pendingCues)[trackNumber]) != null ? _b : _a[trackNumber] = []).push(subtitle);
+          return;
+        }
         const stringifiedCue = JSON.stringify(subtitle);
         if (this._tracksString[trackNumber].has(stringifiedCue)) {
           return;
         }
         this._tracksString[trackNumber].add(stringifiedCue);
-        const isASS = ((_a = this.headers[trackNumber]) == null ? void 0 : _a.type) === "ass";
+        const isASS = ((_c = this.headers[trackNumber]) == null ? void 0 : _c.type) === "ass";
         const assCue = this.constructSub(subtitle, !isASS, this.tracks[trackNumber].length, trackNumber);
         this.tracks[trackNumber].push(assCue);
         if (this.currentTrack === trackNumber && this.renderer) {
@@ -1177,6 +1184,7 @@
       this.currentTrack = -1;
       this.ipcCleanupFunctions = [];
       this.setupIPCListeners();
+      this.pendingCues = {};
     }
     /**
      * Placeholder: Replace with your actual WebSocket/SSE/etc. listener setup
@@ -1195,6 +1203,22 @@
         );
       } else {
         console.error("Error: window.electronIPC.receive is not available. Check preload script.");
+      }
+    }
+    _addCue(trackNumber, subtitle) {
+      var _a;
+      console.log("Adding sub from pending cue. Track Number: ".concat(trackNumber, ", Subtitle: ").concat(subtitle));
+      const isASS = ((_a = this.headers[trackNumber]) == null ? void 0 : _a.type) === "ass";
+      const assCue = this.constructSub(
+        subtitle,
+        !isASS,
+        this.tracks[trackNumber].length + 1,
+        // keep unique _index
+        trackNumber
+      );
+      this.tracks[trackNumber].push(assCue);
+      if (this.currentTrack === trackNumber && this.renderer) {
+        this.renderer.createEvent(assCue);
       }
     }
     /**
@@ -1279,8 +1303,7 @@
         number: header.number,
         label: header.name || "Track ".concat(header.number),
         language: header.language || "und",
-        selected: header.number === this.currentTrack,
-        codec: header.codec
+        selected: header.number === this.currentTrack
       }));
     }
     /**
@@ -1444,7 +1467,7 @@
         ReadOrder: 1,
         // Default read ordere
         Layer: Number(subtitle.layer) || 0,
-        _index: subtitleIndex
+        _index: subtitleIndex + 1
         // JASSUB uses this internally sometimes
       };
     }
