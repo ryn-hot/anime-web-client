@@ -1533,6 +1533,68 @@
         window.location.href = "search.html".concat(searchValue ? "?search=".concat(encodeURIComponent(searchValue)) : "");
       });
     }
+    await loadEpisodeStream(1);
+    async function ensureVideoElement() {
+      let videoElem = document.getElementById("video-player");
+      if (!videoElem) {
+        videoElem = document.createElement("video");
+        videoElem.id = "video-player";
+        videoElem.className = "video-player";
+        videoElem.controls = true;
+        document.querySelector(".video-container").appendChild(videoElem);
+      }
+    }
+    async function loadEpisodeStream(episodeNumber) {
+      var _a, _b;
+      try {
+        await ensureVideoElement();
+        const videoElem = document.getElementById("video-player");
+        if (!videoElem) {
+          throw new Error("Video element not found after ensuring its existence.");
+        }
+        if (subtitleManager) {
+          subtitleManager.destroy();
+        }
+        subtitleManager = new SubtitleManager(
+          videoElem,
+          handleTrackListUpdate
+          // Pass the UI update function
+        );
+        const urlParams = new URLSearchParams(window.location.search);
+        const animeId = urlParams.get("id");
+        if (!animeId) {
+          throw new Error("Missing anime ID in URL");
+        }
+        const audioType = ((_b = (_a = document.querySelector(".source-button.active")) == null ? void 0 : _a.dataset) == null ? void 0 : _b.type) || "sub";
+        const streamUrl = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
+        console.log("Stream URL received:", streamUrl);
+        const player = new VideoPlayer("video-player");
+        player.setSource(streamUrl, "video/x-matroska");
+        player.play();
+      } catch (error) {
+        console.error("Error while loading episode stream:", error);
+      }
+    }
+    function handleTrackListUpdate(tracks) {
+      console.log("Subtitle tracks available for UI:", tracks);
+      const selectEl = document.getElementById("subtitle-select");
+      if (!selectEl) return;
+      selectEl.innerHTML = '<option value="-1">Subtitles Off</option>';
+      tracks.forEach((track) => {
+        const option = document.createElement("option");
+        option.value = track.number;
+        const langPart = track.language && track.language !== "und" ? " (".concat(track.language, ")") : "";
+        option.textContent = '<span class="math-inline">{track.label}</span>{langPart}';
+        option.selected = track.selected;
+        selectEl.appendChild(option);
+      });
+      selectEl.onchange = (event) => {
+        const selectedTrackNumber = parseInt(event.target.value, 10);
+        if (subtitleManager) {
+          subtitleManager.selectTrack(selectedTrackNumber);
+        }
+      };
+    }
     function toggleSidebar() {
       if (sidebar.classList.contains("expanded")) {
         sidebar.classList.remove("expanded");
@@ -1576,7 +1638,6 @@
       }
       updateEpisodeInfo(1);
       createVideoInfoSection();
-      createVideoControlBar();
       createRelatedSeriesSection();
       createEpisodesPanel();
       document.querySelectorAll(".skeleton-loading").forEach((el) => {
@@ -1652,14 +1713,6 @@
       }
     }
     function showSkeletonUI() {
-      const videoContainer = document.querySelector(".video-container");
-      if (videoContainer) {
-        videoContainer.innerHTML = '\n                <div class="video-placeholder skeleton-loading">\n                    <div class="skeleton-player"></div>\n                </div>\n            ';
-      }
-      const videoInfo = document.querySelector(".video-info");
-      if (videoInfo) {
-        videoInfo.innerHTML = '\n                <div class="episode-info skeleton-loading">\n                    <div class="title-container">\n                        <div class="skeleton-text-large"></div>\n                        <div class="skeleton-text-small"></div>\n                    </div>\n                </div>\n                <div class="audio-options skeleton-loading">\n                    <div class="skeleton-button"></div>\n                    <div class="skeleton-button"></div>\n                </div>\n            ';
-      }
       const episodesPanel = document.querySelector(".episodes-panel");
       if (episodesPanel) {
         const episodesGrid = episodesPanel.querySelector(".episodes-grid");
@@ -2056,67 +2109,6 @@
           grid.appendChild(episodeButton);
         }
         return grid;
-      }
-      function handleTrackListUpdate(tracks) {
-        console.log("Subtitle tracks available for UI:", tracks);
-        const selectEl = document.getElementById("subtitle-select");
-        if (!selectEl) return;
-        selectEl.innerHTML = '<option value="-1">Subtitles Off</option>';
-        tracks.forEach((track) => {
-          const option = document.createElement("option");
-          option.value = track.number;
-          const langPart = track.language && track.language !== "und" ? " (".concat(track.language, ")") : "";
-          option.textContent = '<span class="math-inline">{track.label}</span>{langPart}';
-          option.selected = track.selected;
-          selectEl.appendChild(option);
-        });
-        selectEl.onchange = (event) => {
-          const selectedTrackNumber = parseInt(event.target.value, 10);
-          if (subtitleManager) {
-            subtitleManager.selectTrack(selectedTrackNumber);
-          }
-        };
-      }
-      async function ensureVideoElement() {
-        let videoElem = document.getElementById("video-player");
-        if (!videoElem) {
-          videoElem = document.createElement("video");
-          videoElem.id = "video-player";
-          videoElem.className = "video-player";
-          videoElem.controls = true;
-          document.querySelector(".video-container").appendChild(videoElem);
-        }
-      }
-      async function loadEpisodeStream(episodeNumber) {
-        var _a, _b;
-        try {
-          await ensureVideoElement();
-          const videoElem = document.getElementById("video-player");
-          if (!videoElem) {
-            throw new Error("Video element not found after ensuring its existence.");
-          }
-          if (subtitleManager) {
-            subtitleManager.destroy();
-          }
-          subtitleManager = new SubtitleManager(
-            videoElem,
-            handleTrackListUpdate
-            // Pass the UI update function
-          );
-          const urlParams = new URLSearchParams(window.location.search);
-          const animeId = urlParams.get("id");
-          if (!animeId) {
-            throw new Error("Missing anime ID in URL");
-          }
-          const audioType = ((_b = (_a = document.querySelector(".source-button.active")) == null ? void 0 : _a.dataset) == null ? void 0 : _b.type) || "sub";
-          const streamUrl = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
-          console.log("Stream URL received:", streamUrl);
-          const player = new VideoPlayer("video-player");
-          player.setSource(streamUrl, "video/x-matroska");
-          player.play();
-        } catch (error) {
-          console.error("Error while loading episode stream:", error);
-        }
       }
       function generateEpisodeCards() {
         const grid = document.createElement("div");

@@ -84,6 +84,109 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     
+    await loadEpisodeStream(1)
+
+    async function ensureVideoElement() {
+        let videoElem = document.getElementById('video-player');
+        if (!videoElem) {
+          videoElem = document.createElement('video');
+          videoElem.id = 'video-player';
+          videoElem.className = 'video-player';
+          videoElem.controls = true;
+          document.querySelector('.video-container').appendChild(videoElem);
+        }
+      }
+      
+
+    async function loadEpisodeStream(episodeNumber) {
+        try {
+
+            await ensureVideoElement()
+            // Use your IPC 'dynamic-finder' (or another method) to get the stream URL.
+            // The dynamic-finder should return the URL such as "http://localhost:<port>/stream/0"
+
+            const videoElem = document.getElementById('video-player');
+            if (!videoElem) {
+              throw new Error("Video element not found after ensuring its existence.");
+            }
+
+            if (subtitleManager) {
+                subtitleManager.destroy(); // Clean up previous instance if any
+            }
+            
+
+            subtitleManager = new SubtitleManager(
+                videoElem,
+                handleTrackListUpdate, // Pass the UI update function
+            );
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const animeId = urlParams.get('id');
+            if (!animeId) {
+                throw new Error("Missing anime ID in URL");
+            }
+            
+            // Get current audio type (sub or dub)
+            const audioType = document.querySelector('.source-button.active')?.dataset?.type || 'sub';
+
+            const streamUrl = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
+            console.log('Stream URL received:', streamUrl);
+            
+
+
+            // Instantiate your video player on the video element (assume id "video-player")
+            const player = new VideoPlayer('video-player');
+            
+            // Set the video source; update the MIME type if necessary (e.g., 'video/webm' or 'video/mp4')
+            // You can determine the mime type from the file extension or metadata if you like.
+            player.setSource(streamUrl, 'video/x-matroska');
+            
+            // Optionally, if you have subtitle data parsed from your torrent,
+            // build an array of subtitle objects with properties like label, lang, and url.
+            // For example:
+
+            // const subtitles = [
+            //   { label: "English", lang: "en", url: `http://localhost:<port>/subtitle/0` },
+            //   { label: "Japanese", lang: "ja", url: `http://localhost:<port>/subtitle/1` },
+            // ];
+            // player.addSubtitles(subtitles);  // This uses the addSubtitles method from VideoPlayer.
+            
+            // Finally, begin playback.
+            player.play();
+
+        } catch (error) {
+            console.error('Error while loading episode stream:', error);
+        }
+    }
+
+    function handleTrackListUpdate(tracks) {
+        console.log("Subtitle tracks available for UI:", tracks);
+        const selectEl = document.getElementById('subtitle-select'); // Assuming you have <select id="subtitle-select">
+        if (!selectEl) return;
+    
+        // Clear previous options
+        selectEl.innerHTML = '<option value="-1">Subtitles Off</option>'; // Off option
+    
+        // Add new options
+        tracks.forEach(track => {
+            const option = document.createElement('option');
+            option.value = track.number;
+            // Add language code if available, otherwise just label
+            const langPart = track.language && track.language !== 'und' ? ` (${track.language})` : '';
+            option.textContent = `<span class="math-inline">\{track\.label\}</span>{langPart}`;
+            option.selected = track.selected; // Reflect current selection
+            selectEl.appendChild(option);
+        });
+    
+        // Ensure the event listener is only added once or is updated correctly
+        selectEl.onchange = (event) => {
+            const selectedTrackNumber = parseInt(event.target.value, 10);
+            if (subtitleManager) {
+                subtitleManager.selectTrack(selectedTrackNumber);
+            }
+        };
+    }
+
 
     // Toggle sidebar expand/collapse
     function toggleSidebar() {
@@ -145,7 +248,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Create UI sections with complete data
         createVideoInfoSection();
-        createVideoControlBar();
+        // createVideoControlBar();
         createRelatedSeriesSection();
         createEpisodesPanel();
         
@@ -245,7 +348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function showSkeletonUI() {
         // Create skeleton for video player
-        const videoContainer = document.querySelector('.video-container');
+        /* const videoContainer = document.querySelector('.video-container');
         if (videoContainer) {
             videoContainer.innerHTML = `
                 <div class="video-placeholder skeleton-loading">
@@ -269,7 +372,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="skeleton-button"></div>
                 </div>
             `;
-        }
+        } */
         
         // Create skeleton for episodes panel
         const episodesPanel = document.querySelector('.episodes-panel');
@@ -1182,107 +1285,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
 
-        function handleTrackListUpdate(tracks) {
-            console.log("Subtitle tracks available for UI:", tracks);
-            const selectEl = document.getElementById('subtitle-select'); // Assuming you have <select id="subtitle-select">
-            if (!selectEl) return;
-        
-            // Clear previous options
-            selectEl.innerHTML = '<option value="-1">Subtitles Off</option>'; // Off option
-        
-            // Add new options
-            tracks.forEach(track => {
-                const option = document.createElement('option');
-                option.value = track.number;
-                // Add language code if available, otherwise just label
-                const langPart = track.language && track.language !== 'und' ? ` (${track.language})` : '';
-                option.textContent = `<span class="math-inline">\{track\.label\}</span>{langPart}`;
-                option.selected = track.selected; // Reflect current selection
-                selectEl.appendChild(option);
-            });
-        
-            // Ensure the event listener is only added once or is updated correctly
-            selectEl.onchange = (event) => {
-                const selectedTrackNumber = parseInt(event.target.value, 10);
-                if (subtitleManager) {
-                    subtitleManager.selectTrack(selectedTrackNumber);
-                }
-            };
-        }
+       
 
-
-        async function ensureVideoElement() {
-            let videoElem = document.getElementById('video-player');
-            if (!videoElem) {
-              videoElem = document.createElement('video');
-              videoElem.id = 'video-player';
-              videoElem.className = 'video-player';
-              videoElem.controls = true;
-              document.querySelector('.video-container').appendChild(videoElem);
-            }
-          }
-          
-
-        async function loadEpisodeStream(episodeNumber) {
-            try {
-
-                await ensureVideoElement()
-                // Use your IPC 'dynamic-finder' (or another method) to get the stream URL.
-                // The dynamic-finder should return the URL such as "http://localhost:<port>/stream/0"
-
-                const videoElem = document.getElementById('video-player');
-                if (!videoElem) {
-                  throw new Error("Video element not found after ensuring its existence.");
-                }
-
-                if (subtitleManager) {
-                    subtitleManager.destroy(); // Clean up previous instance if any
-                }
-                
-
-                subtitleManager = new SubtitleManager(
-                    videoElem,
-                    handleTrackListUpdate, // Pass the UI update function
-                );
-
-                const urlParams = new URLSearchParams(window.location.search);
-                const animeId = urlParams.get('id');
-                if (!animeId) {
-                    throw new Error("Missing anime ID in URL");
-                }
-                
-                // Get current audio type (sub or dub)
-                const audioType = document.querySelector('.source-button.active')?.dataset?.type || 'sub';
-
-                const streamUrl = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
-                console.log('Stream URL received:', streamUrl);
-                
-
-
-                // Instantiate your video player on the video element (assume id "video-player")
-                const player = new VideoPlayer('video-player');
-                
-                // Set the video source; update the MIME type if necessary (e.g., 'video/webm' or 'video/mp4')
-                // You can determine the mime type from the file extension or metadata if you like.
-                player.setSource(streamUrl, 'video/x-matroska');
-                
-                // Optionally, if you have subtitle data parsed from your torrent,
-                // build an array of subtitle objects with properties like label, lang, and url.
-                // For example:
-
-                // const subtitles = [
-                //   { label: "English", lang: "en", url: `http://localhost:<port>/subtitle/0` },
-                //   { label: "Japanese", lang: "ja", url: `http://localhost:<port>/subtitle/1` },
-                // ];
-                // player.addSubtitles(subtitles);  // This uses the addSubtitles method from VideoPlayer.
-                
-                // Finally, begin playback.
-                player.play();
-
-            } catch (error) {
-                console.error('Error while loading episode stream:', error);
-            }
-        }
             
 
   
