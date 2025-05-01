@@ -23,6 +23,7 @@ export default class StreamServer {
   activeParserEventHandler = null;
   // --- End Current State ---
 
+  // audioTracks = [];
   // Store subtitle/font info for the active file
   subtitleTracks = new Map(); // Using Map keyed by trackNumber might be better later
   subtitleCues = new Map();   // Key: trackNumber, Value: array of cues
@@ -346,7 +347,8 @@ export default class StreamServer {
     this.subtitleTracks = trackMap; // Replace the class member map
 
     // Send all processed subtitle tracks at once
-    this.sendToRenderer('subtitle-tracks', { tracks: subTracks });
+    this.sendToRenderer('subtitle-tracks', { tracks: subTracks });  
+
   }
 
   handleParsedSubtitle(subtitle, trackNumber) {
