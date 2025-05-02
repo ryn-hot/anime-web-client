@@ -1,6 +1,6 @@
 // simple-parser.js
 import { EventEmitter } from 'events';
-import Metadata from 'matroska-metadata';
+import Metadata from './matroska-metadata-fork/src/index.js'
 import Debug from 'debug';
 import { hex2bin, arr2hex } from 'uint8-util';
 import { SUPPORTS } from './support.js';

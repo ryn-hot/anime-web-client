@@ -5,6 +5,8 @@ import Parser from './parser.js';
 import debug from "debug";
 import { videoRx } from './util.js';
 import { EventEmitter } from 'events';
+import { spawn } from 'node:child_process';
+
 
 const log = debug('http-server');
 
@@ -23,7 +25,7 @@ export default class StreamServer {
   activeParserEventHandler = null;
   // --- End Current State ---
 
-  // audioTracks = [];
+  audioTracks = [];
   // Store subtitle/font info for the active file
   subtitleTracks = new Map(); // Using Map keyed by trackNumber might be better later
   subtitleCues = new Map();   // Key: trackNumber, Value: array of cues
@@ -213,6 +215,44 @@ export default class StreamServer {
 
     const file = this.activeFile; // Use the stored active file
 
+    // decide which pipeline to use
+    if (this.audioPlan && (this.audioPlan.needsTranscode || this.audioPlan.trackNumber !== 0)) {
+      log(`Selecting audio track for playback: ${this.audioPlan}`)
+      // disable Range for this response (simplest first step)
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'video/x-matroska');
+
+      // choose cmd: copy-only vs copy+AAC
+      const ffArgs = this.audioPlan.needsTranscode
+        ? ['-v','error','-i','pipe:0',
+          '-map','0:v:0',
+          '-map',`0:a:${this.audioPlan.trackNumber}`,
+          '-c:v','copy',
+          '-c:a','aac','-b:a','192k',
+          '-f','matroska','pipe:1']
+        : ['-v','error','-i','pipe:0',
+          '-map','0:v:0',
+          '-map',`0:a:${this.audioPlan.trackNumber}`,
+          '-c','copy',
+          '-f','matroska','pipe:1'];
+
+      const ff = spawn('ffmpeg', ffArgs);
+
+      // forward errors to log
+      ff.stderr.on('data', d => log(`[ffmpeg] ${d}`));
+      ff.on('close', code => log(`ffmpeg exited with ${code}`));
+
+      // wire torrent stream -> ffmpeg -> response
+      const src = file.createReadStream();    // full file
+      src.pipe(ff.stdin);
+      ff.stdout.pipe(res);
+
+      // clean-up when client hangs up
+      res.on('close', () => { src.destroy(); ff.kill('SIGKILL'); });
+
+      return;              // <-- stop regular range branch
+    }
+
     // --- Range request logic remains the same ---
     const range = req.headers.range;
     let streamOptions = {};
@@ -327,6 +367,25 @@ export default class StreamServer {
     }
   }
 
+  selectAudioTrack(tracks, wantDub /* 'dub' | 'sub' */) {
+    // 1. prefer language
+    const preferred = tracks.filter(t =>
+        wantDub === 'dub'
+          ? /^en|eng|english/i.test(t.language)
+          : /^ja|jp|jpn/i.test(t.language));
+  
+    // 2. fall back to first audio stream
+    const chosen = preferred[0] || tracks[0];
+  
+    // 3. is the codec browser-friendly?
+    const playable = new Set(['A_AAC', 'A_OPUS', 'A_VORBIS']);
+    return {
+      trackNumber    : chosen.number,
+      codec          : chosen.codec,
+      needsTranscode : !playable.has(chosen.codec)
+    };
+  }
+
   // --- Handlers now use the class member maps/variables directly ---
 
   handleParsedTracks(tracks) {
@@ -347,7 +406,11 @@ export default class StreamServer {
     this.subtitleTracks = trackMap; // Replace the class member map
 
     // Send all processed subtitle tracks at once
-    this.sendToRenderer('subtitle-tracks', { tracks: subTracks });  
+    this.sendToRenderer('subtitle-tracks', { tracks: subTracks }); 
+
+    this.audioTracks = tracks.filter(t => t.type === 'audio');
+
+    this.audioPlan = selectAudioTracks(this.audioTracks, wantDub)
 
   }
 

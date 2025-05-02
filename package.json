@@ -19,6 +19,7 @@
     "chalk": "^5.3.0",
     "cheerio": "^1.0.0",
     "debug": "^4.4.0",
+    "ebml-iterator": "^1.0.5",
     "events": "^3.3.0",
     "fast-levenshtein": "^3.0.0",
     "ffmpeg-static": "^5.2.0",
