@@ -22,7 +22,7 @@ ipcMain.handle('dynamic-finder', async (event, alID, episodeNum, audio) => {
         if (streamServer) {
           console.log("IPC: Triggering server to load torrent...");
           // Now call the server to load the torrent
-          const streamUrl = await streamServer.loadTorrentAndServe(result.magnetLink, result.fileIndex);
+          const streamUrl = await streamServer.loadTorrentAndServe(result.magnetLink, result.fileIndex, audio);
           console.log("IPC: Server started loading, stream URL:", streamUrl);
           // You might return the streamUrl if the frontend needs it immediately
           // return { streamUrl: streamUrl }; // Or combine with original result if needed

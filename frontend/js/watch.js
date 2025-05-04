@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const streamUrl = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
             console.log('Stream URL received:', streamUrl);
-            
+            console.log('Audio Type, ', audioType);
 
 
             // Instantiate your video player on the video element (assume id "video-player")

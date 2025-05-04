@@ -42,8 +42,16 @@ export default class StreamServer {
      this.subtitleTracks.clear();
      this.subtitleCues.clear();
      this.fonts.clear();
+     this._clearAudioState();
      log('Cleared previous subtitle tracks, cues, and fonts.');
   }
+
+  _clearAudioState() {
+    this.audioTracks = [];
+    this.defaultAudioNumber = null;
+    this.audioPlan = null;
+  }
+  
 
   // --- Cleanup function for the active parser and its stream ---
   cleanupParser() {
@@ -92,15 +100,15 @@ export default class StreamServer {
     });
   }
 
-  loadTorrentAndServe(magnetURI, fileIndex) {
+  loadTorrentAndServe(magnetURI, fileIndex, audio = 'sub') {
     return new Promise((resolve, reject) => {
       log(`Attempting to load torrent: ${magnetURI}, fileIndex: ${fileIndex}`);
-
+      this.audioPreference = audio;
       // --- Cleanup previous torrent, parser, and stream ---
       if (this.activeTorrent && !this.activeTorrent.destroyed) {
           log(`Destroying previous torrent: ${this.activeTorrent.infoHash}`);
           this.cleanupParser(); // Destroy parser and its stream first
-          this.activeTorrent.destroy((err) => {
+          this.activeTorrent.destroy((err) => { 
               if (err) log(`Error destroying previous torrent: ${err.message}`);
               this.activeTorrent = null;
               this._addAndPrepareTorrent(magnetURI, fileIndex, resolve, reject);
@@ -158,6 +166,8 @@ export default class StreamServer {
     });
   }
 
+
+
   // --- No need for setTorrent, addFile methods if only handling one active ---
 
   getStreamUrl(fileIndex) {
@@ -214,25 +224,47 @@ export default class StreamServer {
     }
 
     const file = this.activeFile; // Use the stored active file
+    log(`Handle Stream Request Called`);
+
+    this._waitForAudioPlan().then(waited => {
+      if (!waited) {
+        log('Preparing stream, please retry')
+        res.writeHead(503, { 'Retry-After': '2' });
+        return res.end('Preparing stream, please retry');
+      }
+    });
+   
+
+    log(`Preferred Language: `, this.audioPlan);
+    const needRemux =
+      this.audioPlan &&                       
+      !this.audioPlan.needsTranscode &&       
+      this.audioPlan.trackNumber !== this.defaultAudioNumber;  
 
     // decide which pipeline to use
-    if (this.audioPlan && (this.audioPlan.needsTranscode || this.audioPlan.trackNumber !== 0)) {
-      log(`Selecting audio track for playback: ${this.audioPlan}`)
+    if (this.audioPlan && (this.audioPlan.needsTranscode || needRemux)) {
+      log(`Selecting audio track for playback: `, this.audioPlan)
       // disable Range for this response (simplest first step)
       res.statusCode = 200;
       res.setHeader('Content-Type', 'video/x-matroska');
 
       // choose cmd: copy-only vs copy+AAC
+
+      const idx = this.audioPlan.streamIndex;
+
+      log(`trackNum: `, idx);
+      log(`type of trackNum: `, typeof(idx));
+
       const ffArgs = this.audioPlan.needsTranscode
         ? ['-v','error','-i','pipe:0',
           '-map','0:v:0',
-          '-map',`0:a:${this.audioPlan.trackNumber}`,
+         '-map',`0:a:${idx}`, 
           '-c:v','copy',
           '-c:a','aac','-b:a','192k',
           '-f','matroska','pipe:1']
         : ['-v','error','-i','pipe:0',
           '-map','0:v:0',
-          '-map',`0:a:${this.audioPlan.trackNumber}`,
+          '-map',`0:a:${idx}`, 
           '-c','copy',
           '-f','matroska','pipe:1'];
 
@@ -301,6 +333,17 @@ export default class StreamServer {
     responseStream.pipe(res);
   }
 
+  async _waitForAudioPlan(timeoutMs = 4000) {
+    if (this.audioPlan) return true;
+    return new Promise(resolve => {
+      const t = setTimeout(() => resolve(false), timeoutMs);
+      this.once('audio-plan-ready', () => {
+        clearTimeout(t);
+        resolve(true);
+      });
+    });
+  }
+
   // --- Setup Parser and Immediately Start Parsing ---
   // --- Setup Parser using standard EventEmitter ---
   initiateParsingSetup(fileIndex, file) {
@@ -367,22 +410,36 @@ export default class StreamServer {
     }
   }
 
-  selectAudioTrack(tracks, wantDub /* 'dub' | 'sub' */) {
+  selectAudioTrack(tracks, wantDub) {
     // 1. prefer language
-    const preferred = tracks.filter(t =>
-        wantDub === 'dub'
-          ? /^en|eng|english/i.test(t.language)
-          : /^ja|jp|jpn/i.test(t.language));
+    log(`Select Audio Track Called`);
+    log(`Audio Tracks: `, tracks);
+    log(`Audio: `, wantDub);
   
-    // 2. fall back to first audio stream
-    const chosen = preferred[0] || tracks[0];
-  
-    // 3. is the codec browser-friendly?
+    // 3. is the codec browser-friendly?  
     const playable = new Set(['A_AAC', 'A_OPUS', 'A_VORBIS']);
+
+    const matcher = wantDub === 'dub'
+      ? t => /^en|eng|english$/i.test(t.language || '')         
+          || /english/i.test(t.name || '')                      
+      : t => /^ja|jp|jpn/i.test(t.language || '')
+          || /japanese/i.test(t.name || '');
+
+    let chosen = tracks.find(matcher);
+
+    if (!chosen) chosen = tracks[0];
+
+    log(`Chosen: `, chosen);
+
+
+    const needsTrans = !playable.has(chosen.codec);
+    const idx = this.audioTracks.findIndex(t => t.number === chosen.number);
+    
     return {
-      trackNumber    : chosen.number,
-      codec          : chosen.codec,
-      needsTranscode : !playable.has(chosen.codec)
+      trackNumber   : chosen.number,
+      streamIndex   : idx,
+      codec         : chosen.codec,
+      needsTranscode: needsTrans
     };
   }
 
@@ -393,24 +450,31 @@ export default class StreamServer {
     this.subtitleTracks.clear();
     const trackMap = new Map(); // Temp map for processing
 
+    log(`HandleParsedTracks `)
 
     const subTracks = tracks
-        .filter(t => t.type === 'WEBVTT' || t.type === 'ass') // Check type 'ass' too
+        .filter(t => t.type.toLowerCase() === 'webvtt' || t.type === 'ass') // Check type 'ass' too
         .map(t => ({ number: t.number, language: t.language, type: t.type, header: t.header }));
 
     log(`Received ${subTracks.length} subtitle tracks for active file`);
     subTracks.forEach(t => {
         log(`  Track ${t.number}: Lang=${t.language}, Type=${t.type}, Header=${t.header ? '[Yes]' : '[No]'}`);
-        trackMap.set(t, t.number); // Store processed track info
+        trackMap.set(t.number, t); // Store processed track info
     });
     this.subtitleTracks = trackMap; // Replace the class member map
+
+    this.audioTracks = tracks.filter(t => t.type === 'audio').sort((a, b) => a.number - b.number);
+    this.audioPlan = this.selectAudioTrack(this.audioTracks, this.audioPreference);
+    this.defaultAudioNumber = this.audioTracks.length
+      ? this.audioTracks[0].number    
+      : null;
+    
+    this.emit('audio-plan-ready');
 
     // Send all processed subtitle tracks at once
     this.sendToRenderer('subtitle-tracks', { tracks: subTracks }); 
 
-    this.audioTracks = tracks.filter(t => t.type === 'audio');
-
-    this.audioPlan = selectAudioTracks(this.audioTracks, wantDub)
+    
 
   }
 

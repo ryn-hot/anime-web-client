@@ -1568,6 +1568,7 @@
         const audioType = ((_b = (_a = document.querySelector(".source-button.active")) == null ? void 0 : _a.dataset) == null ? void 0 : _b.type) || "sub";
         const streamUrl = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
         console.log("Stream URL received:", streamUrl);
+        console.log("Audio Type, ", audioType);
         const player = new VideoPlayer("video-player");
         player.setSource(streamUrl, "video/x-matroska");
         player.play();
