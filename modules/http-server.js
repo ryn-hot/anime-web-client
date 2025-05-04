@@ -8,9 +8,10 @@ import { EventEmitter } from 'events';
 import { spawn } from 'node:child_process';
 
 
+
 const log = debug('http-server');
 
-export default class StreamServer {
+export default class StreamServer extends EventEmitter{
   mainWindow = null;
   port = 0;
   server = null;
@@ -32,6 +33,7 @@ export default class StreamServer {
   fonts = new Map();        // Key: fontId, Value: fontBuffer
 
   constructor(port = 0) {
+    super();
     this.port = port;
     this.client = getGlobalClient();
     // Initialize maps for safety, although they'll be cleared on new torrent load
@@ -211,7 +213,7 @@ export default class StreamServer {
     }
   }
 
-  handleStreamRequest(req, res, pathname) {
+  async handleStreamRequest(req, res, pathname) {
     const requestedIndexStr = pathname.split('/')[2];
     const requestedIndex = parseInt(requestedIndexStr, 10);
 
@@ -226,13 +228,11 @@ export default class StreamServer {
     const file = this.activeFile; // Use the stored active file
     log(`Handle Stream Request Called`);
 
-    this._waitForAudioPlan().then(waited => {
-      if (!waited) {
-        log('Preparing stream, please retry')
-        res.writeHead(503, { 'Retry-After': '2' });
-        return res.end('Preparing stream, please retry');
-      }
-    });
+    if (!(await this._waitForAudioPlan())) {
+      log('Preparing stream, please retry');
+      res.writeHead(503, { 'Retry-After': '2' });
+      return res.end('Preparing stream, please retry');
+    }
    
 
     log(`Preferred Language: `, this.audioPlan);
