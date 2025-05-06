@@ -3,6 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dynamicFinder } from './backend/dynamic_fetch.js';
 import StreamServer from './modules/http-server.js';
+import { remuxCache } from './modules/http-server.js';
+import fs from 'fs';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -102,6 +104,11 @@ function cleanupResources() {
         streamServer.close();
         streamServer = null;
         console.log("StreamServer closed.");
+    }
+
+    for (const p of remuxCache) {
+      try { fs.unlinkSync(p); }
+      catch (e) { console.warn('Temp‑cleanup failed:', e.message); }
     }
 }
 

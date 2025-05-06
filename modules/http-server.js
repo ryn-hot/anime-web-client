@@ -6,10 +6,92 @@ import debug from "debug";
 import { videoRx } from './util.js';
 import { EventEmitter } from 'events';
 import { spawn } from 'node:child_process';
-
-
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 const log = debug('http-server');
+
+export const remuxCache = new Map();          // key = infoHash:fileIndex  → Promise<string>
+
+async function ensureRemux(file, audioPlan, infoHash) {
+  const key = `${infoHash}:${file.index}`;
+  if (remuxCache.has(key)) return remuxCache.get(key);   // already running / done
+
+  const tmpPath = path.join(
+    os.tmpdir(),
+    `${infoHash}_${file.index}_remux.mkv`
+  );
+
+  // If temp file survived a crash & is complete, reuse it.
+  if (fs.existsSync(tmpPath) && fs.statSync(tmpPath).size > 0) {
+    remuxCache.set(key, Promise.resolve(tmpPath));
+    return tmpPath;
+  }
+
+  const p = new Promise((resolve, reject) => {
+    console.log('[remux] starting →', tmpPath);
+
+    const ff = spawn('ffmpeg', [
+      '-v', 'error',
+      '-i', 'pipe:0',
+      '-map', '0:v:0',                       // the video track
+      '-map', `0:a:${audioPlan.streamIndex}`,// chosen audio track
+      '-c', 'copy',                          // NO re‑encode
+      '-f', 'matroska',
+      tmpPath
+    ]);
+
+    file.createReadStream().pipe(ff.stdin);
+
+    ff.on('close', code => {
+      if (code === 0) {
+        console.log('[remux] done');
+        resolve(tmpPath);
+      } else {
+        fs.rmSync(tmpPath, { force: true });
+        reject(new Error(`ffmpeg exited ${code}`));
+      }
+    });
+    ff.on('error', reject);
+  });
+
+  remuxCache.set(key, p);
+  return p;
+}
+
+function serveWithRanges(req, res, createStream, filePath, totalSize) {
+  const range = req.headers.range;
+  let start = 0;
+  let end   = totalSize - 1;
+
+  if (range) {
+    const [s, e] = range.replace(/bytes=/, '').split('-');
+    start = parseInt(s, 10);
+    if (e) end = parseInt(e, 10);
+    if (start > end || start >= totalSize) {
+      res.writeHead(416, { 'Content-Range': `bytes */${totalSize}` });
+      return res.end();
+    }
+    res.writeHead(206, {
+      'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+      'Content-Length': end - start + 1,
+      'Accept-Ranges': 'bytes'
+    });
+  } else {
+    res.writeHead(200, {
+      'Content-Length': totalSize,
+      'Accept-Ranges': 'bytes'
+    });
+  }
+
+  createStream(filePath, { start, end })
+    .on('error', err => {
+      console.error('[stream]', err);
+      if (!res.writableEnded) res.destroy(err);
+    })
+    .pipe(res);
+}
 
 export default class StreamServer extends EventEmitter{
   mainWindow = null;
@@ -242,7 +324,20 @@ export default class StreamServer extends EventEmitter{
       this.audioPlan.trackNumber !== this.defaultAudioNumber;  
 
     // decide which pipeline to use
-    if (this.audioPlan && (this.audioPlan.needsTranscode || needRemux)) {
+    if (needRemux) {
+      const tmpPath = await ensureRemux(
+        file,
+        this.audioPlan,
+        this.activeTorrent.infoHash,
+        this.activeFileIndex              // ← NEW: fileIndex
+      );
+    
+      const stat = fs.statSync(tmpPath);
+      res.setHeader('Content-Type', 'video/x-matroska');
+      return serveWithRanges(req, res, fs.createReadStream, tmpPath, stat.size);
+    }
+    
+    /* if (this.audioPlan && (this.audioPlan.needsTranscode || needRemux)) {
       log(`Selecting audio track for playback: `, this.audioPlan)
       // disable Range for this response (simplest first step)
       res.statusCode = 200;
@@ -284,6 +379,8 @@ export default class StreamServer extends EventEmitter{
 
       return;              // <-- stop regular range branch
     }
+
+    */
 
     // --- Range request logic remains the same ---
     const range = req.headers.range;
