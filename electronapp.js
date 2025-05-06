@@ -96,21 +96,36 @@ async function createWindow() {
   });
 }
 
+const { rm } = fs.promises;          // ← promise version
+
+let cleanupRan = false;              // guard so we don’t run twice
 
 
-function cleanupResources() {
+async function cleanupResources() {
+  if (cleanupRan) return;
+  cleanupRan = true;
+
   console.log("Cleaning up resources...");
-    if (streamServer) {
-        streamServer.close();
-        streamServer = null;
-        console.log("StreamServer closed.");
-    }
+  if (streamServer) {
+      streamServer.close();
+      streamServer = null;
+      console.log("StreamServer closed.");
+  }
 
-    for (const p of remuxCache) {
-      try { fs.unlinkSync(p); }
-      catch (e) { console.warn('Temp‑cleanup failed:', e.message); }
+  for (const v of remuxCache.values()) {
+    try {
+      const filePath = await v;      // handles string or Promise<string>
+      if (filePath && typeof filePath === 'string') {
+        await rm(filePath, { force: true }).catch(() => {});  // ignore ENOENT
+      }
+    } catch (e) {
+      console.warn('Temp‑cleanup failed:', e.message);
     }
+  }
+
+  remuxCache.clear();
 }
+
 
 app.whenReady().then(async () => {
   // await session.defaultSession.clearStorageData();
@@ -131,11 +146,10 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', cleanupResources);
-app.on('will-quit', cleanupResources);
 
 // Quit when all windows are closed (except on macOS)
-app.on('window-all-closed', () => {
-    cleanupResources();
+app.on('window-all-closed', async () => {
+    await cleanupResources();
     if (process.platform !== 'darwin') {
         app.quit();
     }
