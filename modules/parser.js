@@ -47,6 +47,18 @@ export default class Parser extends EventEmitter {
             });
         });
 
+        this.metadata.on('audio-packet', pkt => {
+            if (!this.destroyed) this.eventEmitter.emit('audio-packet', pkt)
+        })
+
+        this.metadata.on('video-packet', pkt => {
+            if (!this.destroyed) this.eventEmitter.emit('video-packet', pkt)
+        })
+
+        this.metadata.buildCueIndex().then(idx => {
+            if (!this.destroyed) this.eventEmitter.emit('cue-index-ready', idx)
+        })
+
         // Promises for initial metadata (Tracks, Attachments, Chapters)
         this.metadata.getTracks().then(tracks => {
             if (this.destroyed) return;

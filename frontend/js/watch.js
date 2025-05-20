@@ -154,6 +154,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Finally, begin playback.
             player.play();
 
+            player.videoElement.addEventListener('error', async e => {
+                const networkState = player.videoElement.error?.code;
+                // 3 === MEDIA_ERR_DECODE, 2 === MEDIA_ERR_NETWORK
+                if (networkState === 2 || networkState === 3) {
+                  console.log('Initial fetch failed, retrying in 1 s');
+                  await new Promise(r => setTimeout(r, 1000));
+                  player.videoElement.load();   // re-issues GET /stream/0
+                  player.play();
+                }
+            });
+
         } catch (error) {
             console.error('Error while loading episode stream:', error);
         }

@@ -1572,6 +1572,16 @@
         const player = new VideoPlayer("video-player");
         player.setSource(streamUrl, "video/x-matroska");
         player.play();
+        player.videoElement.addEventListener("error", async (e) => {
+          var _a2;
+          const networkState = (_a2 = player.videoElement.error) == null ? void 0 : _a2.code;
+          if (networkState === 2 || networkState === 3) {
+            console.log("Initial fetch failed, retrying in 1 s");
+            await new Promise((r) => setTimeout(r, 1e3));
+            player.videoElement.load();
+            player.play();
+          }
+        });
       } catch (error) {
         console.error("Error while loading episode stream:", error);
       }

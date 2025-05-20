@@ -28,13 +28,15 @@ export default class Metadata extends Util {
   implementsSlice = false
   timecodeScale = 1
   currentClusterTimecode = null
-
   destroyed = false
 
   /**
    * @type {Map<any, {number: string, language: string, type: string, _compressed?: boolean}>}
    */
-  subtitleTracks = new Map()
+  subtitleTracks = new Map();
+  audioTracks    = new Map()
+  videoTracks    = new Map()
+  trackMap       = new Map()   // ← NEW
 
   /**
    * @param {Blob} file
@@ -71,24 +73,29 @@ export default class Metadata extends Util {
         if (!Tracks?.Children?.length) return []
 
         this.subtitleTracks.clear();
-        const audioTracks = new Map();
+        this.audioTracks.clear()
+        this.videoTracks.clear()
+        this.trackMap.clear()
 
 
         for (const entry of Tracks.Children.filter(c => c.id === EbmlTagId.TrackEntry)) {
             const trackType = getData(entry, EbmlTagId.TrackType);
-            if (trackType !== 0x02 && trackType !== 0x11) continue; 
+            if (![0x01, 0x02, 0x11].includes(trackType)) continue
 
             const codecID = getData(entry, EbmlTagId.CodecID) || ''
             const track = {
-                number   : getData(entry, EbmlTagId.TrackNumber),
-                language : getData(entry, EbmlTagId.Language),
-                name     : getData(entry, EbmlTagId.Name),
-                codec    : codecID,
-                type     : trackType === 0x02              ? 'audio'
-                         : codecID.startsWith('S_TEXT/')   ? codecID.substring(7).toLowerCase()
-                         : codecID.toLowerCase()          
-              };
+              number   : getData(entry, EbmlTagId.TrackNumber),
+              language : getData(entry, EbmlTagId.Language),
+              name     : getData(entry, EbmlTagId.Name),
+              codec    : codecID,
+              type     : trackType === 0x02 ? 'audio'
+                       : trackType === 0x01 ? 'video'
+                       : codecID.startsWith('S_TEXT/') ? codecID.substring(7).toLowerCase()
+                       : codecID.toLowerCase()
+            }
             
+            this.trackMap.set(track.number, track)
+
             if (trackType === 0x11) {
                 const header = getData(entry, EbmlTagId.CodecPrivate);
                 if (header) track.header = arr2text(header);
@@ -103,17 +110,20 @@ export default class Metadata extends Util {
                 if (compressed) track._compressed = true;
         
                 this.subtitleTracks.set(track.number, track); 
-            } else {
-                // audio tracks: nothing extra to extract for now
-                audioTracks.set(track.number, track);
+            } else if (trackType === 0x02) {   // audio
+              this.audioTracks.set(track.number, track)
+
+            } else if (trackType === 0x01) {   // video
+
+              this.videoTracks.set(track.number, track)
             }
         
         }
 
         // merge and cache
-        const allTracks = [...audioTracks.values(), ...this.subtitleTracks.values()];
-        this.tracks = Promise.resolve(allTracks);
-        return allTracks;
+        const all = [...this.videoTracks.values(), ...this.audioTracks.values(), ...this.subtitleTracks.values()]
+        this.tracks = Promise.resolve(all);
+        return all;
     }
 
   async getChapters () {
@@ -171,37 +181,34 @@ export default class Metadata extends Util {
   async handleBlockGroup (chunk, timecodeScale, currentClusterTimecode) {
     await this.tracks
 
-    const block = getChild(chunk, EbmlTagId.Block)
+    const block = chunk.id === EbmlTagId.SimpleBlock
+                ? chunk           // SimpleBlock *is* the payload container
+                : getChild(chunk, EbmlTagId.Block)
+    if (!block) return            // defensive: shouldn't happen
 
-    if (block && this.subtitleTracks.has(block.track)) {
+    const track = this.trackMap.get(block.track)
+    if (!track) return
+
+    const pts = (block.value + currentClusterTimecode) * timecodeScale
+
+
+    if (this.subtitleTracks.has(block.track)) {
       const blockDuration = getData(chunk, EbmlTagId.BlockDuration)
-      const track = this.subtitleTracks.get(block.track)
-
-      if (!track) return
-
-      const payload = track._compressed
-        ? inflateSync(block.payload)
-        : block.payload
-
-      const subtitle = {
-        text: arr2text(payload),
-        time: (block.value + currentClusterTimecode) * timecodeScale,
-        duration: blockDuration * timecodeScale
-      }
+      const payload = track._compressed ? inflateSync(block.payload) : block.payload
+      const subtitle = { text: arr2text(payload), time: pts, duration: blockDuration * timecodeScale }
 
       if (SSA_TYPES.has(track.type)) {
-        // extract SSA/ASS keys
-        const values = subtitle.text.split(',')
-
-        // ignore read-order, and skip layer if ssa
-        for (let i = track.type === 'ssa' ? 2 : 1; i < 8; i++) {
-          subtitle[SSA_KEYS[i]] = values[i]
-        }
-
-        subtitle.text = values.slice(8).join(',')
+        const v = subtitle.text.split(',')
+        for (let i = track.type === 'ssa' ? 2 : 1; i < 8; i++) subtitle[SSA_KEYS[i]] = v[i]
+        subtitle.text = v.slice(8).join(',')
       }
-
       this.emit('subtitle', subtitle, block.track)
+
+    } else if (track.type === 'audio') {
+      this.emit('audio-packet', { trackNumber: block.track, pts, data: block.payload })
+
+    } else if (track.type === 'video') {
+      this.emit('video-packet', { trackNumber: block.track, pts, isKeyframe: Boolean(block.keyframe), data: block.payload })
     }
   }
 
@@ -233,6 +240,9 @@ export default class Metadata extends Util {
       [EbmlTagId.Timecode]: tag => {
         this.currentClusterTimecode = currentClusterTimecode = tag.data
       },
+
+      [EbmlTagId.SimpleBlock]: blk => this.handleBlockGroup(blk, timecodeScale, currentClusterTimecode),
+
       [EbmlTagId.BlockGroup]: data => this.handleBlockGroup(data, timecodeScale, currentClusterTimecode)
     }
 
@@ -269,6 +279,51 @@ export default class Metadata extends Util {
       yield chunk
       if (this.destroyed) return null
     }
+  }
+
+  /* ----------  NEW for Step 2  ---------- */
+  cueIndex = null               // Array<{time, offset}>
+
+  async buildCueIndex() {
+    if (this.cueIndex) return this.cueIndex        // already built
+
+    /* 1. grab the <Cues> element via SeekHead */
+    const Cues = await this.readSeekHeadTag('Cues')
+    if (!Cues?.Children?.length) return (this.cueIndex = [])
+
+    /* 2. make sure we know the timecodeScale, even if <Info> wasn’t parsed yet */
+    if (this.timecodeScale === 1) {
+      const Info = await this.readSeekHeadTag('Info')
+      const scale = Info && getData(Info, EbmlTagId.TimecodeScale)
+      if (scale) this.timecodeScale = scale / 1_000_000         // ns → ms
+    }
+
+    /* 3. Segment start = where the <Segment> master tag begins */
+    const segmentStart =
+      (this.segment?.tagStart ?? this.segment?.pos ?? this.segment?.offset ?? 0)
+
+    const idx = []
+    for (const point of Cues.Children.filter(c => c.id === EbmlTagId.CuePoint)) {
+      const cueTime = getData(point, EbmlTagId.CueTime)
+      const posTag  = point.Children.find(c => c.id === EbmlTagId.CueTrackPositions)
+      const rel     = posTag && getData(posTag, EbmlTagId.CueClusterPosition)
+      if (rel == null) continue
+      idx.push({ time: cueTime * this.timecodeScale, offset: segmentStart + rel })
+    }
+
+    idx.sort((a, b) => a.time - b.time)
+    return (this.cueIndex = idx)
+  }
+
+  /** O(log n) search for the cue ≤ given time (ms) */
+  lookupCue(ms) {
+    if (!this.cueIndex?.length) return null
+    let lo = 0, hi = this.cueIndex.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      this.cueIndex[mid].time <= ms ? (lo = mid) : (hi = mid - 1)
+    }
+    return this.cueIndex[lo]
   }
 
   async parseFile () {

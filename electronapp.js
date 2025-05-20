@@ -3,8 +3,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dynamicFinder } from './backend/dynamic_fetch.js';
 import StreamServer from './modules/http-server.js';
-import { remuxCache } from './modules/http-server.js';
 import fs from 'fs';
+import os   from 'os';
+
+
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,6 +41,7 @@ ipcMain.handle('dynamic-finder', async (event, alID, episodeNum, audio) => {
         throw error; // Re-throw to send the error back to renderer
     }
 });
+
 
 // Function to initialize the server
 async function initializeServer() {
@@ -96,6 +99,31 @@ async function createWindow() {
   });
 }
 
+export function purgeTmpMuxFiles() {
+  const dir    = os.tmpdir();          // same place you write the muxes
+  const keepMs = 1;  // OPTIONAL: only wipe files older than 24 h
+
+  // pattern your muxer creates, e.g.
+  // 675093f262ff780c673e89c3bf7eea24a299be4f_0_1_copy.mkv
+  const muxRx = /^[0-9a-f]{40}_\d+_\d+_(copy|aac)\.mkv$/i;
+
+  for (const file of fs.readdirSync(dir)) {
+    if (!muxRx.test(file)) continue;
+
+    const full = path.join(dir, file);
+    try {
+      const { mtimeMs } = fs.statSync(full);
+      if (Date.now() - mtimeMs > keepMs) {
+        fs.rmSync(full, { force: true });
+        console.log(`Purging File: `, file)
+      }
+    } catch (err) {
+      console.warn('[purgeTmpMuxFiles]', err.message);
+    }
+  }
+}
+
+
 const { rm } = fs.promises;          // ← promise version
 
 let cleanupRan = false;              // guard so we don’t run twice
@@ -111,19 +139,6 @@ async function cleanupResources() {
       streamServer = null;
       console.log("StreamServer closed.");
   }
-
-  for (const v of remuxCache.values()) {
-    try {
-      const filePath = await v;      // handles string or Promise<string>
-      if (filePath && typeof filePath === 'string') {
-        await rm(filePath, { force: true }).catch(() => {});  // ignore ENOENT
-      }
-    } catch (e) {
-      console.warn('Temp‑cleanup failed:', e.message);
-    }
-  }
-
-  remuxCache.clear();
 }
 
 
@@ -131,6 +146,7 @@ app.whenReady().then(async () => {
   // await session.defaultSession.clearStorageData();
   await createWindow(); // Create the UI window first
   await initializeServer(); // Then initialize the server
+  purgeTmpMuxFiles();  
 
   app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
