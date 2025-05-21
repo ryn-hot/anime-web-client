@@ -28,7 +28,7 @@
       this.maxRetries = 3;
     }
     async makeRequest(options, retryCount = 0) {
-      var _a, _b;
+      var _a2, _b;
       const now = Date.now();
       const timeToWait = Math.max(0, this.lastRequestTime + this.cooldownMs - now);
       if (timeToWait > 0) {
@@ -59,7 +59,7 @@
         if (!response.ok) {
           throw new Error("HTTP error! status: ".concat(response.status));
         }
-        this.rateLimitRemaining = parseInt((_a = response.headers.get("X-RateLimit-Remaining")) != null ? _a : "30");
+        this.rateLimitRemaining = parseInt((_a2 = response.headers.get("X-RateLimit-Remaining")) != null ? _a2 : "30");
         this.lastRequestTime = Date.now();
         if (response.status === 429) {
           const retryAfter = parseInt((_b = response.headers.get("Retry-After")) != null ? _b : "60");
@@ -305,7 +305,7 @@
      * @param {Number} [options.libassGlyphLimit] libass glyph cache memory limit in MiB (approximate).
      */
     constructor(options) {
-      var _a, _b;
+      var _a2, _b;
       super();
       if (!globalThis.Worker) throw this.destroy("Worker not supported");
       if (!options) throw this.destroy("No options provided");
@@ -314,7 +314,7 @@
         this._init = resolve;
       });
       const test = _JASSUB._test();
-      this._onDemandRender = "requestVideoFrameCallback" in HTMLVideoElement.prototype && ((_a = options.onDemandRender) != null ? _a : true);
+      this._onDemandRender = "requestVideoFrameCallback" in HTMLVideoElement.prototype && ((_a2 = options.onDemandRender) != null ? _a2 : true);
       this._offscreenRender = "transferControlToOffscreen" in HTMLCanvasElement.prototype && !options.canvas && ((_b = options.offscreenRender) != null ? _b : true);
       this.timeOffset = options.timeOffset || 0;
       this._video = options.video;
@@ -354,10 +354,10 @@
       this._worker.onmessage = (e) => this._onmessage(e);
       this._worker.onerror = (e) => this._error(e);
       test.then(() => {
-        var _a2, _b2, _c, _d;
+        var _a3, _b2, _c, _d;
         this._worker.postMessage({
           target: "init",
-          wasmUrl: _JASSUB._supportsSIMD && options.modernWasmUrl ? options.modernWasmUrl : (_a2 = options.wasmUrl) != null ? _a2 : "jassub-worker.wasm",
+          wasmUrl: _JASSUB._supportsSIMD && options.modernWasmUrl ? options.modernWasmUrl : (_a3 = options.wasmUrl) != null ? _a3 : "jassub-worker.wasm",
           legacyWasmUrl: (_b2 = options.legacyWasmUrl) != null ? _b2 : "jassub-worker.wasm.js",
           asyncRender: typeof createImageBitmap !== "undefined" && ((_c = options.asyncRender) != null ? _c : true),
           onDemandRender: this._onDemandRender,
@@ -458,7 +458,7 @@
      * @param  {Number} [left=0]
      * @param  {Boolean} [force=false]
      */
-    resize(width = 0, height = 0, top = 0, left = 0, force = ((_a) => (_a = this._video) == null ? void 0 : _a.paused)()) {
+    resize(width = 0, height = 0, top = 0, left = 0, force = ((_a2) => (_a2 = this._video) == null ? void 0 : _a2.paused)()) {
       if ((!width || !height) && this._video) {
         const videoSize = this._getVideoPosition();
         let renderSize = null;
@@ -751,9 +751,9 @@
       }
     }
     _getLocalFont({ font }) {
-      var _a;
+      var _a2;
       try {
-        if ((_a = navigator == null ? void 0 : navigator.permissions) == null ? void 0 : _a.query) {
+        if ((_a2 = navigator == null ? void 0 : navigator.permissions) == null ? void 0 : _a2.query) {
           navigator.permissions.query({ name: "local-fonts" }).then((permission) => {
             if (permission.state === "granted") {
               this._sendLocalFont(font);
@@ -958,9 +958,9 @@
      * @param  {String|Error} [err] Error to throw when destroying.
      */
     destroy(err) {
-      var _a, _b;
+      var _a2, _b;
       if (err) err = this._error(err);
-      if (this._video && this._canvasParent) (_a = this._video.parentNode) == null ? void 0 : _a.removeChild(this._canvasParent);
+      if (this._video && this._canvasParent) (_a2 = this._video.parentNode) == null ? void 0 : _a2.removeChild(this._canvasParent);
       this._destroyed = true;
       this._removeListeners();
       this.sendMessage("destroy");
@@ -1136,10 +1136,10 @@
        * @param {{trackNumber: number, subtitle: object}} data
        */
       __publicField(this, "handleSubtitleCue", ({ trackNumber, subtitle }) => {
-        var _a, _b, _c;
+        var _a2, _b, _c;
         if (this.isDestroyed) return;
         if (!this.tracks[trackNumber]) {
-          ((_b = (_a = this.pendingCues)[trackNumber]) != null ? _b : _a[trackNumber] = []).push(subtitle);
+          ((_b = (_a2 = this.pendingCues)[trackNumber]) != null ? _b : _a2[trackNumber] = []).push(subtitle);
           return;
         }
         const stringifiedCue = JSON.stringify(subtitle);
@@ -1159,14 +1159,14 @@
        * @param {Uint8Array | ArrayBuffer} fontData - The font file data.
        */
       __publicField(this, "handleFontData", (fontData) => {
-        var _a;
+        var _a2;
         if (this.isDestroyed || !fontData) return;
         log("Adding embedded font to JASSUB");
         const fontBuffer = fontData instanceof Uint8Array ? fontData.buffer : fontData;
         const fontUrl = URL.createObjectURL(new Blob([fontBuffer]));
         this.fonts.push(fontUrl);
         this.initRenderer();
-        (_a = this.renderer) == null ? void 0 : _a.addFont(fontUrl);
+        (_a2 = this.renderer) == null ? void 0 : _a2.addFont(fontUrl);
       });
       if (!videoElement) {
         throw new Error("Video element must be provided to SubtitleManager");
@@ -1206,9 +1206,9 @@
       }
     }
     _addCue(trackNumber, subtitle) {
-      var _a;
+      var _a2;
       console.log("Adding sub from pending cue. Track Number: ".concat(trackNumber, ", Subtitle: ").concat(subtitle));
-      const isASS = ((_a = this.headers[trackNumber]) == null ? void 0 : _a.type) === "ass";
+      const isASS = ((_a2 = this.headers[trackNumber]) == null ? void 0 : _a2.type) === "ass";
       const assCue = this.constructSub(
         subtitle,
         !isASS,
@@ -1449,14 +1449,14 @@
      * @returns {object} JASSUB event object.
      */
     constructSub(subtitle, isNotAss, subtitleIndex, trackNumber) {
-      var _a;
+      var _a2;
       let text = subtitle.text || "";
       return {
         Start: subtitle.time,
         // Assuming 'time' is start time in seconds
         Duration: subtitle.duration,
         // Assuming duration is in seconds
-        Style: ((_a = this._stylesMap[trackNumber]) == null ? void 0 : _a[subtitle.style || "Default"]) || "Default",
+        Style: ((_a2 = this._stylesMap[trackNumber]) == null ? void 0 : _a2[subtitle.style || "Default"]) || "Default",
         // Use mapped style name or Default
         Name: subtitle.name || "",
         MarginL: Number(subtitle.marginL) || 0,
@@ -1474,6 +1474,13 @@
   };
 
   // frontend/js/watch.js
+  var _a;
+  if ((_a = window.electronIPC) == null ? void 0 : _a.receiveRaw) {
+    console.log("[demux] raw-packet mode");
+    window.electronIPC.receiveRaw("video-packet", (p) => console.debug("VIDEO", p.trackNumber, p.pts, p.data.length));
+    window.electronIPC.receiveRaw("audio-packet", (p) => console.debug("AUDIO", p.trackNumber, p.pts, p.data.length));
+    window.electronIPC.receiveRaw("cue-index", (idx) => console.debug("CUE IDX", idx.length, "points"));
+  }
   var anilistAPI = new AniListAPI();
   var subtitleManager = null;
   function getAnimeData() {
@@ -1545,7 +1552,7 @@
       }
     }
     async function loadEpisodeStream(episodeNumber) {
-      var _a, _b, _c;
+      var _a2, _b;
       try {
         await ensureVideoElement();
         const videoElem = document.getElementById("video-player");
@@ -1565,22 +1572,16 @@
         if (!animeId) {
           throw new Error("Missing anime ID in URL");
         }
-        const audioType = ((_b = (_a = document.querySelector(".source-button.active")) == null ? void 0 : _a.dataset) == null ? void 0 : _b.type) || "sub";
+        const audioType = ((_b = (_a2 = document.querySelector(".source-button.active")) == null ? void 0 : _a2.dataset) == null ? void 0 : _b.type) || "sub";
         const streamUrl = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
         console.log("Stream URL received:", streamUrl);
         console.log("Audio Type, ", audioType);
-        if ((_c = window.electronIPC) == null ? void 0 : _c.receiveRaw) {
-          console.log("[demux] raw-packet mode");
-          window.electronIPC.receiveRaw("video-packet", (p) => console.debug("VIDEO", p.trackNumber, p.pts, p.data.length));
-          window.electronIPC.receiveRaw("audio-packet", (p) => console.debug("AUDIO", p.trackNumber, p.pts, p.data.length));
-          window.electronIPC.receiveRaw("cue-index", (idx) => console.debug("CUE IDX", idx.length, "points"));
-        }
         const player = new VideoPlayer("video-player");
         player.setSource(streamUrl, "video/x-matroska");
         player.play();
         player.videoElement.addEventListener("error", async (e) => {
-          var _a2;
-          const networkState = (_a2 = player.videoElement.error) == null ? void 0 : _a2.code;
+          var _a3;
+          const networkState = (_a3 = player.videoElement.error) == null ? void 0 : _a3.code;
           if (networkState === 2 || networkState === 3) {
             console.log("Initial fetch failed, retrying in 1 s");
             await new Promise((r) => setTimeout(r, 1e3));
@@ -1662,7 +1663,7 @@
       });
     }
     async function fetchCompleteAnimeData(animeId) {
-      var _a, _b, _c, _d, _e, _f, _g;
+      var _a2, _b, _c, _d, _e, _f, _g;
       try {
         const mappingsResponse = await fetch("https://api.ani.zip/mappings?anilist_id=" + animeId);
         const mappingsjson = await mappingsResponse.json();
@@ -1678,7 +1679,7 @@
                   episodeNumber: i,
                   overview: episodes[epKey].overview,
                   img: episodes[epKey].image,
-                  title: (_a = episodes[epKey].title) == null ? void 0 : _a.en,
+                  title: (_a2 = episodes[epKey].title) == null ? void 0 : _a2.en,
                   duration: episodes[epKey].duration
                 });
               }

@@ -338,12 +338,12 @@
           });
 
           this.activeParserEventHandler.on('audio-packet', pkt => {
-              log('AUDIO PCKT: ', pkt);
+              // log('AUDIO PCKT: ', pkt);
               this.sendToRenderer('audio-packet', pkt);
           });
 
           this.activeParserEventHandler.on('video-packet', pkt => {
-              log('VIDEO PCKT: ', pkt);
+              // log('VIDEO PCKT: ', pkt);
               this.sendToRenderer('video-packet', pkt);
           });
 
