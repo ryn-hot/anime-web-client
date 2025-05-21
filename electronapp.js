@@ -99,29 +99,6 @@ async function createWindow() {
   });
 }
 
-export function purgeTmpMuxFiles() {
-  const dir    = os.tmpdir();          // same place you write the muxes
-  const keepMs = 1;  // OPTIONAL: only wipe files older than 24 h
-
-  // pattern your muxer creates, e.g.
-  // 675093f262ff780c673e89c3bf7eea24a299be4f_0_1_copy.mkv
-  const muxRx = /^[0-9a-f]{40}_\d+_\d+_(copy|aac)\.mkv$/i;
-
-  for (const file of fs.readdirSync(dir)) {
-    if (!muxRx.test(file)) continue;
-
-    const full = path.join(dir, file);
-    try {
-      const { mtimeMs } = fs.statSync(full);
-      if (Date.now() - mtimeMs > keepMs) {
-        fs.rmSync(full, { force: true });
-        console.log(`Purging File: `, file)
-      }
-    } catch (err) {
-      console.warn('[purgeTmpMuxFiles]', err.message);
-    }
-  }
-}
 
 
 const { rm } = fs.promises;          // ← promise version

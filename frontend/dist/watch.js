@@ -1545,7 +1545,7 @@
       }
     }
     async function loadEpisodeStream(episodeNumber) {
-      var _a, _b;
+      var _a, _b, _c;
       try {
         await ensureVideoElement();
         const videoElem = document.getElementById("video-player");
@@ -1569,6 +1569,12 @@
         const streamUrl = await window.electronAPI.dynamicFinder(animeId, episodeNumber, audioType);
         console.log("Stream URL received:", streamUrl);
         console.log("Audio Type, ", audioType);
+        if ((_c = window.electronIPC) == null ? void 0 : _c.receiveRaw) {
+          console.log("[demux] raw-packet mode");
+          window.electronIPC.receiveRaw("video-packet", (p) => console.debug("VIDEO", p.trackNumber, p.pts, p.data.length));
+          window.electronIPC.receiveRaw("audio-packet", (p) => console.debug("AUDIO", p.trackNumber, p.pts, p.data.length));
+          window.electronIPC.receiveRaw("cue-index", (idx) => console.debug("CUE IDX", idx.length, "points"));
+        }
         const player = new VideoPlayer("video-player");
         player.setSource(streamUrl, "video/x-matroska");
         player.play();

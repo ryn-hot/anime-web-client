@@ -336,6 +336,22 @@
               //log(`HTTP Server received 'subtitle-chapters' event via dedicated emitter`);
               this.handleParsedChapters(chapters);
           });
+
+          this.activeParserEventHandler.on('audio-packet', pkt => {
+              log('AUDIO PCKT: ', pkt);
+              this.sendToRenderer('audio-packet', pkt);
+          });
+
+          this.activeParserEventHandler.on('video-packet', pkt => {
+              log('VIDEO PCKT: ', pkt);
+              this.sendToRenderer('video-packet', pkt);
+          });
+
+
+          this.activeParser.metadata.buildCueIndex()
+            .then(idx => {this.sendToRenderer('cue-index', idx); log('cue index created')})
+            .catch(err => log('Cue index error', err));
+
           this.activeParserEventHandler.on('parser-error', (err) => {
               log(`HTTP Server received 'parser-error' event via dedicated emitter: ${err.message || err}`);
           });

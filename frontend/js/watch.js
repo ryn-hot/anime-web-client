@@ -101,6 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadEpisodeStream(episodeNumber) {
         try {
 
+
             await ensureVideoElement()
             // Use your IPC 'dynamic-finder' (or another method) to get the stream URL.
             // The dynamic-finder should return the URL such as "http://localhost:<port>/stream/0"
@@ -133,7 +134,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log('Stream URL received:', streamUrl);
             console.log('Audio Type, ', audioType);
 
-
+            if (window.electronIPC?.receiveRaw) {
+                console.log('[demux] raw-packet mode');
+                window.electronIPC.receiveRaw('video-packet', p =>
+                  console.debug('VIDEO', p.trackNumber, p.pts, p.data.length));
+                window.electronIPC.receiveRaw('audio-packet', p =>
+                  console.debug('AUDIO', p.trackNumber, p.pts, p.data.length));
+                window.electronIPC.receiveRaw('cue-index', idx =>
+                  console.debug('CUE IDX', idx.length, 'points'));
+                //  ⚠  Do NOT touch subtitles – SubtitleManager already listens
+            }
             // Instantiate your video player on the video element (assume id "video-player")
             const player = new VideoPlayer('video-player');
             

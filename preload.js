@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('electronIPC', {
    */
   receive: (channel, func) => {
     // List of channels allowed to be listened to from the main process
-    const validChannels = ['subtitle-tracks', 'subtitle-cue', 'subtitle-font'];
+    const validChannels = ['subtitle-tracks', 'subtitle-cue', 'subtitle-font', 'audio-packet', 'video-packet', 'cue-index'];
     if (validChannels.includes(channel)) {
       // Create the listener function, deliberately stripping the event object
       const subscription = (event, data) => {
